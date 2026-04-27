@@ -42,6 +42,53 @@ export const SYSTEM_WRITER = `당신은 한국어 실용서를 써서 출판해 
 - 코드 예시가 필요하면 문장 안에 그대로 쓰세요 — "pip install claude-code" 처럼.
 - 목록은 문장으로 풀어쓰거나 꼭 필요하면 평범한 하이픈(-)만 사용.`;
 
+export function interviewerPrompt(
+  p: BookProject,
+  history: { q: string; a: string }[]
+): string {
+  const historyText = history
+    .map((qa, i) => `Q${i + 1}: ${qa.q}\nA${i + 1}: ${qa.a || "(건너뜀)"}`)
+    .join("\n\n");
+
+  return `당신은 책 작가의 차별화 정보를 끌어내는 인터뷰어입니다.
+
+[책 정보]
+- 주제: ${p.topic}
+- 대상 독자: ${p.audience}
+- 책 유형: ${p.type}
+- 목표 분량: ${p.targetPages}쪽
+
+[지금까지 인터뷰 ${history.length}회]
+${historyText || "(아직 답변 없음)"}
+
+[책 유형별 우선 차원]
+- 자기계발서: 핵심 변화 / 본인 변화 사례 / 독자 행동 단계 / 차별화 톤
+- 실용서: 해결 문제 / 따라할 단계 / 함정·실수 / 사용 도구 / 검증 방법
+- 에세이: 인생 사건 / 감정 묘사 / 구체적 장면·인물 / 통찰
+- 매뉴얼: 대상 작업 / 단계별 프로세스 / 검증 / 함정 / 예외 케이스
+
+[다음 단계 판단]
+- 답변이 추상적이면 → 같은 차원 더 구체적으로 follow-up (예: "어떤 회사에서?")
+- 답변이 충분히 구체적이면 → 다른 차원의 새 질문 던지기
+- 8~10 질문 도달 + 답변 풍부하면 → done: true
+
+[중요 규칙]
+- 한 번에 질문 1개만
+- 같은 차원 반복 X (이미 다룬 주제 또 묻지 X)
+- 너무 일반적인 질문 X ("뭘 더 알려주실 수 있나요?" 같은)
+- 책 유형에 맞는 차원 우선 탐색
+
+[출력 형식 — 순수 JSON만, 마크다운 코드블록 금지]
+
+진행 시:
+{"done":false,"question":"...","placeholder":"예시 답변","hint":"왜 중요한지 한 줄"}
+
+종료 시:
+{"done":true,"summary":"끌어낸 정보 요약 1~2문장"}
+
+JSON만 출력. 다른 설명 금지.`;
+}
+
 export function interviewBlock(p: BookProject): string {
   const iv = (p as any).interview;
   if (!iv || iv.skipped) return "";

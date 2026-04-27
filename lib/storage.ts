@@ -20,6 +20,7 @@ export interface BookProject {
     questions: { q: string; a: string }[];
     completedAt: number;
     skipped: boolean;
+    aiDriven?: boolean;
   };
   chapters: BookChapter[];
   createdAt: number;
