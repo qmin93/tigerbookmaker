@@ -179,3 +179,118 @@ async function callAnthropic(opts: {
     },
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Streaming (Gemini SSE only — used for chapter body)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface StreamChunk { type: "chunk"; text: string; }
+export interface StreamDone { type: "done"; usage: AIUsage; }
+export type StreamEvent = StreamChunk | StreamDone;
+
+export async function* callGeminiStream(opts: {
+  model: AIModel;
+  system: string;
+  user: string;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+}): AsyncGenerator<StreamEvent, void, unknown> {
+  const { model, system, user, maxTokens = 6144, temperature = 0.7, timeoutMs } = opts;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Gemini API 키가 설정되지 않았습니다.");
+  if (!model.startsWith("gemini")) throw new Error(`Streaming은 현재 Gemini 모델만 지원: ${model}`);
+
+  const started = Date.now();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  const ctrl = timeoutMs ? new AbortController() : undefined;
+  const tid = timeoutMs && ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : undefined;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+      signal: ctrl?.signal,
+    });
+  } catch (e: any) {
+    if (tid) clearTimeout(tid);
+    if (e?.name === "AbortError") throw new Error(`Gemini 호출 시간 초과 (${timeoutMs}ms)`);
+    throw e;
+  }
+
+  if (!res.ok) {
+    if (tid) clearTimeout(tid);
+    const errText = await res.text();
+    if (res.status === 503 || /UNAVAILABLE|overloaded/i.test(errText)) {
+      throw new Error(`Gemini 503 (UNAVAILABLE): Google AI 일시 장애. 잠시 후 다시 시도하세요.`);
+    }
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  if (!res.body) {
+    if (tid) clearTimeout(tid);
+    throw new Error("Gemini stream body is null");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let thoughtsTokens = 0;
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) >= 0) {
+        const rawEvent = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        const dataLine = rawEvent.split("\n").find(l => l.startsWith("data:"));
+        if (!dataLine) continue;
+        const json = dataLine.slice(5).trim();
+        if (!json || json === "[DONE]") continue;
+        let payload: any;
+        try { payload = JSON.parse(json); } catch { continue; }
+        const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) yield { type: "chunk", text };
+        const u = payload?.usageMetadata;
+        if (u) {
+          inputTokens = u.promptTokenCount ?? inputTokens;
+          outputTokens = u.candidatesTokenCount ?? outputTokens;
+          thoughtsTokens = u.thoughtsTokenCount ?? thoughtsTokens;
+        }
+      }
+    }
+  } finally {
+    if (tid) clearTimeout(tid);
+    try { reader.releaseLock(); } catch {}
+  }
+
+  const p = PRICING[model];
+  const costUSD = (inputTokens * p.in + (outputTokens + thoughtsTokens) * p.out) / 1_000_000;
+  yield {
+    type: "done",
+    usage: {
+      inputTokens,
+      outputTokens,
+      thoughtsTokens,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUSD,
+      durationMs: Date.now() - started,
+    },
+  };
+}

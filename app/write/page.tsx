@@ -57,6 +57,8 @@ function Inner() {
   const [lastUsage, setLastUsage] = useState<UsageStat | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
   const [editingTitle, setEditingTitle] = useState<number | null>(null);
+  const [streamingText, setStreamingText] = useState<string>("");
+  const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -129,6 +131,71 @@ function Inner() {
     }
   };
 
+  // chapter 본문 전용 — NDJSON streaming reader
+  const callApiStreaming = async (chapterIdx: number, label: string): Promise<any> => {
+    setLoading(label);
+    setError(null);
+    setStreamingChapterIdx(chapterIdx);
+    setStreamingText("");
+    try {
+      const res = await fetch("/api/generate/chapter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, model, chapterIdx }),
+      });
+      // 잔액 부족 등 일반 JSON 응답
+      if (res.status === 402) {
+        const data = await res.json().catch(() => ({}));
+        if (confirm(`잔액 부족: ${data.shortfall?.toLocaleString()}원 부족. 충전 페이지로 이동할까요?`)) {
+          router.push("/billing");
+        }
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `요청 실패 (${res.status})`);
+      }
+      if (!res.body) throw new Error("응답 body 없음");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+      let doneMsg: any = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          let msg: any;
+          try { msg = JSON.parse(trimmed); } catch { continue; }
+          if (msg.type === "chunk") {
+            accumulated += msg.text;
+            setStreamingText(accumulated);
+          } else if (msg.type === "done") {
+            doneMsg = msg;
+          } else if (msg.type === "error") {
+            throw new Error(msg.message || "AI 응답 실패");
+          }
+        }
+      }
+
+      if (!doneMsg) throw new Error("Stream이 done 없이 종료됨");
+      if (doneMsg.newBalance !== undefined) setBalance(doneMsg.newBalance);
+      if (doneMsg.usage) setLastUsage({ ...doneMsg.usage });
+      return doneMsg;
+    } finally {
+      setLoading("");
+      setStreamingChapterIdx(null);
+      setStreamingText("");
+    }
+  };
+
   const generateToc = async () => {
     try {
       await callApi("/api/generate/toc", {}, "목차 생성 중...");
@@ -138,8 +205,9 @@ function Inner() {
   };
 
   const generateChapter = async (idx: number) => {
+    setActiveIdx(idx);
     try {
-      await callApi("/api/generate/chapter", { chapterIdx: idx }, `${idx + 1}장 집필 중...`);
+      await callApiStreaming(idx, `${idx + 1}장 집필 중...`);
       const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
       setProject(fresh);
     } catch (e: any) { if (e.message !== "잔액 부족") setError(e.message); }
@@ -151,7 +219,7 @@ function Inner() {
       if (project.chapters[i].content) continue;
       setActiveIdx(i);
       try {
-        await callApi("/api/generate/chapter", { chapterIdx: i }, `일괄 집필: ${i + 1}/${project.chapters.length}`);
+        await callApiStreaming(i, `일괄 집필: ${i + 1}/${project.chapters.length}`);
       } catch (e: any) {
         setError(`${i + 1}장에서 중단: ${e.message}`);
         break;
@@ -305,7 +373,18 @@ function Inner() {
               </button>
             </div>
 
-            {active.content ? (
+            {streamingChapterIdx === activeIdx && streamingText ? (
+              <div className="rounded-xl border border-tiger-orange/30 bg-orange-50/40 p-5">
+                <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-tiger-orange mb-3">
+                  <span className="w-2 h-2 rounded-full bg-tiger-orange animate-pulse" />
+                  AI 작성 중... ({streamingText.length.toLocaleString()}자)
+                </div>
+                <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep text-ink-900">
+                  {streamingText}
+                  <span className="inline-block w-1.5 h-4 bg-tiger-orange ml-0.5 animate-pulse align-middle" />
+                </div>
+              </div>
+            ) : active.content ? (
               <>
                 <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep">
                   {active.content}
