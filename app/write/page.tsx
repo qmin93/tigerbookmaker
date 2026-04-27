@@ -4,6 +4,12 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 
+type BatchState =
+  | { status: "idle" }
+  | { status: "running"; currentIdx: number; total: number; pendingIdxs: number[]; abortController: AbortController; cumulativeCostKRW: number; startedAt: number }
+  | { status: "failed"; failedIdx: number; errorMessage: string; cumulativeCostKRW: number; remainingIdxs: number[] }
+  | { status: "stopped"; completedCount: number };
+
 interface Chapter {
   id?: string;
   title: string;
@@ -59,6 +65,7 @@ function Inner() {
   const [editingTitle, setEditingTitle] = useState<number | null>(null);
   const [streamingText, setStreamingText] = useState<string>("");
   const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
+  const [batch, setBatch] = useState<BatchState>({ status: "idle" });
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -132,7 +139,11 @@ function Inner() {
   };
 
   // chapter 본문 전용 — NDJSON streaming reader
-  const callApiStreaming = async (chapterIdx: number, label: string): Promise<any> => {
+  const callApiStreaming = async (
+    chapterIdx: number,
+    label: string,
+    signal?: AbortSignal,
+  ): Promise<any> => {
     setLoading(label);
     setError(null);
     setStreamingChapterIdx(chapterIdx);
@@ -142,6 +153,7 @@ function Inner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId, model, chapterIdx }),
+        signal,
       });
       // 잔액 부족 등 일반 JSON 응답
       if (res.status === 402) {
@@ -196,6 +208,21 @@ function Inner() {
     }
   };
 
+  // 미작성 챕터 수 × 챕터당 평균 (₩20 본문 + ₩2 요약) × 안전마진 30%
+  const estimateBatchKRW = (chaptersToWriteCount: number) =>
+    Math.ceil(chaptersToWriteCount * 22 * 1.3);
+
+  // 잔액이 충분한지 사전 체크 (true면 OK, false면 alert + false)
+  const checkBalanceForBatch = (chaptersToWriteCount: number): boolean => {
+    if (balance == null) return true;
+    const need = estimateBatchKRW(chaptersToWriteCount);
+    if (balance >= need) return true;
+    if (confirm(`잔액 부족 — ₩${need.toLocaleString()} 필요, 현재 ₩${balance.toLocaleString()}. 충전 페이지로 이동할까요?`)) {
+      router.push("/billing");
+    }
+    return false;
+  };
+
   const generateToc = async () => {
     try {
       await callApi("/api/generate/toc", {}, "목차 생성 중...");
@@ -213,20 +240,92 @@ function Inner() {
     } catch (e: any) { if (e.message !== "잔액 부족") setError(e.message); }
   };
 
-  const generateAll = async () => {
-    if (!confirm(`${project.chapters.length}장 일괄 집필. 시작할까요?`)) return;
-    for (let i = 0; i < project.chapters.length; i++) {
-      if (project.chapters[i].content) continue;
-      setActiveIdx(i);
-      try {
-        await callApiStreaming(i, `일괄 집필: ${i + 1}/${project.chapters.length}`);
-      } catch (e: any) {
-        setError(`${i + 1}장에서 중단: ${e.message}`);
-        break;
+  const startBatch = async (fromIdx: number = 0) => {
+    if (!project) return;
+    const pendingIdxs: number[] = [];
+    for (let i = fromIdx; i < project.chapters.length; i++) {
+      if (!project.chapters[i].content) pendingIdxs.push(i);
+    }
+    if (pendingIdxs.length === 0) {
+      setError("이미 모든 챕터가 작성되었습니다.");
+      return;
+    }
+    if (!checkBalanceForBatch(pendingIdxs.length)) return;
+    if (!confirm(`${pendingIdxs.length}장 일괄 집필 (예상 ₩${estimateBatchKRW(pendingIdxs.length).toLocaleString()} 이내). 시작할까요?`)) return;
+
+    const controller = new AbortController();
+    let cumulative = 0;
+    setBatch({
+      status: "running",
+      currentIdx: pendingIdxs[0],
+      total: pendingIdxs.length,
+      pendingIdxs,
+      abortController: controller,
+      cumulativeCostKRW: 0,
+      startedAt: Date.now(),
+    });
+
+    for (let i = 0; i < pendingIdxs.length; i++) {
+      const idx = pendingIdxs[i];
+      if (controller.signal.aborted) break;
+      setBatch(s => s.status === "running" ? { ...s, currentIdx: idx } : s);
+      setActiveIdx(idx);
+
+      let attempts = 0;
+      let lastErr: any = null;
+      while (attempts <= 1) {
+        try {
+          const data = await callApiStreaming(idx, `일괄: ${i + 1}/${pendingIdxs.length}장`, controller.signal);
+          const stepCost = (data?.usage?.costKRW ?? 0) + (data?.summaryCostKRW ?? 0);
+          cumulative += stepCost;
+          setBatch(s => s.status === "running" ? { ...s, cumulativeCostKRW: cumulative } : s);
+          lastErr = null;
+          break;
+        } catch (e: any) {
+          lastErr = e;
+          if (e?.name === "AbortError" || controller.signal.aborted) {
+            lastErr = null;
+            break;
+          }
+          if (e?.message === "잔액 부족") break;
+          attempts++;
+          if (attempts <= 1) await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+
+      if (controller.signal.aborted) {
+        setBatch({ status: "stopped", completedCount: i });
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+        return;
+      }
+      if (lastErr) {
+        setBatch({
+          status: "failed",
+          failedIdx: idx,
+          errorMessage: lastErr.message ?? String(lastErr),
+          cumulativeCostKRW: cumulative,
+          remainingIdxs: pendingIdxs.slice(i),
+        });
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+        return;
       }
     }
+
+    setBatch({ status: "idle" });
     const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
     setProject(fresh);
+  };
+
+  const stopBatch = () => {
+    if (batch.status !== "running") return;
+    batch.abortController.abort();
+  };
+
+  const resumeBatch = () => {
+    if (batch.status !== "failed") return;
+    startBatch(batch.failedIdx);
   };
 
   // ─── 목차 편집 ───
@@ -353,8 +452,14 @@ function Inner() {
               <button onClick={addChapter} disabled={!!loading} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa]">
                 + 챕터 추가
               </button>
-              <button onClick={generateAll} disabled={!!loading} className="w-full px-3 py-2 bg-tiger-orange text-white rounded-lg text-xs font-bold disabled:opacity-50">
-                ⚡ 전체 일괄 집필
+              <button
+                onClick={() => startBatch(0)}
+                disabled={!!loading || batch.status === "running"}
+                className="w-full px-3 py-2 bg-tiger-orange text-white rounded-lg text-xs font-bold disabled:opacity-50"
+              >
+                {batch.status === "running"
+                  ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
+                  : "⚡ 전체 일괄 집필"}
               </button>
               <button onClick={generateToc} disabled={!!loading} className="w-full text-xs text-gray-500 hover:text-tiger-orange py-1">목차 다시 생성</button>
             </div>
@@ -362,6 +467,12 @@ function Inner() {
 
           {/* 본문 */}
           <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 min-h-[500px]">
+            <BatchBanner
+              batch={batch}
+              onStop={stopBatch}
+              onResume={resumeBatch}
+              onDismiss={() => setBatch({ status: "idle" })}
+            />
             <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
               <div className="min-w-0">
                 <p className="text-xs text-gray-500">{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</p>
@@ -491,4 +602,73 @@ export default function WritePage() {
 
 function Center({ children }: { children: React.ReactNode }) {
   return <main className="min-h-screen flex items-center justify-center text-gray-500">{children}</main>;
+}
+
+function BatchBanner({
+  batch,
+  onStop,
+  onResume,
+  onDismiss,
+}: {
+  batch: BatchState;
+  onStop: () => void;
+  onResume: () => void;
+  onDismiss: () => void;
+}) {
+  if (batch.status === "idle") return null;
+
+  if (batch.status === "running") {
+    const completed = batch.pendingIdxs.findIndex(i => i === batch.currentIdx);
+    const pct = batch.total === 0 ? 0 : Math.round((completed / batch.total) * 100);
+    const elapsed = Math.round((Date.now() - batch.startedAt) / 1000);
+    return (
+      <div className="sticky top-0 z-30 bg-white border border-tiger-orange/30 rounded-xl p-4 mb-4 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-bold text-ink-900">
+            전체 일괄 집필 — {completed + 1}/{batch.total}장
+          </div>
+          <button onClick={onStop} className="text-xs text-red-600 hover:text-red-700 font-bold">중단</button>
+        </div>
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+          <div className="h-full bg-tiger-orange transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex justify-between text-xs font-mono text-gray-500">
+          <span>{batch.currentIdx + 1}장 집필 중... ({elapsed}s)</span>
+          <span>누적 ₩{batch.cumulativeCostKRW.toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (batch.status === "failed") {
+    return (
+      <div className="sticky top-0 z-30 bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-bold text-red-700">
+            {batch.failedIdx + 1}장에서 중단 — {batch.remainingIdxs.length}장 남음
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onResume} className="px-3 py-1 text-xs bg-tiger-orange text-white font-bold rounded-lg hover:bg-orange-600">
+              {batch.failedIdx + 1}장부터 재개
+            </button>
+            <button onClick={onDismiss} className="px-3 py-1 text-xs border border-red-200 text-red-700 rounded-lg hover:bg-white">
+              닫기
+            </button>
+          </div>
+        </div>
+        <div className="text-xs text-red-600">{batch.errorMessage}</div>
+        <div className="text-[11px] font-mono text-gray-500 mt-1">지금까지 ₩{batch.cumulativeCostKRW.toLocaleString()} 사용</div>
+      </div>
+    );
+  }
+
+  // stopped
+  return (
+    <div className="sticky top-0 z-30 bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-ink-900">중단됨 — {batch.completedCount}장 완료. 사이드바에서 개별 챕터 이어 작성 가능.</div>
+        <button onClick={onDismiss} className="px-3 py-1 text-xs border border-gray-300 text-ink-900 rounded-lg hover:bg-white">닫기</button>
+      </div>
+    </div>
+  );
 }
