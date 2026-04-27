@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       system: SYSTEM_WRITER,
       user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle),
       retries: 0, // 본문은 25~57초라 60초 timeout 한도. 재시도 X — 사용자가 다시 누르도록
-      timeoutMs: 50000, // 50초 안에 안 끝나면 우리 catch가 잡고 502 응답 (Vercel 60초 timeout으로 죽기 전)
+      timeoutMs: 55000, // Vercel 60초 한도 직전까지 (5초 여유로 응답 보낼 시간)
     });
   } catch (e: any) {
     // 호출 실패 시 차감 X, 실패 로그만 남김

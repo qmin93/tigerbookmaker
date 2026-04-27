@@ -42,7 +42,7 @@ export async function callAIServer(opts: {
   timeoutMs?: number;
   retries?: number; // 503/UNAVAILABLE 등 일시 장애 시 자동 재시도 (기본 2)
 }): Promise<AIResult> {
-  const { model, system, user, maxTokens = 8192, temperature = 0.7, timeoutMs, retries = 2 } = opts;
+  const { model, system, user, maxTokens = 6144, temperature = 0.7, timeoutMs, retries = 2 } = opts;
   const started = Date.now();
 
   let lastErr: unknown;
@@ -88,6 +88,9 @@ async function callGemini(opts: {
         generationConfig: {
           maxOutputTokens: opts.maxTokens,
           temperature: opts.temperature,
+          // Gemini 2.5 series는 reasoning 모델 — thinking을 끄면 30~50% 빨라지고 비용도 절반
+          // 책 본문/요약처럼 추론보다 작문이 본질인 작업엔 불필요
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: ctrl?.signal,
