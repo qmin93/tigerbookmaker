@@ -47,7 +47,7 @@ export default function NewProjectPage() {
         throw new Error(d.message || `생성 실패 (${res.status})`);
       }
       const { id } = await res.json();
-      r.push(`/write?id=${id}`);
+      r.push(`/write/setup?id=${id}`);
     } catch (e: any) {
       setError(e.message);
       setBusy(false);

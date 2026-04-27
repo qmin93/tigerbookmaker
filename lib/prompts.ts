@@ -42,6 +42,26 @@ export const SYSTEM_WRITER = `당신은 한국어 실용서를 써서 출판해 
 - 코드 예시가 필요하면 문장 안에 그대로 쓰세요 — "pip install claude-code" 처럼.
 - 목록은 문장으로 풀어쓰거나 꼭 필요하면 평범한 하이픈(-)만 사용.`;
 
+export function interviewBlock(p: BookProject): string {
+  const iv = (p as any).interview;
+  if (!iv || iv.skipped) return "";
+  const filled = (iv.questions ?? []).filter((qa: any) => qa.a && qa.a.trim().length > 0);
+  if (filled.length === 0) return "";
+
+  const lines = filled
+    .map((qa: any) => `- ${qa.q}\n  → ${qa.a.trim()}`)
+    .join("\n");
+
+  return `\n[작가 본인이 알려준 책의 핵심 — 반드시 반영]
+${lines}
+
+이 정보를 단순히 나열하지 말고 책 전체에 자연스럽게 녹여 쓰세요.
+"건너뛸 내용"으로 표시된 주제는 다루지 마세요.
+"꼭 들어갈 표현·일화"는 적절한 챕터에서 자연스럽게 등장시키세요.
+"작가 경험·사례"는 구체적 본문 예시로 활용하세요.
+`;
+}
+
 export function tocPrompt(p: BookProject) {
   return `다음 책의 목차를 작성합니다.
 
@@ -50,7 +70,7 @@ export function tocPrompt(p: BookProject) {
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
 - 목표 분량: ${p.targetPages}쪽
-
+${interviewBlock(p)}
 [요구사항]
 - 정확히 10~15개 챕터.
 - 첫 챕터: 독자의 현재 상태/문제 상황 공감.
@@ -85,7 +105,7 @@ export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: 
 - 주제: ${p.topic}
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
-
+${interviewBlock(p)}
 [전체 목차]
 ${prevTitles || "(이 챕터가 첫 챕터입니다)"}
 → ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
