@@ -249,28 +249,50 @@ export async function* callGeminiStream(opts: {
   let outputTokens = 0;
   let thoughtsTokens = 0;
 
+  // Line-based SSE 파서 — 각 line이 "data: {...}" 또는 빈 줄. 빈 줄은 event boundary (skip).
+  const processLine = (line: string): { text?: string; usage?: any } | null => {
+    if (!line.startsWith("data:")) return null;
+    const json = line.slice(5).trim();
+    if (!json || json === "[DONE]") return null;
+    let payload: any;
+    try { payload = JSON.parse(json); } catch { return null; }
+    return {
+      text: payload?.candidates?.[0]?.content?.parts?.[0]?.text,
+      usage: payload?.usageMetadata,
+    };
+  };
+
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buffer.indexOf("\n\n")) >= 0) {
-        const rawEvent = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        const dataLine = rawEvent.split("\n").find(l => l.startsWith("data:"));
-        if (!dataLine) continue;
-        const json = dataLine.slice(5).trim();
-        if (!json || json === "[DONE]") continue;
-        let payload: any;
-        try { payload = JSON.parse(json); } catch { continue; }
-        const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) yield { type: "chunk", text };
-        const u = payload?.usageMetadata;
-        if (u) {
-          inputTokens = u.promptTokenCount ?? inputTokens;
-          outputTokens = u.candidatesTokenCount ?? outputTokens;
-          thoughtsTokens = u.thoughtsTokenCount ?? thoughtsTokens;
+      // line by line — \n 또는 \r\n 모두 처리
+      let lineEnd;
+      while ((lineEnd = buffer.indexOf("\n")) >= 0) {
+        let line = buffer.slice(0, lineEnd);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        buffer = buffer.slice(lineEnd + 1);
+        if (!line.trim()) continue;
+        const parsed = processLine(line);
+        if (!parsed) continue;
+        if (parsed.text) yield { type: "chunk", text: parsed.text };
+        if (parsed.usage) {
+          inputTokens = parsed.usage.promptTokenCount ?? inputTokens;
+          outputTokens = parsed.usage.candidatesTokenCount ?? outputTokens;
+          thoughtsTokens = parsed.usage.thoughtsTokenCount ?? thoughtsTokens;
+        }
+      }
+    }
+    // 남은 buffer 처리 (마지막 line이 \n 없이 끝났을 경우)
+    if (buffer.trim()) {
+      const parsed = processLine(buffer.trim());
+      if (parsed) {
+        if (parsed.text) yield { type: "chunk", text: parsed.text };
+        if (parsed.usage) {
+          inputTokens = parsed.usage.promptTokenCount ?? inputTokens;
+          outputTokens = parsed.usage.candidatesTokenCount ?? outputTokens;
+          thoughtsTokens = parsed.usage.thoughtsTokenCount ?? thoughtsTokens;
         }
       }
     }
