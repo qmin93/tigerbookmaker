@@ -129,7 +129,7 @@ export async function POST(req: Request) {
       user: summaryPrompt(ch.title, result.text),
       maxTokens: 512,
       temperature: 0.3,
-      timeoutMs: 8000,
+      timeoutMs: 25000,
       retries: 1,
     });
     summary = sumResult.text.trim();
