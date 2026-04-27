@@ -66,6 +66,7 @@ function Inner() {
   const [streamingText, setStreamingText] = useState<string>("");
   const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
   const [batch, setBatch] = useState<BatchState>({ status: "idle" });
+  const [editingContent, setEditingContent] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -430,10 +431,34 @@ function Inner() {
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 lg:gap-6">
           {/* 사이드바 */}
           <aside className="bg-white rounded-xl border border-gray-200 p-3 h-fit">
+            {/* 액션 버튼 그룹 — 위에 sticky로 항상 보이게 */}
+            <div className="space-y-1 mb-3 pb-3 border-b border-gray-200">
+              <button
+                onClick={() => startBatch(0)}
+                disabled={!!loading || batch.status === "running"}
+                className="w-full px-3 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-50 disabled:shadow-none"
+              >
+                {batch.status === "running"
+                  ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
+                  : "⚡ 전체 일괄 집필"}
+              </button>
+              <div className="grid grid-cols-2 gap-1">
+                <button onClick={addChapter} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
+                  + 챕터 추가
+                </button>
+                <button onClick={generateToc} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
+                  목차 재생성
+                </button>
+              </div>
+            </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2">목차 ({project.chapters.length})</p>
             {project.chapters.map((c, i) => (
               <div key={i} className={`group rounded-lg mb-1 transition ${i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"}`}>
-                <button onClick={() => setActiveIdx(i)} className="w-full text-left px-3 py-2 text-sm">
+                <button onClick={() => {
+                  if (editingContent !== null && i !== activeIdx && !confirm("편집 중인 내용이 있습니다. 저장 안 하고 다른 챕터로 이동할까요?")) return;
+                  if (i !== activeIdx) setEditingContent(null);
+                  setActiveIdx(i);
+                }} className="w-full text-left px-3 py-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="font-bold">{i + 1}.</span>
                     <span className="truncate flex-1">{c.title}</span>
@@ -448,21 +473,6 @@ function Inner() {
                 </div>
               </div>
             ))}
-            <div className="border-t border-gray-200 mt-2 pt-2 space-y-1">
-              <button onClick={addChapter} disabled={!!loading} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa]">
-                + 챕터 추가
-              </button>
-              <button
-                onClick={() => startBatch(0)}
-                disabled={!!loading || batch.status === "running"}
-                className="w-full px-3 py-2 bg-tiger-orange text-white rounded-lg text-xs font-bold disabled:opacity-50"
-              >
-                {batch.status === "running"
-                  ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
-                  : "⚡ 전체 일괄 집필"}
-              </button>
-              <button onClick={generateToc} disabled={!!loading} className="w-full text-xs text-gray-500 hover:text-tiger-orange py-1">목차 다시 생성</button>
-            </div>
           </aside>
 
           {/* 본문 */}
@@ -479,9 +489,20 @@ function Inner() {
                 <h2 className="text-lg sm:text-xl font-black break-keep">{active.title}</h2>
                 {active.subtitle && <p className="text-sm text-gray-500 mt-1 break-keep">{active.subtitle}</p>}
               </div>
-              <button onClick={() => generateChapter(activeIdx)} disabled={!!loading} className="text-xs px-3 py-1 bg-tiger-orange text-white rounded-lg disabled:opacity-50 whitespace-nowrap">
-                {loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`) ? loading : active.content ? "다시 생성" : "집필"}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {active.content && editingContent === null && (
+                  <button
+                    onClick={() => setEditingContent(active.content)}
+                    disabled={!!loading}
+                    className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
+                  >
+                    ✏️ 수정
+                  </button>
+                )}
+                <button onClick={() => generateChapter(activeIdx)} disabled={!!loading || editingContent !== null} className="text-xs px-3 py-1 bg-tiger-orange text-white rounded-lg disabled:opacity-50 whitespace-nowrap">
+                  {loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`) ? loading : active.content ? "다시 생성" : "집필"}
+                </button>
+              </div>
             </div>
 
             {streamingChapterIdx === activeIdx && streamingText ? (
@@ -495,6 +516,38 @@ function Inner() {
                   <span className="inline-block w-1.5 h-4 bg-tiger-orange ml-0.5 animate-pulse align-middle" />
                 </div>
               </div>
+            ) : editingContent !== null ? (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange">✏️ 본문 직접 편집</p>
+                  <p className="text-xs font-mono text-gray-500">{editingContent.length.toLocaleString()}자</p>
+                </div>
+                <textarea
+                  value={editingContent}
+                  onChange={e => setEditingContent(e.target.value)}
+                  className="w-full min-h-[500px] p-4 border border-tiger-orange/40 rounded-lg text-sm leading-relaxed font-sans focus:outline-none focus:border-tiger-orange whitespace-pre-wrap break-keep"
+                  spellCheck={false}
+                />
+                <div className="mt-3 flex gap-2 justify-end">
+                  <button
+                    onClick={() => setEditingContent(null)}
+                    className="px-4 py-2 text-sm border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const updated = [...project.chapters];
+                      updated[activeIdx] = { ...active, content: editingContent };
+                      await saveProject({ ...project, chapters: updated });
+                      setEditingContent(null);
+                    }}
+                    className="px-4 py-2 text-sm bg-tiger-orange text-white font-bold rounded-lg shadow-glow-orange-sm hover:bg-orange-600 transition"
+                  >
+                    저장
+                  </button>
+                </div>
+              </>
             ) : active.content ? (
               <>
                 <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep">
