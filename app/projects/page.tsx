@@ -100,6 +100,20 @@ export default function ProjectsPage() {
                       내보내기
                     </Link>
                   </div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`"${p.topic}" 책을 정말 삭제할까요? 본문·요약·크몽 패키지 모두 삭제되며 복구 불가.`)) return;
+                      const res = await fetch(`/api/projects/${p.id}`, { method: "DELETE" });
+                      if (res.ok) {
+                        setProjects(ps => ps.filter(x => x.id !== p.id));
+                      } else {
+                        alert("삭제 실패. 다시 시도해주세요.");
+                      }
+                    }}
+                    className="mt-2 w-full py-1.5 text-xs text-gray-400 hover:text-red-600 transition"
+                  >
+                    삭제
+                  </button>
                 </article>
               );
             })}
