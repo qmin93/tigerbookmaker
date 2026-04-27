@@ -1,0 +1,42 @@
+{
+  "name": "tigerbookmaker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "proxy": "node scripts/proxy.mjs"
+  },
+  "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.2",
+    "@tosspayments/payment-sdk": "^1.9.2",
+    "@tosspayments/tosspayments-sdk": "^2.7.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@vercel/postgres": "^0.10.0",
+    "bcryptjs": "^3.0.3",
+    "docx": "^8.5.0",
+    "drizzle-orm": "^0.45.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
+    "next": "^14.2.33",
+    "next-auth": "^5.0.0-beta.31",
+    "nodemailer": "^7.0.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^6.12.2",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5"
+  }
+}

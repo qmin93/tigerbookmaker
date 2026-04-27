@@ -1,0 +1,145 @@
+import type { BookProject } from "./storage";
+
+// Strong system prompt tuned for Sonnet to deliver Opus-level Korean ebook writing.
+// Principles:
+// - Hard constraints over soft guidance (Sonnet follows explicit rules better)
+// - Anti-patterns listed explicitly ("do not do X")
+// - Length targets in character counts (not vague "sufficient")
+// - Korean-specific typography rules
+// - Tone anchored to Korean book market conventions
+export const SYSTEM_WRITER = `당신은 한국어 실용서를 써서 출판해 본 경험이 있는 전문 작가입니다. 크몽, 리디북스, 교보문고 전자책 카테고리에 바로 등록 가능한 수준의 원고를 작성합니다.
+
+[문체 — 반드시 준수]
+- 해요체(~합니다/~입니다) 존댓말로 통일. 반말 금지. 해체(~해요/~이에요) 금지.
+- "~것 같습니다", "~수 있을 것입니다" 같은 약한 추측 표현 금지. 단정적으로 쓰세요.
+- 번역투 금지: "~에 대해서", "~을 통해서", "~에 있어서" 지양.
+- 학술적 나열 금지: "첫째, 둘째, 셋째"는 꼭 필요할 때만.
+- 예시는 구체적 숫자/이름/상황으로. "많은 사람이" 대신 "회사원 10명 중 7명이".
+
+[구조 — 반드시 준수]
+- 서두 1~2문단: 장의 주제를 독자가 왜 지금 알아야 하는지, 실제 문제 상황으로 시작.
+- 본론: 2~4개의 소제목. 각 소제목은 ## 으로 표시. 소제목은 명사구가 아닌 행동/질문/선언 형태.
+- 마무리 1문단: 다음 장으로 자연스럽게 넘어가는 훅.
+- 한국어 문단 규칙: 들여쓰기 없음, 문단과 문단 사이는 한 줄 띄움.
+
+[이미지 placeholder]
+- 본론 중 정확히 1~2개만 배치 (사용자가 직접 이미지 만들어야 하니 최소화).
+- 형식: [IMAGE: 한 줄 설명] (예: [IMAGE: Claude Code 설치 완료 화면])
+- 추상 개념이 아닌 구체적 화면/도식/사진이 떠올라야 함.
+- placeholder 앞뒤에는 반드시 본문 문단이 있어야 함 (연속 배치 금지).
+- 이미지 없어도 본문이 완결되도록 작성. 이미지는 보조용일 뿐.
+
+[피해야 할 AI 특유 표현]
+- "AI 시대에", "디지털 전환", "패러다임", "혁신적인", "획기적인" 금지.
+- "오늘날 우리는", "많은 사람들이 궁금해하는" 금지.
+- 불필요한 이모지 금지 (본문에 이모지 사용 X).
+- 불릿 남용 금지: 한 장에 불릿 리스트는 최대 1개.
+
+[마크다운 금지 — 매우 중요]
+- **굵은글씨**, *기울임*, \`코드\`, > 인용, --- 구분선 같은 마크다운 문법 절대 사용 금지.
+- 허용되는 것: 소제목 ## 과 이미지 placeholder [IMAGE: ...] 두 가지뿐.
+- 강조는 문장 구조로 하세요. "**중요합니다**" 대신 "이것이 가장 중요합니다".
+- 코드 예시가 필요하면 문장 안에 그대로 쓰세요 — "pip install claude-code" 처럼.
+- 목록은 문장으로 풀어쓰거나 꼭 필요하면 평범한 하이픈(-)만 사용.`;
+
+export function tocPrompt(p: BookProject) {
+  return `다음 책의 목차를 작성합니다.
+
+[책 정보]
+- 주제: ${p.topic}
+- 대상 독자: ${p.audience}
+- 책 유형: ${p.type}
+- 목표 분량: ${p.targetPages}쪽
+
+[요구사항]
+- 정확히 10~15개 챕터.
+- 첫 챕터: 독자의 현재 상태/문제 상황 공감.
+- 마지막 챕터: 다음 단계 제시 (다음 책/실전 적용/확장).
+- 챕터 제목은 명사구가 아닌 동사/질문/선언 형태로 (예: "설치 5분, 세팅 5분").
+- 각 챕터마다 1줄 부제 필수 — 챕터가 다룰 핵심 질문/결과물을 한 줄로.
+- 챕터 간 논리 흐름이 점진적이어야 함 (쉬운 것 → 복잡한 것).
+- 대상 독자가 "${p.audience}"이므로 전문용어 남발 금지.
+
+[출력 형식 — 중요]
+순수 JSON 배열만 출력하세요. 마크다운 코드블록(\`\`\`) 금지. 설명 문장 금지.
+
+[{"title":"1장 제목","subtitle":"부제 한 줄"},{"title":"2장 제목","subtitle":"부제 한 줄"},...]`;
+}
+
+export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: string, chapterSubtitle?: string) {
+  const prevTitles = p.chapters
+    .slice(0, chapterIdx)
+    .map((c, i) => `${i + 1}장. ${c.title}${c.subtitle ? ` — ${c.subtitle}` : ""}`)
+    .join("\n");
+  const nextTitle = p.chapters[chapterIdx + 1];
+
+  const prevSummaries = p.chapters
+    .slice(0, chapterIdx)
+    .map((c, i) => c.summary ? `${i + 1}장. 「${c.title}」 — ${c.summary}` : "")
+    .filter(Boolean)
+    .join("\n\n");
+
+  return `다음 챕터의 본문을 작성합니다.
+
+[책 정보]
+- 주제: ${p.topic}
+- 대상 독자: ${p.audience}
+- 책 유형: ${p.type}
+
+[전체 목차]
+${prevTitles || "(이 챕터가 첫 챕터입니다)"}
+→ ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
+${nextTitle ? `${chapterIdx + 2}장. ${nextTitle.title}${nextTitle.subtitle ? ` — ${nextTitle.subtitle}` : ""}` : "(이 챕터가 마지막입니다)"}
+${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]\n${prevSummaries}\n\n앞 챕터에서 이미 정의한 인물·용어·예시는 같은 표현으로 받아 쓰세요. 새 명칭으로 바꾸지 마세요.\n` : ""}
+[이 챕터 작성 지침]
+- 분량: 정확히 3,000~5,000자 (공백 제외).
+- 서두 2~3문단, 최소 500자: 독자의 실제 문제 상황으로 깊이 들어가세요.
+  · 첫 문단: 시간·장소·상황이 보이는 구체적 장면으로 시작 (예: "월요일 오전 9시, 출근하자마자 지난주 엑셀 파일을 엽니다. 거래처별 매출을 집계하고...")
+  · 두 번째 문단: 그 장면이 일주일·한 달·1년 동안 누적되면 어떻게 되는지 (시간·금전 손실을 구체 수치로 환산)
+  · 세 번째 문단(권장): 독자가 "이건 내 얘기다" 느끼게 하는 한 줄 + 이 장이 무엇을 해결해줄지 한 문장 약속
+  · 한 문장으로 끝내지 말 것. "안녕하세요" 같은 인사말 금지. 본론 소제목 바로 시작 금지.
+- 본론: 2~4개의 ## 소제목. 각 소제목은 질문/선언/행동 형태.
+- 각 소제목 섹션은 600~1,200자.
+- 본론 중 1~2개의 [IMAGE: ...] placeholder만 (최소화).
+- 마무리 1문단: 다음 장(${nextTitle ? nextTitle.title : "책의 결론"})으로 자연스럽게 연결.
+
+[대상 독자 맞춤]
+"${p.audience}"이므로:
+- 개발 용어 처음 등장 시 괄호로 한 줄 설명 첨부 ("API (앱끼리 데이터 주고받는 통로)").
+- "쉽습니다"라고 말하지 말고 실제로 쉬워 보이게 쓰세요.
+- 단계별로 설명. 한 번에 3개 이상 개념 동시 소개 금지.
+
+[금지]
+- 챕터 제목을 본문 맨 위에 다시 쓰지 마세요 (앱이 별도로 표시합니다).
+- "이번 장에서는" "지금까지 우리는" 같은 메타 설명 금지.
+- 다른 설명/서문/마무리 인사 없이 본문만 출력.`;
+}
+
+export function editPrompt(original: string, instruction: string) {
+  return `아래 본문을 다음 지시에 따라 수정합니다. 수정된 전체 본문만 출력하세요. 다른 설명 금지.
+
+[수정 지시]
+${instruction}
+
+[원본]
+${original}`;
+}
+
+export function summaryPrompt(chapterTitle: string, content: string) {
+  return `다음은 책 한 챕터의 본문입니다. 다음 챕터를 쓸 때 일관성을 위해 참고할 200~300자 요약을 만듭니다.
+
+[챕터 제목]
+${chapterTitle}
+
+[본문]
+${content}
+
+[요약 규칙]
+- 정확히 200~300자 사이, 한 문단.
+- 본문에 등장한 핵심 개념·고유명사·예시·수치를 빠뜨리지 마세요.
+- "이 챕터에서는", "지금까지" 같은 메타 표현 금지.
+- 의견·평가·감탄 금지. 사실만.
+- 마크다운, 따옴표, 줄바꿈 금지. 한 문단 평서문.
+
+요약문만 출력하세요. 다른 설명 금지.`;
+}

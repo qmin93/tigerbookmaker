@@ -1,0 +1,62 @@
+import type { AIConfig, Provider } from "./ai";
+
+export interface BookChapter {
+  id: string;
+  title: string;
+  subtitle?: string;
+  content: string;
+  summary?: string;
+  images: { placeholder: string; dataUrl?: string; caption?: string; alt?: string }[];
+}
+
+export interface BookProject {
+  id: string;
+  topic: string;
+  audience: string;
+  type: "자기계발서" | "실용서" | "에세이" | "매뉴얼";
+  targetPages: number;
+  chapters: BookChapter[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+const KEY_API = "tiger:ai-config";
+const KEY_PROJECT = "tiger:current-project";
+
+export function loadAIConfig(): AIConfig | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY_API);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+export function saveAIConfig(cfg: AIConfig) {
+  localStorage.setItem(KEY_API, JSON.stringify(cfg));
+}
+export function clearAIConfig() { localStorage.removeItem(KEY_API); }
+
+export function loadProject(): BookProject | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(KEY_PROJECT);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+export function saveProject(p: BookProject) {
+  p.updatedAt = Date.now();
+  localStorage.setItem(KEY_PROJECT, JSON.stringify(p));
+}
+export function clearProject() { localStorage.removeItem(KEY_PROJECT); }
+
+export function newProject(init: Partial<BookProject>): BookProject {
+  return {
+    id: crypto.randomUUID(),
+    topic: init.topic || "",
+    audience: init.audience || "",
+    type: init.type || "실용서",
+    targetPages: init.targetPages || 120,
+    chapters: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
