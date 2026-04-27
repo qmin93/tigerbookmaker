@@ -1,8 +1,19 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
+
+interface TierInfo {
+  id: "basic" | "pro" | "premium";
+  emoji: string;
+  name: string;
+  price: number;
+  blurb: string;
+  audience: string;
+  available: boolean;
+  reason?: string;
+}
 
 export default function NewProjectPage() {
   const r = useRouter();
@@ -10,8 +21,16 @@ export default function NewProjectPage() {
   const [audience, setAudience] = useState("");
   const [type, setType] = useState<"자기계발서" | "실용서" | "에세이" | "매뉴얼">("실용서");
   const [targetPages, setTargetPages] = useState(120);
+  const [tier, setTier] = useState<"basic" | "pro" | "premium">("pro");
+  const [tiers, setTiers] = useState<TierInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.availableTiers) setTiers(d.availableTiers);
+    });
+  }, []);
 
   const create = async () => {
     setBusy(true);
@@ -20,7 +39,7 @@ export default function NewProjectPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, audience, type, targetPages }),
+        body: JSON.stringify({ topic, audience, type, targetPages, tier }),
       });
       if (res.status === 401) { r.push("/login?redirect=/new"); return; }
       if (!res.ok) {
@@ -45,6 +64,34 @@ export default function NewProjectPage() {
       <p className="text-gray-600 mb-10">기본 정보를 입력하면 AI가 목차를 제안합니다.</p>
 
       <div className="space-y-5 bg-white p-6 md:p-8 rounded-2xl border border-gray-200">
+        <Field label="티어 선택">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {tiers.length === 0 && <div className="text-xs text-gray-400 col-span-3">티어 정보 로딩 중...</div>}
+            {tiers.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                disabled={!t.available}
+                onClick={() => setTier(t.id)}
+                className={`p-4 rounded-xl border-2 text-left transition ${
+                  tier === t.id && t.available
+                    ? "border-tiger-orange bg-orange-50"
+                    : t.available
+                    ? "border-gray-200 bg-white hover:border-gray-400"
+                    : "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                }`}
+              >
+                <div className="text-base font-bold">{t.emoji} {t.name}</div>
+                <div className="font-mono text-tiger-orange font-bold mt-1 text-sm">₩{t.price.toLocaleString()}/권</div>
+                <div className="text-xs text-gray-600 mt-2 leading-snug">{t.blurb}</div>
+                <div className="text-[10px] text-gray-500 mt-1 leading-tight">{t.audience}</div>
+                {!t.available && (
+                  <div className="text-[10px] font-mono text-gray-400 mt-2 uppercase tracking-wider">{t.reason}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </Field>
         <Field label="주제 (한 줄)">
           <textarea
             value={topic}

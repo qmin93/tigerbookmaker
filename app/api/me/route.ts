@@ -1,7 +1,8 @@
-// GET /api/me — 현재 유저 정보 + 잔액
+// GET /api/me — 현재 유저 정보 + 잔액 + 활성 티어
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getUser } from "@/lib/server/db";
+import { getAvailableTiers } from "@/lib/tiers";
 
 export const runtime = "nodejs";
 
@@ -18,5 +19,6 @@ export async function GET() {
     balance_krw: user.balance_krw,
     total_charged: user.total_charged,
     total_spent: user.total_spent,
+    availableTiers: getAvailableTiers(),
   });
 }

@@ -5,7 +5,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { estimateCost } from "@/lib/cost-estimate";
-import { callAIServer, callGeminiStream, type AIModel } from "@/lib/server/ai-server";
+import { callAIServer, callStreamWithFallback, type AIModel } from "@/lib/server/ai-server";
+import { getModelChain, type Tier } from "@/lib/tiers";
 import {
   getUser, getProject, updateProjectData,
   deductBalance, logAIUsage, USD_TO_KRW,
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
 
     // 2. 입력 파싱
     const body = await req.json().catch(() => ({}));
-    const { projectId, chapterIdx, model = "gemini-flash-latest" as AIModel } = body;
+    const { projectId, chapterIdx, model: explicitModel } = body;
     if (!projectId || typeof chapterIdx !== "number") {
       return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
     }
@@ -52,6 +53,22 @@ export async function POST(req: Request) {
     if (!ch) {
       return NextResponse.json({ error: "CHAPTER_NOT_FOUND" }, { status: 404 });
     }
+
+    // tier 기반 모델 chain (사용자가 명시 model 보냈으면 그것만 사용)
+    const tier: Tier = (project as any).tier ?? "pro";
+    let candidates: AIModel[];
+    if (explicitModel) {
+      candidates = [explicitModel as AIModel];
+    } else {
+      candidates = getModelChain(tier);
+      if (candidates.length === 0) {
+        return NextResponse.json({
+          error: "TIER_UNAVAILABLE",
+          message: `${tier} 티어 사용 가능한 모델이 없습니다. 관리자에게 문의하세요.`,
+        }, { status: 503 });
+      }
+    }
+    const model: AIModel = candidates[0]; // 견적용 (실제 호출은 chain 전체)
 
     // 4. 견적 + 잔액 체크
     const estimate = estimateCost("chapter", project, model);
@@ -76,14 +93,16 @@ export async function POST(req: Request) {
         const send = (obj: any) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
         let fullText = "";
         let bodyUsage: any = null;
+        let actualModel: AIModel = candidates[0];
         try {
-          const gen = callGeminiStream({
-            model,
+          const gen = callStreamWithFallback({
+            candidates,
             system: SYSTEM_WRITER,
             user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle),
             timeoutMs: 55000,
           });
           for await (const evt of gen) {
+            if (evt.model) actualModel = evt.model;
             if (evt.type === "chunk") {
               fullText += evt.text;
               send({ type: "chunk", text: evt.text });
@@ -94,7 +113,7 @@ export async function POST(req: Request) {
         } catch (e: any) {
           // 본문 호출 실패 — failed 로그 + error chunk + close
           await logAIUsage({
-            userId, task: "chapter", model,
+            userId, task: "chapter", model: actualModel,
             inputTokens: 0, outputTokens: 0, thoughtsTokens: 0,
             cacheReadTokens: 0, cacheWriteTokens: 0,
             costUSD: 0, costKRW: 0, durationMs: 0,
@@ -115,7 +134,7 @@ export async function POST(req: Request) {
         // 6. 비용 차감 + 로그
         const costKRW = Math.ceil(bodyUsage.costUSD * USD_TO_KRW);
         const { id: usageId } = await logAIUsage({
-          userId, task: "chapter", model,
+          userId, task: "chapter", model: actualModel,
           inputTokens: bodyUsage.inputTokens,
           outputTokens: bodyUsage.outputTokens,
           thoughtsTokens: bodyUsage.thoughtsTokens,
@@ -131,7 +150,7 @@ export async function POST(req: Request) {
         if (costKRW > 0) {
           const r = await deductBalance({
             userId, amountKRW: costKRW, aiUsageId: usageId,
-            reason: `${chapterIdx + 1}장 집필 (${model})`,
+            reason: `${chapterIdx + 1}장 집필 (${actualModel})`,
           });
           newBalance = r.newBalance;
         }

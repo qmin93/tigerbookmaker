@@ -27,6 +27,12 @@ export const PRICING = [
   { amount: 50_000, bonus: 5_000, label: "책 18권" },
 ];
 
+export const TIER_CARDS = [
+  { id: "basic",   emoji: "🌱", name: "베이직",   price: 500,   blurb: "빠른 초안. 가성비 최강.",          audience: "실용서, 회사 매뉴얼, 빠른 초안" },
+  { id: "pro",     emoji: "⭐", name: "프로",     price: 1500,  blurb: "한국어 품질 균형. 베스트 셀러.",   audience: "자기계발서, 일반 출간, 크몽 등록", featured: true as const },
+  { id: "premium", emoji: "🌟", name: "프리미엄", price: 7000,  blurb: "작가급 한국어. 출간용 완성도.",    audience: "에세이, 소설, 출판사 제출용" },
+];
+
 export const HERO_STATS = [
   { value: "30분", label: "권당 집필" },
   { value: "₩263", label: "권당 평균 비용" },

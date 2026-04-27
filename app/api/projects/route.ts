@@ -35,12 +35,14 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const { topic, audience, type, targetPages = 120 } = await req.json().catch(() => ({}));
+  const { topic, audience, type, targetPages = 120, tier } = await req.json().catch(() => ({}));
   if (!topic || !audience || !type) {
     return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
+  const safeTier: "basic" | "pro" | "premium" =
+    tier === "basic" || tier === "pro" || tier === "premium" ? tier : "pro";
 
-  const data = { topic, audience, type, targetPages, chapters: [] };
+  const data = { topic, audience, type, targetPages, tier: safeTier, chapters: [] };
   const { rows } = await sql<{ id: string }>`
     INSERT INTO book_projects (user_id, topic, audience, type, target_pages, data)
     VALUES (${session.user.id}, ${topic}, ${audience}, ${type}, ${targetPages}, ${JSON.stringify(data)})

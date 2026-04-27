@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { estimateCost } from "@/lib/cost-estimate";
 import { callAIServer, type AIModel } from "@/lib/server/ai-server";
+import { getModelChain, type Tier } from "@/lib/tiers";
 import {
   getUser, getProject, updateProjectData,
   deductBalance, logAIUsage, USD_TO_KRW,
@@ -23,12 +24,25 @@ export async function POST(req: Request) {
     const rl = rateLimit(`toc:${userId}`, 5, 60_000);
     if (!rl.ok) return NextResponse.json({ error: "RATE_LIMITED", resetIn: rl.resetIn }, { status: 429 });
 
-    const { projectId, model = "gemini-flash-latest" as AIModel } = await req.json().catch(() => ({}));
+    const { projectId, model: explicitModel } = await req.json().catch(() => ({}));
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
     const projectRow = await getProject(projectId, userId);
     if (!projectRow) return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
     const project = projectRow.data;
+
+    // tier 기반 chain
+    const tier: Tier = (project as any).tier ?? "pro";
+    let candidates: AIModel[];
+    if (explicitModel) {
+      candidates = [explicitModel as AIModel];
+    } else {
+      candidates = getModelChain(tier);
+      if (candidates.length === 0) {
+        return NextResponse.json({ error: "TIER_UNAVAILABLE" }, { status: 503 });
+      }
+    }
+    const model: AIModel = candidates[0];
 
     const estimate = estimateCost("toc", project, model);
     const user = await getUser(userId);
@@ -44,16 +58,30 @@ export async function POST(req: Request) {
     }
 
     let result;
-    try {
-      result = await callAIServer({
-        model,
-        system: SYSTEM_WRITER,
-        user: tocPrompt(project),
-        maxTokens: 2048,
-        timeoutMs: 30000,
-      });
-    } catch (e: any) {
-      return NextResponse.json({ error: "AI_CALL_FAILED", message: e?.message }, { status: 502 });
+    let actualModel: AIModel = candidates[0];
+    let lastError: any = null;
+    for (const candidate of candidates) {
+      try {
+        result = await callAIServer({
+          model: candidate,
+          system: SYSTEM_WRITER,
+          user: tocPrompt(project),
+          maxTokens: 2048,
+          timeoutMs: 30000,
+        });
+        actualModel = candidate;
+        break;
+      } catch (e: any) {
+        lastError = e;
+        const msg = String(e?.message ?? "");
+        const transient = /\b50[23]\b|UNAVAILABLE|overloaded|timeout|시간 초과|429|quota/i.test(msg);
+        if (!transient) {
+          return NextResponse.json({ error: "AI_CALL_FAILED", message: msg }, { status: 502 });
+        }
+      }
+    }
+    if (!result) {
+      return NextResponse.json({ error: "AI_CALL_FAILED", message: lastError?.message ?? "all candidates failed" }, { status: 502 });
     }
 
     // 응답 JSON 파싱 (모델이 마크다운 블록을 붙일 수 있으니 제거)
@@ -69,7 +97,7 @@ export async function POST(req: Request) {
 
     const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
     const { id: usageId } = await logAIUsage({
-      userId, task: "toc", model,
+      userId, task: "toc", model: actualModel,
       ...result.usage, costKRW,
       projectId, status: "success",
     });
@@ -78,7 +106,7 @@ export async function POST(req: Request) {
     if (costKRW > 0) {
       const r = await deductBalance({
         userId, amountKRW: costKRW, aiUsageId: usageId,
-        reason: `목차 생성 (${model})`,
+        reason: `목차 생성 (${actualModel})`,
       });
       newBalance = r.newBalance;
     }

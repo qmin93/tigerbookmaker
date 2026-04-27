@@ -5,9 +5,13 @@
 import type { BookProject } from "./storage";
 
 export type AIModel =
+  | "gemini-2.0-flash"
   | "gemini-2.5-flash"
   | "gemini-flash-latest"
   | "gemini-2.5-pro"
+  | "gpt-4o-mini"
+  | "gpt-4o"
+  | "gpt-4.1-mini"
   | "claude-sonnet-4-6"
   | "claude-haiku-4-5";
 
@@ -30,11 +34,15 @@ export interface CostEstimate {
 // 모델별 가격 (USD per 1M tokens, 2026-04 기준)
 // ──────────────────────────────────────────
 const PRICING: Record<AIModel, { in: number; out: number }> = {
-  "gemini-2.5-flash":     { in: 0.30, out: 2.50 },
-  "gemini-flash-latest":  { in: 0.30, out: 2.50 },
-  "gemini-2.5-pro":       { in: 1.25, out: 10.00 },
-  "claude-sonnet-4-6":    { in: 3.00, out: 15.00 },
-  "claude-haiku-4-5":     { in: 1.00, out: 5.00 },
+  "gemini-2.0-flash":     { in: 0.075, out: 0.30 },
+  "gemini-2.5-flash":     { in: 0.30,  out: 2.50 },
+  "gemini-flash-latest":  { in: 0.30,  out: 2.50 },
+  "gemini-2.5-pro":       { in: 1.25,  out: 10.00 },
+  "gpt-4o-mini":          { in: 0.15,  out: 0.60 },
+  "gpt-4o":               { in: 2.50,  out: 10.00 },
+  "gpt-4.1-mini":         { in: 0.40,  out: 1.60 },
+  "claude-sonnet-4-6":    { in: 3.00,  out: 15.00 },
+  "claude-haiku-4-5":     { in: 1.00,  out: 5.00 },
 };
 
 // 환율 (분기별 업데이트)
