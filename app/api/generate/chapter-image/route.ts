@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     const costKRW = Math.ceil(img.costUSD * USD_TO_KRW);
     const { id: usageId } = await logAIUsage({
       userId, task: "edit",
-      model: img.vendor === "gemini" ? "imagen-4-fast" : img.vendor === "openai" ? "gpt-image-1" : "pollinations-flux",
+      model: img.vendor === "cloudflare" ? "flux-1-schnell" : img.vendor === "gemini" ? "imagen-4-fast" : img.vendor === "openai" ? "gpt-image-1" : "pollinations-flux",
       inputTokens: 0, outputTokens: 0, thoughtsTokens: 0,
       cacheReadTokens: 0, cacheWriteTokens: 0,
       costUSD: img.costUSD, costKRW,

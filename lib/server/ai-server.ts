@@ -646,7 +646,7 @@ export async function* callStreamWithFallback(opts: {
 
 export interface ImageResult {
   base64: string;
-  vendor: "pollinations" | "gemini" | "openai";
+  vendor: "cloudflare" | "pollinations" | "gemini" | "openai";
   costUSD: number;
   durationMs: number;
 }
@@ -656,18 +656,26 @@ export async function callImageGeneration(opts: {
   timeoutMs?: number;
 }): Promise<ImageResult> {
   const started = Date.now();
-  const timeoutMs = opts.timeoutMs ?? 45000;  // Pollinations 첫 호출이 느릴 수 있음
+  const timeoutMs = opts.timeoutMs ?? 30000;
   const errors: string[] = [];
 
-  // 1순위: Pollinations (무료, 키 불필요)
+  // 1순위: Cloudflare Workers AI (무료 1만/일, 안정적, ~2s)
+  if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID) {
+    try {
+      const r = await callCloudflareImage(opts.prompt, timeoutMs);
+      return { ...r, durationMs: Date.now() - started };
+    } catch (e: any) {
+      errors.push(`Cloudflare: ${e?.message ?? e}`);
+    }
+  }
+  // 2순위: Pollinations (무료, 키 X) — Cloudflare 한도 초과 시
   try {
-    const r = await callPollinations(opts.prompt, timeoutMs);
+    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 15000));
     return { ...r, durationMs: Date.now() - started };
   } catch (e: any) {
     errors.push(`Pollinations: ${e?.message ?? e}`);
   }
-
-  // 2순위: Imagen (paid)
+  // 3순위: Imagen (paid, 한국어 텍스트 깨끗)
   if (process.env.GEMINI_API_KEY) {
     try {
       const r = await callImagenFast(opts.prompt, timeoutMs);
@@ -676,7 +684,7 @@ export async function callImageGeneration(opts: {
       errors.push(`Imagen: ${e?.message ?? e}`);
     }
   }
-  // 3순위: OpenAI gpt-image-1 (paid)
+  // 4순위: OpenAI gpt-image-1 (paid)
   if (process.env.OPENAI_API_KEY) {
     try {
       const r = await callOpenAIImage(opts.prompt, timeoutMs);
@@ -686,6 +694,42 @@ export async function callImageGeneration(opts: {
     }
   }
   throw new Error(`이미지 생성 실패. ${errors.join(" / ") || "API 키 없음"}`);
+}
+
+async function callCloudflareImage(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+  const token = process.env.CLOUDFLARE_API_TOKEN!;
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID!;
+  const model = "@cf/black-forest-labs/flux-1-schnell";
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt, num_steps: 4 }),  // flux-schnell은 4 steps default
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Cloudflare ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    if (!data?.success) {
+      throw new Error(`Cloudflare error: ${JSON.stringify(data?.errors).slice(0, 200)}`);
+    }
+    const base64 = data?.result?.image;
+    if (!base64) throw new Error("Cloudflare: no image in response");
+    return { base64, vendor: "cloudflare", costUSD: 0 };
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`Cloudflare 시간 초과 (${timeoutMs}ms)`);
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 async function callPollinations(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
