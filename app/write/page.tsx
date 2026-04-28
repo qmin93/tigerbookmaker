@@ -69,6 +69,8 @@ function Inner() {
   const [batch, setBatch] = useState<BatchState>({ status: "idle" });
   const [editingContent, setEditingContent] = useState<string | null>(null);
   const [imageGenBusy, setImageGenBusy] = useState<string>("");
+  const [kmongModalOpen, setKmongModalOpen] = useState(false);
+  const [kmongBusy, setKmongBusy] = useState<string>("");
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -399,6 +401,48 @@ function Inner() {
     await saveProject({ ...project, chapters });
   };
 
+  const generateKmongPackage = async (regenerateOnly?: string[]) => {
+    if (!project) return;
+    if (!regenerateOnly) {
+      const allDone = project.chapters.length > 0 && project.chapters.every(c => c.content);
+      if (!allDone) {
+        setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
+        return;
+      }
+      if (!confirm("크몽 패키지 생성 — 이미지 6장 (Cloudflare 무료) + 카피 5종 (~₩30). 진행할까요?")) return;
+    }
+    setKmongBusy(regenerateOnly ? "이미지 재생성 중..." : "이미지 6장 + 카피 생성 중 (약 30~60초)...");
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/kmong-package", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, regenerateOnly }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
+      if (data.newBalance != null) setBalance(data.newBalance);
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+      setKmongModalOpen(true);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setKmongBusy("");
+    }
+  };
+
+  const downloadKmongPackage = async () => {
+    if (!(project as any)?.kmongPackage) return;
+    const { buildKmongZip, downloadKmongZip } = await import("@/lib/kmong-package-zip");
+    const blob = await buildKmongZip((project as any).kmongPackage, project.topic);
+    downloadKmongZip(blob, project.topic);
+  };
+
   const generateChapterImage = async (chapterIdx: number, placeholder: string) => {
     setImageGenBusy(placeholder);
     setError(null);
@@ -479,6 +523,21 @@ function Inner() {
                   목차 재생성
                 </button>
               </div>
+              <button
+                onClick={() => generateKmongPackage()}
+                disabled={!!loading || !!kmongBusy || batch.status === "running"}
+                className="w-full px-3 py-2 mt-1 border-2 border-tiger-orange text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-50 transition disabled:opacity-50"
+              >
+                {kmongBusy || ((project as any).kmongPackage ? "📦 크몽 패키지 (재생성)" : "📦 크몽 패키지 생성")}
+              </button>
+              {(project as any).kmongPackage && (
+                <button
+                  onClick={() => setKmongModalOpen(true)}
+                  className="w-full px-3 py-1 text-xs text-tiger-orange hover:underline"
+                >
+                  크몽 패키지 다시 보기
+                </button>
+              )}
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2">목차 ({project.chapters.length})</p>
             {project.chapters.map((c, i) => (
@@ -683,6 +742,71 @@ function Inner() {
           </div>
         </div>
       )}
+    {kmongModalOpen && (project as any).kmongPackage && (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setKmongModalOpen(false)}>
+        <div className="bg-white rounded-2xl max-w-4xl w-full p-6 md:p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">크몽 패키지 완성</p>
+              <h2 className="text-2xl font-black tracking-tight text-ink-900">{project.topic}</h2>
+            </div>
+            <button onClick={() => setKmongModalOpen(false)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>
+          </div>
+
+          <button onClick={downloadKmongPackage} className="w-full mb-6 py-3 bg-tiger-orange text-white text-base font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
+            📦 ZIP 다운로드 (이미지 + 카피 + README)
+          </button>
+
+          <h3 className="text-sm font-bold text-ink-900 mb-3">이미지 ({(project as any).kmongPackage.images.length}/6)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+            {(["cover", "thumb", "toc", "spec", "audience", "preview"] as const).map(type => {
+              const img = (project as any).kmongPackage?.images.find((i: any) => i.type === type);
+              return (
+                <div key={type} className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                  <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                    {img ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={`data:image/png;base64,${img.base64}`} alt={type} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-xs text-gray-400">생성 실패</div>
+                    )}
+                  </div>
+                  <div className="p-2 flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-gray-500">{type}</span>
+                    <button
+                      onClick={() => generateKmongPackage([type])}
+                      disabled={!!kmongBusy}
+                      className="text-[10px] text-tiger-orange hover:underline disabled:opacity-50"
+                    >
+                      재생성
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <h3 className="text-sm font-bold text-ink-900 mb-3">마케팅 카피</h3>
+          <div className="space-y-3">
+            {([
+              ["크몽 상세 페이지", (project as any).kmongPackage.copy.kmongDescription],
+              ["강조 포인트 5", ((project as any).kmongPackage.copy.kmongHighlights ?? []).join("\n• ")],
+              ["인스타", (project as any).kmongPackage.copy.instagram],
+              ["카톡", (project as any).kmongPackage.copy.kakao],
+              ["트위터", (project as any).kmongPackage.copy.twitter],
+            ] as const).map(([label, text]) => (
+              <div key={label} className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-gray-500">{label}</span>
+                  <button onClick={() => navigator.clipboard.writeText(text || "")} className="text-[10px] text-tiger-orange hover:underline">복사</button>
+                </div>
+                <pre className="text-xs whitespace-pre-wrap break-keep text-gray-700 font-sans">{text || "(비어있음)"}</pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
     </main>
     </>
   );

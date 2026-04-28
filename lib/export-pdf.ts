@@ -326,7 +326,23 @@ body {
 </head>
 <body>
 
-<div class="cover">
+${(() => {
+  const kPkg = (project as any).kmongPackage;
+  const coverImg = kPkg?.images?.find((i: any) => i.type === "cover");
+  if (coverImg) {
+    // 이미지 표지가 있으면 이미지를 메인으로 + 텍스트 오버레이
+    return `<div class="cover" style="background: white; padding: 0; position: relative;">
+  <img src="data:image/png;base64,${coverImg.base64}" style="width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; margin: 0 auto;" />
+  <div style="text-align: center; padding: 24px 32px;">
+    <div class="cover-brand" style="margin-bottom: 16px;">TIGERBOOKMAKER</div>
+    <div class="cover-title" style="font-size: 28pt; line-height: 1.2;">${escapeHtml(coverMainTitle)}</div>
+    ${coverSubTitle ? `<div class="cover-subtitle" style="margin-top: 8px;">${escapeHtml(coverSubTitle)}</div>` : ""}
+    <div style="margin-top: 16px; font-size: 11pt; color: #6b7280;">독자 · <strong>${escapeHtml(project.audience)}</strong></div>
+  </div>
+</div>`;
+  }
+  // 표지 이미지 없으면 기존 텍스트 표지
+  return `<div class="cover">
   <div class="cover-accent"></div>
   <div class="cover-brand">TIGERBOOKMAKER</div>
   <div class="cover-title-group">
@@ -336,7 +352,8 @@ body {
   <div class="cover-divider"></div>
   <div class="cover-audience">독자 · <strong>${escapeHtml(project.audience)}</strong></div>
   <div class="cover-footer">AI 자동 집필<br>실전 가이드</div>
-</div>
+</div>`;
+})()}
 
 <div class="toc">
   <h2>목차</h2>

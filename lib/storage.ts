@@ -22,6 +22,18 @@ export interface BookProject {
     skipped: boolean;
     aiDriven?: boolean;
   };
+  kmongPackage?: {
+    images: { type: "cover" | "thumb" | "toc" | "spec" | "audience" | "preview"; base64: string; vendor: string; generatedAt: number }[];
+    copy: {
+      kmongDescription: string;
+      kmongHighlights: string[];
+      instagram: string;
+      kakao: string;
+      twitter: string;
+    };
+    generatedAt: number;
+    totalCostKRW: number;
+  };
   chapters: BookChapter[];
   createdAt: number;
   updatedAt: number;
