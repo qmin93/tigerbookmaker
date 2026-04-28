@@ -1,23 +1,13 @@
-// 8권 샘플 — 장르 다 다양하게. 각 카드는 GenreBookCard가 장르 보고 디자인 분기.
-// cover 이미지는 실제 png 있는 2권만, 나머지는 디자인 자동 생성.
+// 7장르 × 1권. GenreBookCard의 CoverDesign이 장르 보고 자동 다른 디자인.
+// 실제 png cover 안 씀 (디자인 다양성 위해 SVG 통일).
 export const SAMPLE_BOOKS = [
   {
-    cover: "/samples/book-1-cover.png",
-    title: "직장인을 위한 Claude Code 입문",
-    subtitle: "첫 자동화 봇 30분에 만들기",
-    audience: "개발 경험이 없는 직장인",
-    category: "실용서" as const,
+    title: "아침 루틴, 30일이면 인생이 바뀝니다",
+    subtitle: "새벽 5시에 일어나는 사람의 진짜 비밀",
+    audience: "번아웃 직전의 30대 직장인",
+    category: "자기계발서" as const,
     chapters: 12,
-    pages: 63,
-  },
-  {
-    cover: "/samples/book-2-cover.png",
-    title: "노션으로 1인 사업 시작하기",
-    subtitle: "외주 없이 한 달에 매출 300만원",
-    audience: "1인 사업을 준비하는 30대 직장인",
-    category: "실용서" as const,
-    chapters: 12,
-    pages: 60,
+    pages: 65,
   },
   {
     title: "월급만으로 부족함을 느끼나요",
@@ -26,14 +16,6 @@ export const SAMPLE_BOOKS = [
     category: "재테크" as const,
     chapters: 12,
     pages: 70,
-  },
-  {
-    title: "아침 루틴, 30일이면 인생이 바뀝니다",
-    subtitle: "새벽 5시에 일어나는 사람의 진짜 비밀",
-    audience: "번아웃 직전의 30대 직장인",
-    category: "자기계발서" as const,
-    chapters: 12,
-    pages: 65,
   },
   {
     title: "나는 그래서 회사를 그만뒀습니다",
@@ -66,6 +48,14 @@ export const SAMPLE_BOOKS = [
     category: "매뉴얼" as const,
     chapters: 11,
     pages: 72,
+  },
+  {
+    title: "노션으로 1인 사업 시작하기",
+    subtitle: "외주 없이 한 달에 매출 300만원",
+    audience: "1인 사업 준비 30대 직장인",
+    category: "실용서" as const,
+    chapters: 12,
+    pages: 60,
   },
 ];
 
