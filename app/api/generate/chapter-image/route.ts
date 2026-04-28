@@ -4,7 +4,8 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { callImageGeneration } from "@/lib/server/ai-server";
+import { callImageGeneration, callAIServer, type AIModel } from "@/lib/server/ai-server";
+import { getModelChain, type Tier } from "@/lib/tiers";
 import {
   getUser, getProject, updateProjectData,
   deductBalance, logAIUsage, USD_TO_KRW,
@@ -48,11 +49,33 @@ export async function POST(req: Request) {
 
     // placeholder에서 caption 추출
     const caption = placeholder.replace(/^\[IMAGE:\s*/, "").replace(/\]$/, "").trim();
-    const prompt = `Modern editorial book illustration. Subject: ${caption}. Style: clean, minimal, premium publishing aesthetic. Single subject focus. No text, no captions, no labels. White or off-white background. Square 1:1.`;
+
+    // 한국어 caption을 영어 image prompt로 변환 (Pollinations Flux는 영어만 잘 처리)
+    let englishPrompt = caption;
+    try {
+      const tier: Tier = (project as any).tier ?? "basic";
+      const candidates = getModelChain(tier);
+      if (candidates.length > 0) {
+        const promptResult = await callAIServer({
+          model: candidates[0],
+          system: "You convert Korean book illustration descriptions into concise English Stable Diffusion prompts.",
+          user: `Book topic: ${project.topic}\nKorean illustration request: ${caption}\n\nConvert to a single concise English Stable Diffusion prompt (one sentence, focus on visual subject + style). Output ONLY the English prompt, no explanation.`,
+          maxTokens: 256,
+          temperature: 0.5,
+          timeoutMs: 10000,
+          retries: 1,
+        });
+        englishPrompt = promptResult.text.trim().replace(/^["']|["']$/g, "");
+      }
+    } catch {
+      // 번역 실패하면 한국어 caption 그대로 사용 (fallback)
+    }
+
+    const prompt = `${englishPrompt}, modern editorial book illustration style, clean minimal premium publishing aesthetic, single subject focus, no text, no captions, no labels, no people in frame unless specified, white or off-white background, square 1:1`;
 
     let img;
     try {
-      img = await callImageGeneration({ prompt, timeoutMs: 30000 });
+      img = await callImageGeneration({ prompt, timeoutMs: 45000 });
     } catch (e: any) {
       await logAIUsage({
         userId, task: "edit", model: "imagen-4-fast",
