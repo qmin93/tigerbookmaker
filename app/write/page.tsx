@@ -409,9 +409,9 @@ function Inner() {
         setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
         return;
       }
-      if (!confirm("크몽 패키지 생성 — 이미지 6장 (Cloudflare 무료) + 카피 5종 (~₩30). 진행할까요?")) return;
+      if (!confirm("크몽 패키지 생성 — 표지 + 카피 5종 (~₩30). 나머지 이미지 5장은 모달에서 개별 생성. 진행할까요?")) return;
     }
-    setKmongBusy(regenerateOnly ? "이미지 재생성 중..." : "이미지 6장 + 카피 생성 중 (약 30~60초)...");
+    setKmongBusy(regenerateOnly ? "이미지 재생성 중..." : "표지 + 카피 생성 중 (약 15초)...");
     setError(null);
     try {
       const res = await fetch("/api/generate/kmong-package", {
@@ -757,7 +757,8 @@ function Inner() {
             📦 ZIP 다운로드 (이미지 + 카피 + README)
           </button>
 
-          <h3 className="text-sm font-bold text-ink-900 mb-3">이미지 ({(project as any).kmongPackage.images.length}/6)</h3>
+          <h3 className="text-sm font-bold text-ink-900 mb-1">이미지 ({(project as any).kmongPackage.images.length}/6)</h3>
+          <p className="text-xs text-gray-500 mb-3">표지는 자동 생성. 나머지 5장은 필요한 것만 [생성] 클릭 (각 ~5초).</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
             {(["cover", "thumb", "toc", "spec", "audience", "preview"] as const).map(type => {
               const img = (project as any).kmongPackage?.images.find((i: any) => i.type === type);
@@ -768,7 +769,7 @@ function Inner() {
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={`data:image/png;base64,${img.base64}`} alt={type} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="text-xs text-gray-400">생성 실패</div>
+                      <div className="text-xs text-gray-400 text-center px-2">아직 없음<br/><span className="text-[10px]">↓ [생성] 클릭</span></div>
                     )}
                   </div>
                   <div className="p-2 flex items-center justify-between">
@@ -776,9 +777,11 @@ function Inner() {
                     <button
                       onClick={() => generateKmongPackage([type])}
                       disabled={!!kmongBusy}
-                      className="text-[10px] text-tiger-orange hover:underline disabled:opacity-50"
+                      className={img
+                        ? "text-[10px] text-tiger-orange hover:underline disabled:opacity-50"
+                        : "text-[10px] px-2 py-1 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50"}
                     >
-                      재생성
+                      {img ? "재생성" : "생성"}
                     </button>
                   </div>
                 </div>
