@@ -60,6 +60,14 @@ function Inner() {
     } catch (e: any) { setError(e.message); }
     setBusy("");
   };
+  const exportEpub = async () => {
+    setBusy("EPUB");
+    try {
+      const { generateEpub } = await import("@/lib/export-epub");
+      await generateEpub(project);
+    } catch (e: any) { setError(e.message); }
+    setBusy("");
+  };
 
   return (
     <main className="min-h-screen bg-[#fafafa]">
@@ -81,14 +89,20 @@ function Inner() {
 
       {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
-      <div className="grid grid-cols-2 gap-4">
-        <button onClick={exportDocx} disabled={!!busy} className="p-6 bg-white border border-gray-300 rounded-xl hover:border-ink-900 hover:bg-ink-900 hover:text-white text-ink-900 font-bold transition disabled:opacity-50">
-          {busy === "DOCX" ? "생성 중..." : "📄 DOCX 다운로드"}
+      <div className="grid grid-cols-3 gap-3 md:gap-4">
+        <button onClick={exportDocx} disabled={!!busy} className="p-5 md:p-6 bg-white border border-gray-300 rounded-xl hover:border-ink-900 hover:bg-ink-900 hover:text-white text-ink-900 font-bold transition disabled:opacity-50">
+          {busy === "DOCX" ? "생성 중..." : "📄 DOCX"}
         </button>
-        <button onClick={exportPdf} disabled={!!busy} className="p-6 bg-tiger-orange text-white rounded-xl shadow-glow-orange-sm hover:bg-orange-600 font-bold transition disabled:opacity-50 disabled:shadow-none">
-          {busy === "PDF" ? "생성 중..." : "📕 PDF 다운로드"}
+        <button onClick={exportPdf} disabled={!!busy} className="p-5 md:p-6 bg-tiger-orange text-white rounded-xl shadow-glow-orange-sm hover:bg-orange-600 font-bold transition disabled:opacity-50 disabled:shadow-none">
+          {busy === "PDF" ? "생성 중..." : "📕 PDF"}
+        </button>
+        <button onClick={exportEpub} disabled={!!busy} className="p-5 md:p-6 bg-white border-2 border-tiger-orange text-tiger-orange rounded-xl hover:bg-orange-50 font-bold transition disabled:opacity-50">
+          {busy === "EPUB" ? "생성 중..." : "📚 EPUB"}
         </button>
       </div>
+      <p className="mt-4 text-xs font-mono text-gray-500 text-center">
+        🌟 EPUB — 리디·교보·KDP 등록용 표준
+      </p>
 
       <p className="text-xs font-mono text-gray-400 mt-8 text-center uppercase tracking-wider">Made with Tigerbookmaker · 본문 12pt / 줄간격 1.5 / 여백 2.5cm</p>
     </div>
