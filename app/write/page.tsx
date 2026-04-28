@@ -71,6 +71,11 @@ function Inner() {
   const [imageGenBusy, setImageGenBusy] = useState<string>("");
   const [kmongModalOpen, setKmongModalOpen] = useState(false);
   const [kmongBusy, setKmongBusy] = useState<string>("");
+  const [kmongProgress, setKmongProgress] = useState<{
+    done: number;
+    total: number;
+    items: Record<string, "pending" | "done" | "failed">;
+  } | null>(null);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -401,6 +406,64 @@ function Inner() {
     await saveProject({ ...project, chapters });
   };
 
+  // 한 번 클릭으로 6 이미지 + 1 카피를 순차 생성 (각 ~5초, 총 ~35-50초).
+  // 단일 요청이 30초를 절대 못 넘기게 분리 — Vercel 60s 한도와 무관.
+  const generateFullKmongPackage = async () => {
+    if (!project) return;
+    const allDone = project.chapters.length > 0 && project.chapters.every(c => c.content);
+    if (!allDone) {
+      setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
+      return;
+    }
+    if (!confirm("크몽 패키지 — 이미지 6장 + 카피 5종 (~₩30, 약 40초). 진행할까요?")) return;
+
+    setError(null);
+    setKmongModalOpen(true);
+
+    const tasks = ["cover", "thumb", "toc", "spec", "audience", "preview", "copy"] as const;
+    const initialItems: Record<string, "pending" | "done" | "failed"> = {};
+    tasks.forEach(t => initialItems[t] = "pending");
+    setKmongProgress({ done: 0, total: tasks.length, items: initialItems });
+
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      setKmongBusy(`${task} 생성 중... (${i + 1}/${tasks.length})`);
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 35_000);
+      try {
+        const body = task === "copy"
+          ? { projectId }
+          : { projectId, regenerateOnly: [task] };
+        const res = await fetch("/api/generate/kmong-package", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        const data = await res.json();
+        if (res.status === 402) {
+          if (confirm("잔액 부족. 충전 페이지로 이동할까요?")) router.push("/billing");
+          setKmongProgress(p => p ? { ...p, items: { ...p.items, [task]: "failed" } } : p);
+          break;
+        }
+        if (!res.ok) throw new Error(data.message || `${task} 실패 (${res.status})`);
+        if (data.newBalance != null) setBalance(data.newBalance);
+        // 매 단계 project 갱신해서 다음 호출의 base로 사용
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+        setKmongProgress(p => p ? { ...p, done: p.done + 1, items: { ...p.items, [task]: "done" } } : p);
+      } catch (e: any) {
+        const errMsg = e.name === "AbortError" ? `${task} 시간 초과` : e.message;
+        console.error(`[kmong-${task}]`, errMsg);
+        setKmongProgress(p => p ? { ...p, done: p.done + 1, items: { ...p.items, [task]: "failed" } } : p);
+      } finally {
+        clearTimeout(tid);
+      }
+    }
+
+    setKmongBusy("");
+  };
+
   const generateKmongPackage = async (regenerateOnly?: string[]) => {
     if (!project) return;
     if (!regenerateOnly) {
@@ -530,7 +593,7 @@ function Inner() {
                 </button>
               </div>
               <button
-                onClick={() => generateKmongPackage()}
+                onClick={generateFullKmongPackage}
                 disabled={!!loading || !!kmongBusy || batch.status === "running"}
                 className="w-full px-3 py-2 mt-1 border-2 border-tiger-orange text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-50 transition disabled:opacity-50"
               >
@@ -748,23 +811,56 @@ function Inner() {
           </div>
         </div>
       )}
-    {kmongModalOpen && (project as any).kmongPackage && (
+    {kmongModalOpen && (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setKmongModalOpen(false)}>
         <div className="bg-white rounded-2xl max-w-4xl w-full p-6 md:p-8 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-start justify-between mb-6">
             <div>
-              <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">크몽 패키지 완성</p>
+              <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">
+                {kmongProgress && kmongProgress.done < kmongProgress.total ? "크몽 패키지 생성 중" : "크몽 패키지"}
+              </p>
               <h2 className="text-2xl font-black tracking-tight text-ink-900">{project.topic}</h2>
             </div>
             <button onClick={() => setKmongModalOpen(false)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>
           </div>
 
+          {/* 진행 바 */}
+          {kmongProgress && (
+            <div className="mb-6 p-4 rounded-xl bg-orange-50 border border-tiger-orange/30">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-bold text-ink-900">
+                  {kmongProgress.done < kmongProgress.total ? "🔨 작업 진행 중" : "✓ 완료"}
+                </span>
+                <span className="font-mono text-sm text-tiger-orange font-bold">{kmongProgress.done}/{kmongProgress.total}</span>
+              </div>
+              <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full bg-tiger-orange transition-all duration-300"
+                  style={{ width: `${(kmongProgress.done / kmongProgress.total) * 100}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 text-[10px] font-mono">
+                {Object.entries(kmongProgress.items).map(([k, s]) => (
+                  <span key={k} className={
+                    s === "done" ? "px-2 py-0.5 bg-green-100 text-green-700 rounded"
+                    : s === "failed" ? "px-2 py-0.5 bg-red-100 text-red-700 rounded"
+                    : "px-2 py-0.5 bg-gray-100 text-gray-600 rounded animate-pulse"
+                  }>
+                    {s === "done" ? "✓" : s === "failed" ? "✗" : "⋯"} {k}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(project as any).kmongPackage ? (
+          <>
           <button onClick={downloadKmongPackage} className="w-full mb-6 py-3 bg-tiger-orange text-white text-base font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
             📦 ZIP 다운로드 (이미지 + 카피 + README)
           </button>
 
           <h3 className="text-sm font-bold text-ink-900 mb-1">이미지 ({(project as any).kmongPackage.images.length}/6)</h3>
-          <p className="text-xs text-gray-500 mb-3">표지는 자동 생성. 나머지 5장은 필요한 것만 [생성] 클릭 (각 ~5초).</p>
+          <p className="text-xs text-gray-500 mb-3">생성 실패한 이미지는 [재생성] 버튼으로 개별 재시도.</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
             {(["cover", "thumb", "toc", "spec", "audience", "preview"] as const).map(type => {
               const img = (project as any).kmongPackage?.images.find((i: any) => i.type === type);
@@ -813,6 +909,12 @@ function Inner() {
               </div>
             ))}
           </div>
+          </>
+          ) : (
+            <div className="text-center py-12 text-gray-500 text-sm">
+              {kmongProgress ? "첫 작업 완료까지 잠시 기다려주세요..." : "패키지가 없습니다."}
+            </div>
+          )}
         </div>
       </div>
     )}
