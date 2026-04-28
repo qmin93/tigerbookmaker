@@ -68,6 +68,7 @@ function Inner() {
   const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
   const [batch, setBatch] = useState<BatchState>({ status: "idle" });
   const [editingContent, setEditingContent] = useState<string | null>(null);
+  const [imageGenBusy, setImageGenBusy] = useState<string>("");
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -398,6 +399,32 @@ function Inner() {
     await saveProject({ ...project, chapters });
   };
 
+  const generateChapterImage = async (chapterIdx: number, placeholder: string) => {
+    setImageGenBusy(placeholder);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/chapter-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, chapterIdx, placeholder }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `이미지 생성 실패 (${res.status})`);
+      if (data.newBalance != null) setBalance(data.newBalance);
+      // fresh project로 동기화
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setImageGenBusy("");
+    }
+  };
+
   const active = project.chapters[activeIdx];
   const placeholders = active ? extractImagePlaceholders(active.content) : [];
 
@@ -574,16 +601,30 @@ function Inner() {
                               <div className="flex flex-col gap-1 items-end">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={img.dataUrl} alt={caption} className="w-20 h-20 object-cover rounded" />
-                                <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-red-600 hover:underline">삭제</button>
+                                <div className="flex gap-2">
+                                  <button onClick={() => generateChapterImage(activeIdx, ph)} disabled={!!imageGenBusy} className="text-xs text-tiger-orange hover:underline disabled:opacity-50">
+                                    재생성
+                                  </button>
+                                  <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-red-600 hover:underline">삭제</button>
+                                </div>
                               </div>
                             ) : (
-                              <label className="text-xs px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-tiger-orange whitespace-nowrap">
-                                업로드
-                                <input
-                                  type="file" accept="image/*" className="hidden"
-                                  onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
-                                />
-                              </label>
+                              <div className="flex flex-col gap-1 items-end">
+                                <button
+                                  onClick={() => generateChapterImage(activeIdx, ph)}
+                                  disabled={!!imageGenBusy}
+                                  className="text-xs px-3 py-2 bg-tiger-orange text-white rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50 whitespace-nowrap shadow-glow-orange-sm"
+                                >
+                                  {imageGenBusy === ph ? "생성 중..." : "✨ AI 자동 생성"}
+                                </button>
+                                <label className="text-[10px] px-2 py-1 text-gray-500 cursor-pointer hover:text-tiger-orange whitespace-nowrap">
+                                  또는 직접 업로드
+                                  <input
+                                    type="file" accept="image/*" className="hidden"
+                                    onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
+                                  />
+                                </label>
+                              </div>
                             )}
                           </div>
                         );

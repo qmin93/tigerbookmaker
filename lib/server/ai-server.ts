@@ -639,3 +639,99 @@ export async function* callStreamWithFallback(opts: {
   }
   throw lastErr;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Image generation (Imagen 4 Fast 메인, OpenAI gpt-image-1 fallback)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ImageResult {
+  base64: string;
+  vendor: "gemini" | "openai";
+  costUSD: number;
+  durationMs: number;
+}
+
+export async function callImageGeneration(opts: {
+  prompt: string;
+  timeoutMs?: number;
+}): Promise<ImageResult> {
+  const started = Date.now();
+  const timeoutMs = opts.timeoutMs ?? 30000;
+  const errors: string[] = [];
+
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const r = await callImagenFast(opts.prompt, timeoutMs);
+      return { ...r, durationMs: Date.now() - started };
+    } catch (e: any) {
+      errors.push(`Imagen: ${e?.message ?? e}`);
+    }
+  }
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const r = await callOpenAIImage(opts.prompt, timeoutMs);
+      return { ...r, durationMs: Date.now() - started };
+    } catch (e: any) {
+      errors.push(`OpenAI Image: ${e?.message ?? e}`);
+    }
+  }
+  throw new Error(`이미지 생성 실패. 결제 활성화가 필요할 수 있습니다. ${errors.join(" / ") || "API 키 없음"}`);
+}
+
+async function callImagenFast(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+  const apiKey = process.env.GEMINI_API_KEY!;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt }],
+        parameters: { sampleCount: 1, aspectRatio: "1:1" },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Imagen ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
+    if (!b64) throw new Error("Imagen: no image in response");
+    return { base64: b64, vendor: "gemini", costUSD: 0.02 };
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`Imagen 시간 초과 (${timeoutMs}ms)`);
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+async function callOpenAIImage(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+  const apiKey = process.env.OPENAI_API_KEY!;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1024x1024", n: 1 }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`OpenAI Image ${res.status}: ${err.slice(0, 200)}`);
+    }
+    const data = await res.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) throw new Error("OpenAI Image: no b64_json in response");
+    return { base64: b64, vendor: "openai", costUSD: 0.04 };
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`OpenAI Image 시간 초과 (${timeoutMs}ms)`);
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
+}
