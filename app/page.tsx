@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { SAMPLE_BOOKS, TIER_CARDS, HERO_STATS, TRUST_ITEMS, PERFORMANCE_METRICS } from "@/lib/landing-data";
+import { SAMPLE_BOOKS, PRICING, HERO_STATS, TRUST_ITEMS, PERFORMANCE_METRICS } from "@/lib/landing-data";
 
 export default function Home() {
   return (
@@ -145,30 +145,45 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6">
           <Eyebrow>가격</Eyebrow>
           <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            품질·예산 따라.<br />책 한 권 ₩500부터.
+            한 권 ₩1,000.<br />충전한 만큼만.
           </h2>
-          <p className="mt-4 text-gray-600 max-w-xl">충전한 만큼만 사용. 사용 안 한 잔액은 7일 내 100% 환불.</p>
+          <p className="mt-4 text-gray-600 max-w-xl">사용한 만큼 차감. 사용 안 한 잔액은 7일 내 100% 환불.</p>
         </div>
-        <div className="mt-12 max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          {TIER_CARDS.map(t => (
-            <div
-              key={t.id}
-              className={`rounded-2xl p-6 md:p-8 border transition bg-white ${
-                t.featured ? "border-tiger-orange shadow-glow-orange-sm" : "border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              {t.featured && (
-                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">★ 인기</div>
-              )}
-              <div className="text-xl font-bold text-ink-900">{t.emoji} {t.name}</div>
-              <div className="mt-3 font-mono text-3xl md:text-4xl font-black text-ink-900 tracking-tight">
-                ₩{t.price.toLocaleString()}
-                <span className="text-sm text-gray-500 font-normal">/권</span>
-              </div>
-              <div className="mt-4 text-sm text-gray-700">{t.blurb}</div>
-              <div className="mt-2 text-xs text-gray-500">{t.audience}</div>
+        <div className="mt-12 max-w-3xl mx-auto px-6">
+          <div className="rounded-2xl p-8 md:p-10 border-2 border-tiger-orange shadow-glow-orange-sm bg-white">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">한 권 가격</div>
+            <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tight">
+              ₩1,000<span className="text-base text-gray-500 font-normal">/권</span>
             </div>
-          ))}
+            <div className="mt-4 text-base text-gray-700">한국어 12챕터, 30분 자동 집필. PDF·DOCX 즉시 다운로드.</div>
+            <div className="mt-2 text-sm text-gray-500">회원가입 시 ₩1,000 자동 충전 — <strong className="text-tiger-orange">첫 책 무료</strong></div>
+          </div>
+        </div>
+        <div className="mt-10 max-w-6xl mx-auto px-6">
+          <p className="text-xs font-mono uppercase tracking-[0.2em] text-gray-500 mb-4 text-center">충전 단위</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+            {PRICING.map(p => {
+              const totalCredit = p.amount + p.bonus;
+              const books = Math.floor(totalCredit / 1000);
+              return (
+                <div
+                  key={p.amount}
+                  className={`rounded-2xl p-5 md:p-6 border transition bg-white text-center ${
+                    p.featured ? "border-tiger-orange shadow-glow-orange-sm" : "border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  {p.featured && <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">★ 인기</div>}
+                  <div className="font-mono text-2xl md:text-3xl font-bold text-ink-900 tracking-tight">₩{p.amount.toLocaleString()}</div>
+                  {p.bonus > 0 ? (
+                    <div className="text-xs font-mono text-tiger-orange mt-1">+₩{p.bonus.toLocaleString()} 보너스</div>
+                  ) : (
+                    <div className="text-xs font-mono text-gray-400 mt-1">—</div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-3">책 {books}권</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

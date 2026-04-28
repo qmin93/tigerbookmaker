@@ -141,15 +141,12 @@ export default function BillingPage() {
           ))}
         </div>
 
-        {/* 티어별 환산 */}
+        {/* 환산 */}
         {selected && (
           <div className="mb-6 p-4 rounded-xl bg-orange-50 border border-tiger-orange/30 text-sm">
-            <div className="font-bold text-ink-900 mb-2">충전 ₩{selected.toLocaleString()} → 책 환산:</div>
-            <ul className="space-y-1 text-gray-700 font-mono text-xs">
-              <li>🌱 베이직 ₩500/권 → 약 <strong className="text-tiger-orange">{Math.floor(selected / 500)}권</strong></li>
-              <li>⭐ 프로 ₩1,500/권 → 약 <strong className="text-tiger-orange">{Math.floor(selected / 1500)}권</strong></li>
-              <li>🌟 프리미엄 ₩7,000/권 → 약 <strong className="text-tiger-orange">{Math.floor(selected / 7000)}권</strong></li>
-            </ul>
+            <div className="font-bold text-ink-900">
+              충전 ₩{selected.toLocaleString()} → 책 약 <strong className="text-tiger-orange">{Math.floor(selected / 1000)}권</strong> (₩1,000/권)
+            </div>
           </div>
         )}
 

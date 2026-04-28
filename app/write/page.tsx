@@ -409,11 +409,6 @@ function Inner() {
           <h1 className="text-lg sm:text-xl font-black mt-1 line-clamp-2 break-keep">{project.topic}</h1>
           <p className="text-xs text-gray-500">
             {project.audience} · {project.type} · {project.targetPages}쪽
-            {project.tier && (
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-orange-50 border border-tiger-orange/30 font-mono text-tiger-orange uppercase tracking-wider text-[10px]">
-                {project.tier === "basic" ? "🌱 베이직" : project.tier === "premium" ? "🌟 프리미엄" : "⭐ 프로"}
-              </span>
-            )}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
