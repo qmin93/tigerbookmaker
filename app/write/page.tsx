@@ -122,7 +122,8 @@ function Inner() {
       const res = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, model, ...body }),
+        // model은 보내지 않음 → 서버가 project.tier 기반 chain 자동 선택
+        body: JSON.stringify({ projectId, ...body }),
       });
       const data = await res.json();
       if (res.status === 402) {
@@ -154,7 +155,8 @@ function Inner() {
       const res = await fetch("/api/generate/chapter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, model, chapterIdx }),
+        // model 미지정 → 서버가 project.tier 기반 chain 자동 선택
+        body: JSON.stringify({ projectId, chapterIdx }),
         signal,
       });
       // 잔액 부족 등 일반 JSON 응답
@@ -412,9 +414,6 @@ function Inner() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select value={model} onChange={e => setModel(e.target.value as any)} className="text-sm px-3 py-2 border border-gray-200 rounded-lg">
-            {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
           <Link href={`/export?id=${projectId}`} className="px-4 py-2 bg-ink-900 text-white rounded-lg font-bold text-sm">내보내기 →</Link>
         </div>
       </div>
