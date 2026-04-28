@@ -12,60 +12,64 @@ export interface KmongCopy {
   twitter: string;
 }
 
-// 영어 prompt — Cloudflare Workers AI (Flux 1 Schnell) 가 한국어 약함.
-// 책 정보를 영어로 짧게 인라인.
+// Cloudflare Flux 1 Schnell — 한국어/한자 텍스트 못 만듦. prompt에 한국어 들어가면
+// 깨진 글자 그리려 시도. 그래서:
+// 1) "Korean" 키워드 완전 제거 (Flux가 한국어 텍스트 만들려는 신호)
+// 2) 한국어 topic/audience를 prompt에 직접 인라인 X
+// 3) 부정문 "NO text" 약함 → "wordless" "no letters of any language" 같은 강한 표현 반복
+// 4) "book cover" → "magazine cover art" (책 mockup 그리는 거 회피)
 
-// 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기를 분기.
-function coverPromptByGenre(p: BookProject, topic: string): string {
-  const base = `Korean ebook cover, square 1:1, premium publishing aesthetic, NO Korean text, NO Hangul characters in image. Topic: "${topic}".`;
+const NO_TEXT = `WORDLESS, no letters, no numbers, no characters, no glyphs, no symbols, no readable text of any language anywhere in the image. Pure visual artwork only.`;
+const NO_BOOK_OBJECT = `flat 2D artwork only, NO 3D book mockup, NO physical book, NO bound pages.`;
+
+// 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기 분기. topic은 prompt에 직접 사용 X.
+function coverPromptByGenre(p: BookProject): string {
+  const base = `Square 1:1 magazine cover art, premium editorial design. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
 
   switch (p.type) {
     case "자기계발서":
-      return `${base} Bold typography-driven design. Strong abstract shape (arrow, rising curve, mountain peak) suggesting growth and momentum. Two-color palette: warm orange (#f97316) accent on cream/white background. Editorial book cover style. Confident, motivational mood. NO photo realism.`;
+      return `${base} Powerful upward arrow, mountain peak, or rising line graph as central abstract element. Warm orange (#f97316) on cream/white background. Bold geometric shapes. Confident motivational mood.`;
 
     case "재테크":
-      return `${base} Financial book cover. Subtle line chart or upward graph as background motif. Dark navy + gold accent palette, OR clean white with deep green accent. Trustworthy professional banking aesthetic. Geometric and serious. NO cartoon style, NO cash piles.`;
+      return `${base} Abstract financial chart pattern — upward trending line graph, geometric coin silhouette, or vault icon. Deep navy + gold OR white + emerald palette. Banking professional aesthetic. Geometric and serious.`;
 
     case "에세이":
-      return `${base} Emotional abstract cover. Soft watercolor wash, single botanical element (leaf, branch, single flower), or atmospheric landscape silhouette. Muted earthy palette (sage, terracotta, cream). Quiet contemplative mood. Hand-drawn illustration style. NO bold typography focus.`;
+      return `${base} Soft watercolor wash, single botanical element (leaf, branch, single flower silhouette), or atmospheric landscape silhouette. Muted earthy palette (sage, terracotta, cream). Quiet contemplative mood. Hand-drawn illustration style.`;
 
     case "웹소설":
-      return `${base} Webnovel cover style. Single dramatic character silhouette or evocative scene, cinematic mood lighting, vivid contrast. Webtoon-influenced illustration aesthetic but painterly. Genre-appropriate atmosphere (romantic / fantasy / mystery based on topic). High visual drama.`;
+      return `${base} Single dramatic character silhouette OR evocative cinematic scene, mood lighting, vivid color contrast. Webtoon-influenced painterly illustration. Story-rich dramatic atmosphere.`;
 
     case "전문서":
-      return `${base} Academic/professional book cover. Geometric grid layout, restrained typography hierarchy, single conceptual diagram or symbolic icon. Cool palette (deep blue, charcoal, white). Serious authoritative mood, like a university press publication. Minimalist and structured.`;
+      return `${base} Geometric grid composition, single conceptual diagram or symbolic icon (network, atom, abstract graph). Cool palette: deep blue, charcoal, white. Authoritative academic mood. Minimalist structured layout.`;
 
     case "매뉴얼":
-      return `${base} Technical manual cover. Schematic diagram or exploded-view illustration of relevant tool/process. Blueprint aesthetic — fine line work, monochrome with single safety-orange (#f97316) accent. Functional and clear. NO decorative flourishes.`;
+      return `${base} Schematic exploded-view diagram of generic tool, blueprint aesthetic, fine line work. Monochrome with single safety-orange (#f97316) accent. Functional clear technical drawing.`;
 
     case "실용서":
     default:
-      return `${base} Modern minimalist cover. Big bold typography-led layout, clean white background, single accent color (orange #f97316), one simple geometric or symbolic icon. Editorial design. NO complex illustration.`;
+      return `${base} Modern minimalist composition, single bold geometric or symbolic icon centered. Clean white background, single accent color (orange #f97316). Editorial design.`;
   }
 }
 
 export function imagePrompt(type: KmongImageType, p: BookProject): string {
-  const topic = p.topic.slice(0, 80);
-  const audience = p.audience.slice(0, 50);
-
   switch (type) {
     case "cover":
-      return coverPromptByGenre(p, topic);
+      return coverPromptByGenre(p);
 
     case "thumb":
-      return `Eye-catching ebook marketplace thumbnail. Topic: "${topic}". Bold visual metaphor in center, bright color contrast (orange #f97316 accent), professional publishing look. Square 1:1. NO text in image (will overlay separately).`;
+      return `Square 1:1 ebook marketplace thumbnail. Bold central visual metaphor — abstract icon or geometric shape representing growth/learning/insight. Bright color contrast with orange (#f97316) accent. Professional publishing aesthetic. ${NO_TEXT}`;
 
     case "toc":
-      return `Clean modern infographic showing 12-chapter table of contents structure. Vertical numbered list with subtle dividers. White background, monochrome with orange accents. Professional publishing aesthetic. Square 1:1. NO actual text content (just structural visual).`;
+      return `Square 1:1 abstract structural infographic. Vertical stack of horizontal lines or bars suggesting a hierarchical list, with subtle thin dividers. White background, monochrome with orange (#f97316) accent dots. Clean editorial. ${NO_TEXT}`;
 
     case "spec":
-      return `Minimalist book specification card. Show file format icons (PDF, DOCX), page icons, layout grid. Modern flat design, hairline borders, monochrome with single orange accent. Premium professional. Square 1:1. NO Korean text.`;
+      return `Square 1:1 minimalist file format icon composition. Document icons (folded corner page shapes), grid layout, hairline borders. Modern flat design. Monochrome with single orange (#f97316) accent. Premium professional. ${NO_TEXT}`;
 
     case "audience":
-      return `Friendly persona illustration for "${audience}". Single character or icon representing the target reader. Warm minimal style, single subject focus, white background with subtle warm accent. Modern editorial illustration. Square 1:1. NO text.`;
+      return `Square 1:1 friendly persona illustration. Single warm character portrait — head and shoulders, simple line illustration style, neutral expression. Soft warm palette (peach, cream, sage). White background. Modern editorial illustration. ${NO_TEXT}`;
 
     case "preview":
-      return `Mockup of an open ebook on a clean desk. Minimal photo style, paper texture visible, soft natural lighting. White background. Editorial product shot. Square 1:1.`;
+      return `Square 1:1 minimal flat-lay scene of an open paper book on a clean wooden desk, soft natural lighting from a side window, a small coffee cup nearby. Editorial product photography style. Pages visible but blurred — pure visual atmosphere. ${NO_TEXT}`;
   }
 }
 
