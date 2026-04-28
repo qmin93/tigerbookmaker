@@ -27,7 +27,7 @@ export default function Home() {
           </p>
           <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
             <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
-              베타 무료 — 책 10권 받기
+              베타 무료 — 책 3권 받기
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </Link>
             <Link href="#samples" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-gray-300 hover:border-ink-900 hover:bg-white text-ink-900 font-bold transition">
@@ -145,15 +145,15 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6">
           <Eyebrow>베타 기간</Eyebrow>
           <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            지금 가입하면<br /><span className="text-tiger-orange">책 10권 무료.</span>
+            지금 가입하면<br /><span className="text-tiger-orange">책 3권 무료.</span>
           </h2>
-          <p className="mt-4 text-gray-600 max-w-xl">베타 기간 동안 회원가입 즉시 ₩10,000 크레딧 자동 지급. 카드 등록 불필요.</p>
+          <p className="mt-4 text-gray-600 max-w-xl">베타 기간 — 회원가입 + 이메일 인증 시 ₩3,000 크레딧 자동 지급. 카드 등록 불필요.</p>
         </div>
         <div className="mt-12 max-w-3xl mx-auto px-6">
           <div className="rounded-2xl p-8 md:p-10 border-2 border-tiger-orange shadow-glow-orange-sm bg-white">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">베타 환영 크레딧</div>
             <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tight">
-              ₩10,000<span className="text-base text-gray-500 font-normal"> 무료</span>
+              ₩3,000<span className="text-base text-gray-500 font-normal"> 무료</span>
             </div>
             <div className="mt-4 text-base text-gray-700">한국어 12챕터, 30분 자동 집필. PDF·DOCX·EPUB 즉시 다운로드. 크몽 패키지 포함.</div>
             <div className="mt-2 text-sm text-gray-500">정식 결제는 사업자등록 완료 후 시작 — 그동안 부담 없이 써보세요.</div>
@@ -163,8 +163,8 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div className="rounded-2xl p-5 md:p-6 border border-gray-200 bg-white">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">기본 혜택</div>
-              <div className="font-bold text-ink-900 mb-1">책 10권 자동 충전</div>
-              <div className="text-xs text-gray-500">가입 즉시 ₩10,000 크레딧</div>
+              <div className="font-bold text-ink-900 mb-1">책 3권 자동 충전</div>
+              <div className="text-xs text-gray-500">이메일 인증 시 ₩3,000 크레딧</div>
             </div>
             <div className="rounded-2xl p-5 md:p-6 border border-tiger-orange/40 bg-orange-50">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">★ 추가 혜택</div>
@@ -185,11 +185,11 @@ export default function Home() {
             오늘부터<br /><span className="text-tiger-orange">책을 쓰세요.</span>
           </h2>
           <p className="mt-6 text-ink-300 text-lg max-w-xl mx-auto">
-            베타 기간 — 가입 즉시 ₩10,000 자동 충전. 책 10권 무료. 카드 등록 불필요.
+            베타 기간 — 가입 + 이메일 인증 시 ₩3,000 자동 충전. 책 3권 무료. 카드 등록 불필요.
           </p>
           <div className="mt-10">
             <Link href="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-tiger-orange text-white text-lg font-bold shadow-glow-orange hover:bg-orange-600 transition">
-              베타 무료 — 책 10권 받기 →
+              베타 무료 — 책 3권 받기 →
             </Link>
           </div>
         </div>

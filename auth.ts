@@ -13,7 +13,10 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { isDisposableEmail } from "@/lib/server/rate-limit";
 
-const SIGNUP_BONUS_KRW = 1000;
+// 베타 환영 크레딧 — 책 3권. 어뷰즈 방지 위해 이메일 인증 후에만 지급.
+// 매직링크/Google: events.createUser에서 자동 (verify된 가입이라 즉시 OK)
+// 비밀번호 가입: 첫 매직링크 verify 시 signIn callback에서 지급
+const SIGNUP_BONUS_KRW = 3000;
 
 let _resend: Resend | null = null;
 function getResend() {
@@ -94,7 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           type: "bonus",
           amountKrw: SIGNUP_BONUS_KRW,
           balanceAfter: SIGNUP_BONUS_KRW,
-          reason: "회원가입 환영 크레딧",
+          reason: "베타 환영 크레딧 (책 3권)",
         });
       } catch (e) {
         console.error("[signup-bonus] failed", e);
@@ -102,11 +105,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       // 1회용 이메일 도메인 차단 (어뷰즈 방지)
       if (user.email && isDisposableEmail(user.email)) {
         console.warn("[signin] disposable email blocked:", user.email);
         return false;
+      }
+      // 비밀번호로 가입한 사용자가 매직링크 verify 첫 클릭 시 베타 보너스 지급.
+      // (events.createUser는 NextAuth가 새 user 생성할 때만 호출 — 비번 가입자는 우리 register route가
+      //  직접 INSERT 했으므로 호출 안 됨. signIn callback이 첫 verify 시점이라 여기서 지급.)
+      if (account?.provider === "email" && user.email) {
+        try {
+          const { rows } = await import("@vercel/postgres").then(m => m.sql<{
+            id: string; signup_bonus_given: boolean;
+          }>`SELECT id, signup_bonus_given FROM users WHERE email = ${user.email!.toLowerCase()}`);
+          const u = rows[0];
+          if (u && !u.signup_bonus_given) {
+            await db.update(users)
+              .set({ balanceKrw: SIGNUP_BONUS_KRW, signupBonusGiven: true })
+              .where(eq(users.id, u.id));
+            await db.insert(balanceTransactions).values({
+              userId: u.id,
+              type: "bonus",
+              amountKrw: SIGNUP_BONUS_KRW,
+              balanceAfter: SIGNUP_BONUS_KRW,
+              reason: "베타 환영 크레딧 (책 3권 — 이메일 인증 완료)",
+            });
+          }
+        } catch (e) {
+          console.error("[verify-bonus] failed", e);
+        }
       }
       return true;
     },

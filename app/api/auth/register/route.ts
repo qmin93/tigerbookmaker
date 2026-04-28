@@ -9,9 +9,8 @@ import { rateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 
-// 베타 기간 환영 크레딧 — 책 10권 분량.
-// 결제 시스템 활성화(사업자등록 + 토스 가맹점 심사 완료) 후 1000원 복귀.
-const SIGNUP_BONUS_KRW = 10000;
+// 보너스는 이메일 인증 후 NextAuth signIn callback에서 지급 (auth.ts).
+// 어뷰즈 방지 — 검증되지 않은 이메일에 즉시 크레딧 X.
 
 export async function POST(req: Request) {
   const { email: rawEmail, password } = await req.json().catch(() => ({}));
@@ -55,16 +54,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, mode: "password_added" });
   }
 
-  // 신규 가입 — users + balance + 보너스 트랜잭션 한 번에
-  const { rows: created } = await sql<{ id: string }>`
-    INSERT INTO users (email, password_hash, balance_krw, signup_bonus_given, email_verified)
-    VALUES (${email}, ${hash}, ${SIGNUP_BONUS_KRW}, TRUE, NOW())
-    RETURNING id
-  `;
+  // 신규 가입 — verify 전이라 balance=0, signup_bonus_given=FALSE로만 INSERT.
+  // 클라이언트가 signIn("email", { email })로 매직링크 발송 → 사용자 클릭 → auth.ts signIn callback에서 보너스.
   await sql`
-    INSERT INTO balance_transactions (user_id, type, amount_krw, balance_after, reason)
-    VALUES (${created[0].id}, 'bonus', ${SIGNUP_BONUS_KRW}, ${SIGNUP_BONUS_KRW}, '베타 환영 크레딧 (책 10권)')
+    INSERT INTO users (email, password_hash, balance_krw, signup_bonus_given)
+    VALUES (${email}, ${hash}, 0, FALSE)
   `;
 
-  return NextResponse.json({ ok: true, mode: "registered" });
+  return NextResponse.json({
+    ok: true,
+    mode: "registered",
+    verifyRequired: true,
+    message: "이메일 인증 후 책 3권 무료 크레딧이 지급됩니다.",
+  });
 }
