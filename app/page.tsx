@@ -63,10 +63,13 @@ export default function Home() {
             <span className="text-xs font-mono text-gray-500 uppercase tracking-wider">← 옆으로 스와이프 →</span>
           </div>
         </div>
-        <div className="mt-12 max-w-6xl mx-auto pl-6 md:pl-[calc((100vw-72rem)/2+1.5rem)]">
-          <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-6 pr-6 scroll-smooth scrollbar-thin">
+        <div className="mt-12 max-w-6xl mx-auto px-6 relative">
+          {/* 양쪽 fade mask로 끝부분 자연스럽게 */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#fafafa] to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#fafafa] to-transparent z-10" />
+          <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-6 scroll-smooth -mx-6 px-6">
             {SAMPLE_BOOKS.map((b, i) => (
-              <div key={i} className="flex-shrink-0 w-[260px] md:w-[280px] snap-start">
+              <div key={i} className="flex-shrink-0 w-[320px] md:w-[380px] snap-center">
                 <GenreBookCard {...b} />
               </div>
             ))}
@@ -229,61 +232,102 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 // 장르별 시그니처 디자인. 실제 cover 있으면 우선 표시, 없으면 장르 분기.
 function GenreBookCard({ cover, title, subtitle, audience, category, chapters, pages }: any) {
   return (
-    <article className="group rounded-2xl border border-gray-200 bg-white p-4 hover:border-tiger-orange hover:shadow-md transition h-full">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-3 ring-1 ring-gray-200">
+    <article className="group rounded-2xl border border-gray-200 bg-white p-5 hover:border-tiger-orange hover:shadow-xl transition-all h-full">
+      <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-4 ring-1 ring-gray-200 shadow-sm">
         {cover ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={cover} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 border border-gray-200 text-[10px] font-mono text-tiger-orange uppercase tracking-wider">실제 결과물</div>
+            <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-white/95 border border-gray-200 text-[10px] font-mono text-tiger-orange uppercase tracking-wider">실제 결과물</div>
           </>
         ) : (
           <CoverDesign category={category} title={title} subtitle={subtitle} />
         )}
       </div>
       <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange">{category}</div>
-      <h3 className="mt-1.5 text-base font-bold text-ink-900 leading-snug line-clamp-2 min-h-[2.6rem]">{title}</h3>
-      <p className="mt-1 text-xs text-gray-600 line-clamp-2 min-h-[2rem]">{subtitle}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono text-gray-500">
+      <h3 className="mt-2 text-lg font-bold text-ink-900 leading-snug line-clamp-2 min-h-[3.2rem]">{title}</h3>
+      <p className="mt-1.5 text-sm text-gray-600 line-clamp-2 min-h-[2.6rem]">{subtitle}</p>
+      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-gray-500">
         <span>{chapters}챕터</span><span>·</span><span>{pages}쪽</span>
       </div>
-      <div className="mt-1 text-[10px] text-gray-400 line-clamp-1">{audience}</div>
+      <div className="mt-1 text-[11px] text-gray-400 line-clamp-1">{audience}</div>
     </article>
   );
 }
 
-// 장르별 표지 디자인 — 인라인 SVG로 시그니처 모티프
+// 장르별 표지 디자인 — 풍부한 SVG 모티프 + 그라데이션 + 디테일
 function CoverDesign({ category, title, subtitle }: { category: string; title: string; subtitle: string }) {
   switch (category) {
     case "자기계발서":
       return (
-        <div className="w-full h-full bg-gradient-to-br from-orange-50 to-orange-100 flex flex-col justify-between p-5 relative overflow-hidden">
-          <svg className="absolute -right-4 -top-4 w-32 h-32 text-tiger-orange/30" viewBox="0 0 100 100" fill="none">
-            <path d="M50 90 L50 20 M30 40 L50 20 L70 40" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+        <div className="w-full h-full bg-gradient-to-br from-orange-100 via-orange-200 to-amber-300 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 햇살 그라데이션 글로우 */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-gradient-radial from-yellow-200/80 to-transparent blur-2xl" />
+          {/* 큰 화살표 */}
+          <svg className="absolute -bottom-8 -right-8 w-48 h-48 text-tiger-orange" viewBox="0 0 100 100" fill="none">
+            <defs>
+              <linearGradient id="arr" x1="0%" y1="100%" x2="0%" y2="0%">
+                <stop offset="0%" stopColor="#ea580c" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#f97316" stopOpacity="0.9"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 95 L50 15 M28 38 L50 15 L72 38" stroke="url(#arr)" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange relative z-10">{category}</span>
+          {/* 작은 별/스파클 */}
+          <svg className="absolute top-4 right-6 w-6 h-6 text-tiger-orange opacity-70" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z"/>
+          </svg>
+          <svg className="absolute top-16 right-20 w-3 h-3 text-amber-600 opacity-60" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z"/>
+          </svg>
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-orange-900 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-ink-900 text-lg font-black leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-ink-900/60 text-[11px] line-clamp-2">{subtitle}</div>
-            <div className="mt-3 h-0.5 w-10 bg-tiger-orange" />
+            <div className="text-ink-900 text-2xl font-black leading-[1.1] tracking-tight drop-shadow-sm">{title}</div>
+            <div className="mt-2 text-orange-950/70 text-xs font-medium leading-snug line-clamp-2">{subtitle}</div>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-0.5 w-12 bg-tiger-orange" />
+              <span className="text-[9px] font-mono text-orange-900/60 uppercase tracking-[0.2em]">Growth</span>
+            </div>
           </div>
         </div>
       );
 
     case "재테크":
       return (
-        <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col justify-between p-5 relative overflow-hidden">
-          <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 200 280" preserveAspectRatio="none">
-            <polyline points="0,200 30,180 60,150 90,170 120,120 150,90 180,60 200,40" stroke="#fbbf24" strokeWidth="2" fill="none"/>
-            <polyline points="0,240 30,230 60,220 90,235 120,215 150,200 180,190 200,180" stroke="#fbbf24" strokeWidth="1" fill="none" opacity="0.5"/>
+        <div className="w-full h-full bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 골드 글로우 */}
+          <div className="absolute top-1/3 left-1/3 w-40 h-40 rounded-full bg-amber-400/20 blur-3xl" />
+          {/* 메인 차트 */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 280" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+            {/* 채워진 area */}
+            <path d="M0,200 L30,180 L60,150 L90,170 L120,120 L150,90 L180,60 L200,40 L200,280 L0,280 Z" fill="url(#chartFill)"/>
+            {/* 라인 */}
+            <polyline points="0,200 30,180 60,150 90,170 120,120 150,90 180,60 200,40" stroke="#fbbf24" strokeWidth="2.5" fill="none"/>
+            {/* 데이터 포인트 */}
+            <circle cx="60" cy="150" r="3" fill="#fbbf24"/>
+            <circle cx="120" cy="120" r="3" fill="#fbbf24"/>
+            <circle cx="180" cy="60" r="4" fill="#fbbf24"/>
+            <circle cx="180" cy="60" r="8" fill="#fbbf24" opacity="0.3"/>
+            {/* 캔들스틱 */}
+            <rect x="40" y="220" width="6" height="20" fill="#10b981"/>
+            <rect x="55" y="225" width="6" height="15" fill="#10b981"/>
+            <rect x="70" y="218" width="6" height="22" fill="#ef4444"/>
+            <rect x="85" y="222" width="6" height="18" fill="#10b981"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 relative z-10">{category}</span>
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-white text-lg font-black leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-white/60 text-[11px] line-clamp-2">{subtitle}</div>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-amber-400 font-mono text-[10px]">▲</span>
-              <div className="h-0.5 flex-1 bg-amber-400/40" />
+            <div className="text-white text-2xl font-black leading-[1.1] tracking-tight">{title}</div>
+            <div className="mt-2 text-blue-200/80 text-xs font-medium leading-snug line-clamp-2">{subtitle}</div>
+            <div className="mt-4 flex items-center gap-3 text-[10px] font-mono">
+              <span className="text-emerald-400">▲ +12.4%</span>
+              <span className="text-amber-400/60">|</span>
+              <span className="text-amber-300">YIELD</span>
             </div>
           </div>
         </div>
@@ -291,57 +335,113 @@ function CoverDesign({ category, title, subtitle }: { category: string; title: s
 
     case "에세이":
       return (
-        <div className="w-full h-full bg-gradient-to-br from-stone-100 via-emerald-50 to-stone-200 flex flex-col justify-between p-5 relative overflow-hidden">
-          <svg className="absolute right-3 top-6 w-20 h-20 text-emerald-700/40" viewBox="0 0 60 60" fill="currentColor">
-            <path d="M30 5 Q15 25 30 55 Q45 25 30 5 Z M30 5 L30 55" stroke="currentColor" strokeWidth="1" fill="none"/>
-            <ellipse cx="30" cy="30" rx="12" ry="22" fill="currentColor" opacity="0.3"/>
+        <div className="w-full h-full bg-gradient-to-br from-rose-100 via-stone-100 to-emerald-100 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 부드러운 wash */}
+          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-radial from-amber-100/50 to-transparent" />
+          {/* 잎사귀 여러개 */}
+          <svg className="absolute right-2 top-4 w-32 h-40 text-emerald-700/40" viewBox="0 0 60 80" fill="currentColor">
+            <ellipse cx="30" cy="25" rx="14" ry="22" fill="currentColor" opacity="0.5"/>
+            <path d="M30 5 L30 50" stroke="#065f46" strokeWidth="1" opacity="0.6"/>
+            <path d="M30 18 L20 22 M30 28 L18 32 M30 38 L20 42" stroke="#065f46" strokeWidth="0.5" opacity="0.4"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-800/70 relative z-10">{category}</span>
+          <svg className="absolute left-4 bottom-16 w-16 h-20 text-rose-400/40" viewBox="0 0 40 50" fill="currentColor">
+            <ellipse cx="20" cy="20" rx="10" ry="15" fill="currentColor" opacity="0.6"/>
+            <path d="M20 5 L20 35" stroke="#9f1239" strokeWidth="0.5" opacity="0.4"/>
+          </svg>
+          {/* 떨어지는 점들 */}
+          <div className="absolute top-8 left-12 w-1.5 h-1.5 rounded-full bg-rose-300/60" />
+          <div className="absolute top-20 left-24 w-1 h-1 rounded-full bg-amber-400/50" />
+          <div className="absolute top-32 right-32 w-1 h-1 rounded-full bg-emerald-500/40" />
+          <div className="absolute bottom-32 right-12 w-2 h-2 rounded-full bg-rose-300/40" />
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-emerald-900/80 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-stone-900 text-lg font-bold leading-snug">{title}</div>
-            <div className="mt-1.5 text-stone-600 text-[11px] line-clamp-2 italic">{subtitle}</div>
+            <div className="text-stone-900 text-2xl font-bold leading-[1.15] tracking-tight">{title}</div>
+            <div className="mt-2 text-stone-600 text-xs italic leading-snug line-clamp-2">{subtitle}</div>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-stone-500 font-serif italic text-[10px]">— a memoir</span>
+            </div>
           </div>
         </div>
       );
 
     case "웹소설":
       return (
-        <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-purple-900 to-rose-900 flex flex-col justify-between p-5 relative overflow-hidden">
-          <svg className="absolute right-2 top-2 w-24 h-24 text-yellow-200/60" viewBox="0 0 100 100" fill="currentColor">
-            <circle cx="75" cy="25" r="14" fill="currentColor" opacity="0.6"/>
-            <circle cx="78" cy="25" r="11" fill="#1e1b4b"/>
-            <circle cx="20" cy="60" r="1" fill="currentColor"/>
-            <circle cx="40" cy="80" r="1" fill="currentColor"/>
-            <circle cx="60" cy="50" r="0.8" fill="currentColor"/>
-            <circle cx="35" cy="35" r="0.6" fill="currentColor"/>
+        <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-rose-950 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 달 + 글로우 */}
+          <div className="absolute top-6 right-6">
+            <div className="absolute inset-0 w-24 h-24 -m-4 rounded-full bg-yellow-100/30 blur-2xl" />
+            <svg className="relative w-20 h-20" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="35" fill="#fef3c7" opacity="0.85"/>
+              <circle cx="60" cy="42" r="35" fill="#1e1b4b"/>
+              {/* 달 표면 디테일 */}
+              <circle cx="42" cy="55" r="3" fill="#fde68a" opacity="0.4"/>
+              <circle cx="38" cy="68" r="2" fill="#fde68a" opacity="0.3"/>
+            </svg>
+          </div>
+          {/* 별들 */}
+          {[
+            [15, 75, 1.2], [25, 55, 0.8], [40, 85, 1], [55, 50, 0.7], [70, 80, 0.9],
+            [85, 30, 1.1], [12, 30, 0.6], [60, 25, 1], [30, 15, 0.8],
+          ].map(([x, y, r], i) => (
+            <div
+              key={i}
+              className="absolute rounded-full bg-yellow-100"
+              style={{ left: `${x}%`, top: `${y}%`, width: `${r}px`, height: `${r}px`, opacity: 0.6 + (i % 3) * 0.1 }}
+            />
+          ))}
+          {/* 인물 silhouette */}
+          <svg className="absolute bottom-0 left-0 w-full h-32 text-black opacity-50" viewBox="0 0 200 80" preserveAspectRatio="none">
+            <path d="M0,80 L0,55 L20,55 L25,40 L40,40 L45,55 L80,55 L85,35 L110,35 L115,55 L160,55 L165,45 L185,45 L190,55 L200,55 L200,80 Z" fill="currentColor"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-rose-300 relative z-10">{category}</span>
+          {/* 안개 */}
+          <div className="absolute bottom-12 inset-x-0 h-12 bg-gradient-to-t from-purple-900/60 to-transparent" />
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-rose-300 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-white text-lg font-black leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-white/60 text-[11px] line-clamp-2">{subtitle}</div>
+            <div className="text-white text-2xl font-black leading-[1.1] tracking-tight drop-shadow-lg">{title}</div>
+            <div className="mt-2 text-rose-100/70 text-xs leading-snug line-clamp-2 italic">{subtitle}</div>
           </div>
         </div>
       );
 
     case "전문서":
       return (
-        <div className="w-full h-full bg-gradient-to-br from-blue-900 to-blue-950 flex flex-col justify-between p-5 relative overflow-hidden">
-          <svg className="absolute inset-0 w-full h-full opacity-15" viewBox="0 0 100 140" preserveAspectRatio="none">
+        <div className="w-full h-full bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 격자 패턴 */}
+          <svg className="absolute inset-0 w-full h-full opacity-25" viewBox="0 0 100 140" preserveAspectRatio="none">
             <defs>
-              <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.3"/>
+              <pattern id="grid2" width="8" height="8" patternUnits="userSpaceOnUse">
+                <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#60a5fa" strokeWidth="0.3"/>
               </pattern>
             </defs>
-            <rect width="100" height="140" fill="url(#grid)"/>
+            <rect width="100" height="140" fill="url(#grid2)"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300 relative z-10">{category}</span>
+          {/* 데이터 노드 네트워크 */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 280" preserveAspectRatio="none">
+            <line x1="40" y1="80" x2="100" y2="120" stroke="#60a5fa" strokeWidth="1" opacity="0.4"/>
+            <line x1="100" y1="120" x2="160" y2="80" stroke="#60a5fa" strokeWidth="1" opacity="0.4"/>
+            <line x1="100" y1="120" x2="80" y2="180" stroke="#60a5fa" strokeWidth="1" opacity="0.4"/>
+            <line x1="100" y1="120" x2="140" y2="180" stroke="#60a5fa" strokeWidth="1" opacity="0.4"/>
+            <line x1="80" y1="180" x2="140" y2="180" stroke="#60a5fa" strokeWidth="1" opacity="0.3"/>
+            {/* 노드들 */}
+            <circle cx="40" cy="80" r="4" fill="#60a5fa" opacity="0.9"/>
+            <circle cx="160" cy="80" r="4" fill="#60a5fa" opacity="0.9"/>
+            <circle cx="100" cy="120" r="6" fill="#3b82f6"/>
+            <circle cx="100" cy="120" r="11" fill="#60a5fa" opacity="0.3"/>
+            <circle cx="80" cy="180" r="4" fill="#60a5fa" opacity="0.8"/>
+            <circle cx="140" cy="180" r="4" fill="#60a5fa" opacity="0.8"/>
+          </svg>
+          {/* 글로우 */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-40 h-40 rounded-full bg-blue-500/20 blur-3xl" />
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-blue-300 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-white text-base font-bold leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-blue-200/60 text-[11px] line-clamp-2">{subtitle}</div>
-            <div className="mt-2 flex gap-1">
-              <div className="w-3 h-3 border border-blue-300/50" />
-              <div className="w-3 h-3 border border-blue-300/50 bg-blue-300/20" />
-              <div className="w-3 h-3 border border-blue-300/50" />
+            <div className="text-white text-xl font-bold leading-[1.15] tracking-tight">{title}</div>
+            <div className="mt-2 text-blue-200/70 text-xs font-medium leading-snug line-clamp-2">{subtitle}</div>
+            <div className="mt-3 flex items-center gap-1.5">
+              <div className="w-3 h-3 border border-blue-400/60 rounded-sm" />
+              <div className="w-3 h-3 border border-blue-400/60 rounded-sm bg-blue-400/30" />
+              <div className="w-3 h-3 border border-blue-400/60 rounded-sm" />
+              <div className="w-3 h-3 border border-blue-400/60 rounded-sm bg-blue-400/30" />
+              <span className="ml-2 text-[9px] font-mono text-blue-300/70">RESEARCH</span>
             </div>
           </div>
         </div>
@@ -349,26 +449,44 @@ function CoverDesign({ category, title, subtitle }: { category: string; title: s
 
     case "매뉴얼":
       return (
-        <div className="w-full h-full bg-cyan-50 flex flex-col justify-between p-5 relative overflow-hidden">
+        <div className="w-full h-full bg-gradient-to-br from-cyan-50 to-blue-50 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 블루프린트 격자 */}
           <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 140" preserveAspectRatio="none">
             <defs>
-              <pattern id="bp" width="8" height="8" patternUnits="userSpaceOnUse">
-                <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#0e7490" strokeWidth="0.3"/>
+              <pattern id="bp2" width="6" height="6" patternUnits="userSpaceOnUse">
+                <path d="M 6 0 L 0 0 0 6" fill="none" stroke="#0e7490" strokeWidth="0.3"/>
               </pattern>
             </defs>
-            <rect width="100" height="140" fill="url(#bp)"/>
-            <circle cx="50" cy="50" r="20" fill="none" stroke="#f97316" strokeWidth="1" strokeDasharray="3 2"/>
-            <line x1="30" y1="50" x2="70" y2="50" stroke="#f97316" strokeWidth="0.5"/>
-            <line x1="50" y1="30" x2="50" y2="70" stroke="#f97316" strokeWidth="0.5"/>
+            <rect width="100" height="140" fill="url(#bp2)"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-800 relative z-10">{category}</span>
+          {/* 도면 */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 280" preserveAspectRatio="none">
+            {/* 중심 도형 */}
+            <circle cx="100" cy="120" r="40" fill="none" stroke="#0e7490" strokeWidth="1.5" strokeDasharray="4 2"/>
+            <circle cx="100" cy="120" r="20" fill="none" stroke="#f97316" strokeWidth="1.5"/>
+            <circle cx="100" cy="120" r="3" fill="#f97316"/>
+            {/* 십자선 */}
+            <line x1="40" y1="120" x2="160" y2="120" stroke="#0e7490" strokeWidth="0.5" strokeDasharray="2 2"/>
+            <line x1="100" y1="60" x2="100" y2="180" stroke="#0e7490" strokeWidth="0.5" strokeDasharray="2 2"/>
+            {/* 측정 마크 */}
+            <line x1="20" y1="120" x2="35" y2="120" stroke="#0e7490" strokeWidth="1"/>
+            <line x1="20" y1="115" x2="20" y2="125" stroke="#0e7490" strokeWidth="1"/>
+            <line x1="35" y1="115" x2="35" y2="125" stroke="#0e7490" strokeWidth="1"/>
+            <text x="22" y="113" fill="#0e7490" fontSize="6" fontFamily="monospace">15mm</text>
+            {/* 화살표 라벨 */}
+            <line x1="170" y1="80" x2="140" y2="100" stroke="#f97316" strokeWidth="0.8"/>
+            <circle cx="140" cy="100" r="2" fill="#f97316"/>
+            <text x="172" y="80" fill="#f97316" fontSize="6" fontFamily="monospace">A1</text>
+          </svg>
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-cyan-800 font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-cyan-950 text-base font-bold leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-cyan-900/60 text-[11px] line-clamp-2 font-mono">{subtitle}</div>
-            <div className="mt-2 flex items-center gap-2 text-[9px] font-mono text-cyan-800">
-              <span>v1.0</span>
+            <div className="text-cyan-950 text-xl font-bold leading-[1.15] tracking-tight">{title}</div>
+            <div className="mt-2 text-cyan-900/70 text-xs leading-snug line-clamp-2 font-mono">{subtitle}</div>
+            <div className="mt-3 flex items-center gap-2 text-[9px] font-mono text-cyan-800">
+              <span className="px-1.5 py-0.5 border border-cyan-700 rounded">v1.0</span>
               <span>·</span>
-              <span className="w-1.5 h-1.5 bg-tiger-orange rounded-full"/>
+              <span>2026-04-28</span>
+              <span className="ml-auto w-2 h-2 bg-tiger-orange rounded-full"/>
             </div>
           </div>
         </div>
@@ -377,19 +495,29 @@ function CoverDesign({ category, title, subtitle }: { category: string; title: s
     case "실용서":
     default:
       return (
-        <div className="w-full h-full bg-white flex flex-col justify-between p-5 relative overflow-hidden border-l-4 border-tiger-orange">
-          <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-24 h-24 text-tiger-orange/15" viewBox="0 0 60 60" fill="currentColor">
-            <rect x="5" y="5" width="50" height="50" rx="8"/>
-            <rect x="14" y="20" width="32" height="3" fill="white" opacity="0.8"/>
-            <rect x="14" y="28" width="32" height="3" fill="white" opacity="0.6"/>
-            <rect x="14" y="36" width="20" height="3" fill="white" opacity="0.4"/>
+        <div className="w-full h-full bg-gradient-to-br from-white via-orange-50 to-amber-50 flex flex-col justify-between p-6 relative overflow-hidden">
+          {/* 큰 도형 */}
+          <div className="absolute -bottom-12 -left-12 w-56 h-56 rounded-full bg-tiger-orange/10" />
+          <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-tiger-orange/15" />
+          <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-tiger-orange/25" />
+          {/* 작은 도형 */}
+          <div className="absolute top-12 right-8 w-3 h-3 bg-tiger-orange rounded-sm rotate-45" />
+          <div className="absolute top-20 right-16 w-2 h-2 bg-amber-400 rounded-full" />
+          <svg className="absolute right-6 bottom-32 w-12 h-12 text-tiger-orange/30" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="2" y="2" width="20" height="20" rx="3"/>
+            <rect x="6" y="8" width="12" height="1.5" fill="white"/>
+            <rect x="6" y="12" width="12" height="1.5" fill="white"/>
+            <rect x="6" y="16" width="8" height="1.5" fill="white"/>
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange relative z-10">{category}</span>
+          {/* 좌측 컬러 바 */}
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-tiger-orange to-amber-500" />
+          <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-tiger-orange font-bold relative z-10">{category}</span>
           <div className="relative z-10">
-            <div className="text-ink-900 text-lg font-black leading-tight tracking-tight">{title}</div>
-            <div className="mt-1.5 text-gray-600 text-[11px] line-clamp-2">{subtitle}</div>
-            <div className="mt-3 flex items-center gap-1 text-[10px] font-mono text-gray-400">
-              <span>TIGERBOOKMAKER</span>
+            <div className="text-ink-900 text-2xl font-black leading-[1.1] tracking-tight">{title}</div>
+            <div className="mt-2 text-gray-700 text-xs font-medium leading-snug line-clamp-2">{subtitle}</div>
+            <div className="mt-4 flex items-center gap-2 text-[9px] font-mono text-gray-500 uppercase tracking-[0.15em]">
+              <span>🐯 Tigerbookmaker</span>
+              <span className="ml-auto px-1.5 py-0.5 border border-tiger-orange/40 text-tiger-orange rounded">실전</span>
             </div>
           </div>
         </div>
