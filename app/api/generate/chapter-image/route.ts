@@ -58,8 +58,8 @@ export async function POST(req: Request) {
       if (candidates.length > 0) {
         const promptResult = await callAIServer({
           model: candidates[0],
-          system: "You convert Korean book illustration descriptions into concise English Stable Diffusion prompts.",
-          user: `Book topic: ${project.topic}\nKorean illustration request: ${caption}\n\nConvert to a single concise English Stable Diffusion prompt (one sentence, focus on visual subject + style). Output ONLY the English prompt, no explanation.`,
+          system: "You convert Korean illustration descriptions into concise English Stable Diffusion prompts. Focus on the actual visual subject (people, objects, scenes). Never include words like 'book', 'document', 'page' unless the subject IS literally a book.",
+          user: `Context (book topic, for understanding only — DO NOT include 'book' in output): ${project.topic}\n\nIllustration to draw (Korean): ${caption}\n\nConvert to a single concise English image prompt focused on the actual visual subject. Just the subject + setting, no style words. Output ONLY the prompt, one line.`,
           maxTokens: 256,
           temperature: 0.5,
           timeoutMs: 10000,
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       // 번역 실패하면 한국어 caption 그대로 사용 (fallback)
     }
 
-    const prompt = `${englishPrompt}, modern editorial book illustration style, clean minimal premium publishing aesthetic, single subject focus, no text, no captions, no labels, no people in frame unless specified, white or off-white background, square 1:1`;
+    const prompt = `${englishPrompt}. Style: clean modern magazine illustration, professional, minimalist, single clear subject. NO books, NO documents, NO text, NO captions, NO labels, NO writing. White background. Square 1:1.`;
 
     let img;
     try {
