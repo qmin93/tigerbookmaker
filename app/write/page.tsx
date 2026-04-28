@@ -427,6 +427,8 @@ function Inner() {
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
+      // Cloudflare rate limit 회피 — 각 task 사이 1.5초 간격
+      if (i > 0) await new Promise(r => setTimeout(r, 1500));
       setKmongBusy(`${task} 생성 중... (${i + 1}/${tasks.length})`);
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 35_000);
