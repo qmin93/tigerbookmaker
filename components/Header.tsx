@@ -45,7 +45,7 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
               <Link href="/billing" className={dark
                 ? "bg-tiger-orange/10 text-tiger-orange font-bold px-3 py-2 rounded-lg hover:bg-tiger-orange/20 border border-tiger-orange/30"
                 : "bg-orange-50 text-tiger-orange font-bold px-3 py-2 rounded-lg hover:bg-orange-100"}>
-                ₩{balance?.toLocaleString() ?? "—"} +
+                ₩{balance?.toLocaleString() ?? "—"}
               </Link>
               <div className="relative">
                 <button
@@ -67,7 +67,7 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
                       {session?.user?.email}
                     </div>
                     <Link href="/projects" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>내 책</Link>
-                    <Link href="/billing" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>충전 / 잔액</Link>
+                    <Link href="/billing" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>잔액 / 베타 안내</Link>
                     <Link href="/usage" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>사용 내역</Link>
                     <button
                       onClick={() => signOut({ callbackUrl: "/" })}

@@ -9,7 +9,9 @@ import { rateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 
-const SIGNUP_BONUS_KRW = 1000;
+// 베타 기간 환영 크레딧 — 책 10권 분량.
+// 결제 시스템 활성화(사업자등록 + 토스 가맹점 심사 완료) 후 1000원 복귀.
+const SIGNUP_BONUS_KRW = 10000;
 
 export async function POST(req: Request) {
   const { email: rawEmail, password } = await req.json().catch(() => ({}));
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
   `;
   await sql`
     INSERT INTO balance_transactions (user_id, type, amount_krw, balance_after, reason)
-    VALUES (${created[0].id}, 'bonus', ${SIGNUP_BONUS_KRW}, ${SIGNUP_BONUS_KRW}, '회원가입 환영 크레딧')
+    VALUES (${created[0].id}, 'bonus', ${SIGNUP_BONUS_KRW}, ${SIGNUP_BONUS_KRW}, '베타 환영 크레딧 (책 10권)')
   `;
 
   return NextResponse.json({ ok: true, mode: "registered" });
