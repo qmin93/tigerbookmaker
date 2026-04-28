@@ -10,6 +10,9 @@ export interface KmongCopy {
   instagram: string;
   kakao: string;
   twitter: string;
+  blogReview: string;
+  youtubeDescription: string;
+  naverCafe: string;
 }
 
 // Cloudflare Flux 1 Schnell — 한국어/한자 텍스트 못 만듦. prompt에 한국어 들어가면
@@ -81,7 +84,7 @@ export function copyPrompt(p: BookProject): string {
     .map((c, i) => `${i + 1}. ${c.title}`)
     .join("\n");
 
-  return `다음 책의 크몽 등록·SNS 홍보용 카피를 생성합니다.
+  return `다음 책의 크몽 등록·SNS·커뮤니티 홍보용 카피를 8종 생성합니다.
 
 [책 정보]
 - 주제: ${topic}
@@ -91,20 +94,24 @@ export function copyPrompt(p: BookProject): string {
 ${chapterTitles}
 
 [요구사항]
-다음 5개 필드를 가진 JSON만 출력:
+다음 8개 필드를 가진 JSON만 출력:
 
 {
   "kmongDescription": "크몽 상세 페이지 메인 카피 — 300~500자, 책의 가치 제안 + 누구에게 좋은가 + 어떤 변화를 주는가. '~합니다' 존댓말. 광고 톤이지만 과장 X",
   "kmongHighlights": ["강조 포인트 5개, 각 30~50자, ~합니다 존댓말, 구체적 결과·이익 명시"],
   "instagram": "인스타 캡션 — 200~400자, 줄바꿈 적극 활용, 첫 줄 후크, 마지막에 #해시태그 5~8개",
   "kakao": "카톡 1:1 메시지 — 50~80자, 친근한 반말, 상대 호기심 유발",
-  "twitter": "트위터/X 게시 — 280자 이내 한 게시물, 짧고 강한 후크"
+  "twitter": "트위터/X 게시 — 280자 이내 한 게시물, 짧고 강한 후크",
+  "blogReview": "블로그 후기 톤 — 500~800자, '~했어요' 친근체, 책 산 사용자가 솔직히 쓰는 느낌. 구체적 챕터 1~2개 인용. 단점도 한 줄 솔직히. 마지막 줄: 어떤 사람에게 추천하는지",
+  "youtubeDescription": "유튜브 영상 설명란 — 300~500자, 첫 줄 후크 + 영상 핵심 3줄 요약 + 챕터별 타임스탬프 형식 5~7개 (예: 00:00 시작, 01:23 ~챕터제목) + 마지막에 책 구매 링크 안내 한 줄. 해시태그 X (영상 설명란이라)",
+  "naverCafe": "네이버 카페·커뮤니티 정보 공유 글 — 200~300자, '~합니다/요' 존댓말, 광고 티 안 나는 정보 공유 톤 ('이런 책 봤는데 도움 됐어요'), 직접 권유 X. 마지막에 작가 정보 한 줄"
 }
 
 [금지]
 - "혁신적인" "획기적인" "AI 시대에" 같은 AI 특유 표현
 - 마크다운 코드블록 (그냥 순수 JSON만)
 - 과장 (예: "10배 빨라진다", "100% 성공")
+- 8개 필드 모두 채워야 함. 빈 string 금지.
 
 순수 JSON만 출력하세요.`;
 }

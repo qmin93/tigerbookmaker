@@ -30,6 +30,9 @@ export interface BookProject {
       instagram: string;
       kakao: string;
       twitter: string;
+      blogReview?: string;
+      youtubeDescription?: string;
+      naverCafe?: string;
     };
     generatedAt: number;
     totalCostKRW: number;

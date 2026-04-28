@@ -893,21 +893,51 @@ function Inner() {
             })}
           </div>
 
-          <h3 className="text-sm font-bold text-ink-900 mb-3">마케팅 카피</h3>
-          <div className="space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-bold text-ink-900">마케팅 카피 (8종)</h3>
+            <span className="text-xs text-gray-400">← 옆으로 스와이프 →</span>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">크몽 등록 + SNS + 콘텐츠 마케팅 채널별 카피. 카드 안 [복사] 버튼으로 즉시 복사.</p>
+          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 -mx-2 px-2 scroll-smooth">
             {([
-              ["크몽 상세 페이지", (project as any).kmongPackage.copy.kmongDescription],
-              ["강조 포인트 5", ((project as any).kmongPackage.copy.kmongHighlights ?? []).join("\n• ")],
-              ["인스타", (project as any).kmongPackage.copy.instagram],
-              ["카톡", (project as any).kmongPackage.copy.kakao],
-              ["트위터", (project as any).kmongPackage.copy.twitter],
-            ] as const).map(([label, text]) => (
-              <div key={label} className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono uppercase tracking-wider text-gray-500">{label}</span>
-                  <button onClick={() => navigator.clipboard.writeText(text || "")} className="text-[10px] text-tiger-orange hover:underline">복사</button>
+              ["크몽 상세", "📋", (project as any).kmongPackage.copy.kmongDescription, "300~500자 · 판매 페이지 메인"],
+              ["강조 포인트 5", "✨", ((project as any).kmongPackage.copy.kmongHighlights ?? []).map((h: string, i: number) => `${i + 1}. ${h}`).join("\n"), "각 30~50자 · bullet 5개"],
+              ["인스타", "📷", (project as any).kmongPackage.copy.instagram, "200~400자 · 해시태그 포함"],
+              ["카톡", "💬", (project as any).kmongPackage.copy.kakao, "50~80자 · 친구 1:1"],
+              ["트위터/X", "🐦", (project as any).kmongPackage.copy.twitter, "280자 이내 · 짧은 후크"],
+              ["블로그 후기", "📝", (project as any).kmongPackage.copy.blogReview, "500~800자 · 솔직 후기 톤"],
+              ["유튜브 설명", "▶️", (project as any).kmongPackage.copy.youtubeDescription, "300~500자 · 타임스탬프"],
+              ["네이버 카페", "🍃", (project as any).kmongPackage.copy.naverCafe, "200~300자 · 정보 공유 톤"],
+            ] as const).map(([label, emoji, text, hint]) => (
+              <div
+                key={label}
+                className="flex-shrink-0 w-[300px] md:w-[340px] snap-start border border-gray-200 rounded-xl bg-white flex flex-col"
+                style={{ maxHeight: 440 }}
+              >
+                <div className="flex items-center justify-between p-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{emoji}</span>
+                    <div>
+                      <div className="text-xs font-bold text-ink-900">{label}</div>
+                      <div className="text-[10px] text-gray-400">{hint}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      navigator.clipboard.writeText(text || "");
+                      const btn = e.currentTarget;
+                      const orig = btn.textContent;
+                      btn.textContent = "✓";
+                      setTimeout(() => { btn.textContent = orig; }, 1200);
+                    }}
+                    className="text-[11px] px-2 py-1 bg-tiger-orange text-white rounded-md font-bold hover:bg-orange-600 transition"
+                  >
+                    복사
+                  </button>
                 </div>
-                <pre className="text-xs whitespace-pre-wrap break-keep text-gray-700 font-sans">{text || "(비어있음)"}</pre>
+                <div className="flex-1 overflow-y-auto p-3">
+                  <pre className="text-xs whitespace-pre-wrap break-keep text-gray-700 font-sans leading-relaxed">{text || "(비어있음 — 카피 재생성 필요)"}</pre>
+                </div>
               </div>
             ))}
           </div>

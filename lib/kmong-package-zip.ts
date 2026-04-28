@@ -32,6 +32,9 @@ interface KmongPackageData {
     instagram: string;
     kakao: string;
     twitter: string;
+    blogReview?: string;
+    youtubeDescription?: string;
+    naverCafe?: string;
   };
 }
 
@@ -46,11 +49,14 @@ export async function buildKmongZip(pkg: KmongPackageData, projectTopic: string)
     zip.file(filename, base64ToUint8Array(img.base64));
   }
 
-  zip.file("description.txt", pkg.copy.kmongDescription || "");
-  zip.file("highlights.txt", (pkg.copy.kmongHighlights ?? []).join("\n\n• "));
-  zip.file("instagram.txt", pkg.copy.instagram || "");
-  zip.file("kakao.txt", pkg.copy.kakao || "");
-  zip.file("twitter.txt", pkg.copy.twitter || "");
+  zip.file("01-description.txt", pkg.copy.kmongDescription || "");
+  zip.file("02-highlights.txt", (pkg.copy.kmongHighlights ?? []).join("\n\n• "));
+  zip.file("03-instagram.txt", pkg.copy.instagram || "");
+  zip.file("04-kakao.txt", pkg.copy.kakao || "");
+  zip.file("05-twitter.txt", pkg.copy.twitter || "");
+  zip.file("06-blog-review.txt", pkg.copy.blogReview || "");
+  zip.file("07-youtube-description.txt", pkg.copy.youtubeDescription || "");
+  zip.file("08-naver-cafe.txt", pkg.copy.naverCafe || "");
 
   const README = `# 크몽 등록 패키지 — ${projectTopic}
 
@@ -64,16 +70,20 @@ export async function buildKmongZip(pkg: KmongPackageData, projectTopic: string)
 - 05-audience  — 추천 대상
 - 06-preview   — 본문 미리보기
 
-## 카피
-- description  — 크몽 상세 페이지 메인
-- highlights   — 강조 포인트 5개
-- instagram    — 인스타 캡션
-- kakao        — 카톡 메시지
-- twitter      — 트위터/X
+## 카피 (8종)
+- 01-description       — 크몽 상세 페이지 메인 (300~500자)
+- 02-highlights        — 강조 포인트 5개
+- 03-instagram         — 인스타 캡션 + 해시태그
+- 04-kakao             — 카톡 1:1 메시지 (50~80자)
+- 05-twitter           — 트위터/X 게시 (280자 이내)
+- 06-blog-review       — 블로그 후기 톤 (500~800자, 솔직 후기)
+- 07-youtube-description — 유튜브 영상 설명 + 챕터 타임스탬프
+- 08-naver-cafe        — 네이버 카페·커뮤니티 정보 공유 글
 
 ## 사용 가이드
-1. 크몽: 02 메인, 01·03·04·05·06 상세. 본문에 description+highlights
-2. SNS: instagram/kakao/twitter 그대로 복붙
+1. 크몽: 02 thumbnail 메인, 01·03·04·05·06 상세. 본문에 description+highlights
+2. SNS 즉시: instagram / kakao / twitter 그대로 복붙
+3. 콘텐츠 마케팅: blog-review (네이버·티스토리), youtube-description (영상 업로드 시), naver-cafe (커뮤니티 공유)
 `;
   zip.file("README.txt", README);
 

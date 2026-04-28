@@ -155,7 +155,10 @@ export async function POST(req: Request) {
 
     const updatedPackage = {
       images: mergedImages,
-      copy: copy ?? { kmongDescription: "", kmongHighlights: [], instagram: "", kakao: "", twitter: "" },
+      copy: copy ?? {
+        kmongDescription: "", kmongHighlights: [], instagram: "", kakao: "", twitter: "",
+        blogReview: "", youtubeDescription: "", naverCafe: "",
+      },
       generatedAt: Date.now(),
       totalCostKRW: ((project as any).kmongPackage?.totalCostKRW ?? 0) + totalCostKRW,
     };
