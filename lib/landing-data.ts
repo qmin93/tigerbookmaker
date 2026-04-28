@@ -1,10 +1,12 @@
+// 8권 샘플 — 장르 다 다양하게. 각 카드는 GenreBookCard가 장르 보고 디자인 분기.
+// cover 이미지는 실제 png 있는 2권만, 나머지는 디자인 자동 생성.
 export const SAMPLE_BOOKS = [
   {
     cover: "/samples/book-1-cover.png",
     title: "직장인을 위한 Claude Code 입문",
     subtitle: "첫 자동화 봇 30분에 만들기",
     audience: "개발 경험이 없는 직장인",
-    category: "실용서",
+    category: "실용서" as const,
     chapters: 12,
     pages: 63,
   },
@@ -13,9 +15,57 @@ export const SAMPLE_BOOKS = [
     title: "노션으로 1인 사업 시작하기",
     subtitle: "외주 없이 한 달에 매출 300만원",
     audience: "1인 사업을 준비하는 30대 직장인",
-    category: "실용서",
+    category: "실용서" as const,
     chapters: 12,
     pages: 60,
+  },
+  {
+    title: "월급만으로 부족함을 느끼나요",
+    subtitle: "재테크의 시작은 자산 흐름을 보는 일",
+    audience: "재테크 처음 시작하는 30대",
+    category: "재테크" as const,
+    chapters: 12,
+    pages: 70,
+  },
+  {
+    title: "아침 루틴, 30일이면 인생이 바뀝니다",
+    subtitle: "새벽 5시에 일어나는 사람의 진짜 비밀",
+    audience: "번아웃 직전의 30대 직장인",
+    category: "자기계발서" as const,
+    chapters: 12,
+    pages: 65,
+  },
+  {
+    title: "나는 그래서 회사를 그만뒀습니다",
+    subtitle: "13년 직장인이 쓴 첫 1년 기록",
+    audience: "퇴사를 고민하는 직장인",
+    category: "에세이" as const,
+    chapters: 14,
+    pages: 88,
+  },
+  {
+    title: "그날 밤, 도시에 비가 내렸다",
+    subtitle: "사라진 그를 찾는 일주일의 기록",
+    audience: "추리·도시 미스터리 좋아하는 독자",
+    category: "웹소설" as const,
+    chapters: 15,
+    pages: 110,
+  },
+  {
+    title: "행동경제학 실무 입문",
+    subtitle: "마케팅·UX·정책 결정에 쓰는 30가지 원칙",
+    audience: "기획·마케팅 실무 3~7년차",
+    category: "전문서" as const,
+    chapters: 13,
+    pages: 95,
+  },
+  {
+    title: "Claude Code 협업 매뉴얼",
+    subtitle: "팀 도입부터 코드 리뷰까지 표준 절차",
+    audience: "5~20명 개발팀 리드",
+    category: "매뉴얼" as const,
+    chapters: 11,
+    pages: 72,
   },
 ];
 

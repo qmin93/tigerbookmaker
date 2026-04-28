@@ -51,17 +51,25 @@ export default function Home() {
 
       <div className="border-t border-gray-200" />
 
-      {/* Sample showcase */}
+      {/* Sample showcase — 8권, 7장르 다양화, 가로 carousel */}
       <section id="samples" className="py-24 md:py-32">
         <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>이미 만들어진 책</Eyebrow>
-          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">결과물부터 보세요.</h2>
-          <p className="mt-3 text-gray-600 max-w-xl">베타 사용자가 실제로 발간 가능한 수준으로 뽑아낸 책들.</p>
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SAMPLE_BOOKS.map((b, i) => <BookCard key={i} {...b} />)}
-            <PlaceholderBook hue="rose" category="자기계발서" title="아침 루틴, 30일이면 인생이 바뀝니다" subtitle="새벽 5시에 일어나는 사람의 진짜 비밀" audience="번아웃 직전의 30대" />
-            <PlaceholderBook hue="emerald" category="에세이" title="나는 그래서 회사를 그만뒀습니다" subtitle="13년 직장인이 쓴 첫 1년 기록" audience="퇴사를 고민하는 직장인" />
-            <PlaceholderBook hue="indigo" category="실용서" title="혼자서도 만드는 SaaS" subtitle="개발자 아닌 PM이 0원으로 1,200만원 만든 법" audience="비개발자 1인 창업자" />
+          <div className="flex items-end justify-between flex-wrap gap-4">
+            <div>
+              <Eyebrow>이미 만들어진 책</Eyebrow>
+              <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">결과물부터 보세요.</h2>
+              <p className="mt-3 text-gray-600 max-w-xl">7개 장르 — 자기계발 · 재테크 · 에세이 · 웹소설 · 전문서 · 매뉴얼 · 실용서. 각 장르마다 톤·구조가 다름.</p>
+            </div>
+            <span className="text-xs font-mono text-gray-500 uppercase tracking-wider">← 옆으로 스와이프 →</span>
+          </div>
+        </div>
+        <div className="mt-12 max-w-6xl mx-auto pl-6 md:pl-[calc((100vw-72rem)/2+1.5rem)]">
+          <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory pb-6 pr-6 scroll-smooth scrollbar-thin">
+            {SAMPLE_BOOKS.map((b, i) => (
+              <div key={i} className="flex-shrink-0 w-[260px] md:w-[280px] snap-start">
+                <GenreBookCard {...b} />
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -218,53 +226,174 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-function BookCard({ cover, title, subtitle, audience, category, chapters, pages }: any) {
+// 장르별 시그니처 디자인. 실제 cover 있으면 우선 표시, 없으면 장르 분기.
+function GenreBookCard({ cover, title, subtitle, audience, category, chapters, pages }: any) {
   return (
-    <article className="group rounded-2xl border border-gray-200 bg-white p-5 hover:border-tiger-orange hover:shadow-md transition">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-100 mb-4 ring-1 ring-gray-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 border border-gray-200 text-[10px] font-mono text-tiger-orange uppercase tracking-wider">실제 결과물</div>
+    <article className="group rounded-2xl border border-gray-200 bg-white p-4 hover:border-tiger-orange hover:shadow-md transition h-full">
+      <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-3 ring-1 ring-gray-200">
+        {cover ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={cover} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 border border-gray-200 text-[10px] font-mono text-tiger-orange uppercase tracking-wider">실제 결과물</div>
+          </>
+        ) : (
+          <CoverDesign category={category} title={title} subtitle={subtitle} />
+        )}
       </div>
       <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange">{category}</div>
-      <h3 className="mt-2 text-base font-bold text-ink-900 leading-snug">{title}</h3>
-      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{subtitle}</p>
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-gray-500">
-        <span>{chapters}챕터</span><span>·</span><span>{pages}쪽</span><span>·</span><span>{audience}</span>
+      <h3 className="mt-1.5 text-base font-bold text-ink-900 leading-snug line-clamp-2 min-h-[2.6rem]">{title}</h3>
+      <p className="mt-1 text-xs text-gray-600 line-clamp-2 min-h-[2rem]">{subtitle}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono text-gray-500">
+        <span>{chapters}챕터</span><span>·</span><span>{pages}쪽</span>
       </div>
+      <div className="mt-1 text-[10px] text-gray-400 line-clamp-1">{audience}</div>
     </article>
   );
 }
 
-function PlaceholderBook({ hue, category, title, subtitle, audience }: any) {
-  const hueMap = {
-    rose: { from: "from-rose-100", to: "to-rose-200", accent: "bg-rose-500" },
-    emerald: { from: "from-emerald-100", to: "to-emerald-200", accent: "bg-emerald-500" },
-    indigo: { from: "from-indigo-100", to: "to-indigo-200", accent: "bg-indigo-500" },
-  } as const;
-  const c = hueMap[hue as keyof typeof hueMap];
-  return (
-    <article className="group rounded-2xl border border-gray-200 bg-white p-5 hover:border-tiger-orange hover:shadow-md transition">
-      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden bg-gradient-to-br ${c.from} ${c.to} mb-4 ring-1 ring-gray-200 flex flex-col justify-between p-5`}>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-900/70">{category}</span>
-          <span className={`w-2 h-2 rounded-full ${c.accent}`} />
-        </div>
-        <div>
-          <div className="text-ink-900 text-xl font-black leading-tight tracking-tight">{title}</div>
-          <div className="mt-2 text-ink-900/60 text-xs">{subtitle}</div>
-          <div className="mt-6 flex items-center justify-between text-[10px] font-mono text-ink-900/50 uppercase tracking-wider border-t border-ink-900/10 pt-3">
-            <span>Tigerbookmaker</span><span>v1.0</span>
+// 장르별 표지 디자인 — 인라인 SVG로 시그니처 모티프
+function CoverDesign({ category, title, subtitle }: { category: string; title: string; subtitle: string }) {
+  switch (category) {
+    case "자기계발서":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-orange-50 to-orange-100 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute -right-4 -top-4 w-32 h-32 text-tiger-orange/30" viewBox="0 0 100 100" fill="none">
+            <path d="M50 90 L50 20 M30 40 L50 20 L70 40" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-ink-900 text-lg font-black leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-ink-900/60 text-[11px] line-clamp-2">{subtitle}</div>
+            <div className="mt-3 h-0.5 w-10 bg-tiger-orange" />
           </div>
         </div>
-      </div>
-      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">샘플 시안</div>
-      <h3 className="mt-2 text-base font-bold text-ink-900 leading-snug">{title}</h3>
-      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{subtitle}</p>
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-gray-500">
-        <span>12챕터</span><span>·</span><span>약 60쪽</span><span>·</span><span>{audience}</span>
-      </div>
-    </article>
-  );
+      );
+
+    case "재테크":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 200 280" preserveAspectRatio="none">
+            <polyline points="0,200 30,180 60,150 90,170 120,120 150,90 180,60 200,40" stroke="#fbbf24" strokeWidth="2" fill="none"/>
+            <polyline points="0,240 30,230 60,220 90,235 120,215 150,200 180,190 200,180" stroke="#fbbf24" strokeWidth="1" fill="none" opacity="0.5"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-white text-lg font-black leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-white/60 text-[11px] line-clamp-2">{subtitle}</div>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-amber-400 font-mono text-[10px]">▲</span>
+              <div className="h-0.5 flex-1 bg-amber-400/40" />
+            </div>
+          </div>
+        </div>
+      );
+
+    case "에세이":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-stone-100 via-emerald-50 to-stone-200 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute right-3 top-6 w-20 h-20 text-emerald-700/40" viewBox="0 0 60 60" fill="currentColor">
+            <path d="M30 5 Q15 25 30 55 Q45 25 30 5 Z M30 5 L30 55" stroke="currentColor" strokeWidth="1" fill="none"/>
+            <ellipse cx="30" cy="30" rx="12" ry="22" fill="currentColor" opacity="0.3"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-800/70 relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-stone-900 text-lg font-bold leading-snug">{title}</div>
+            <div className="mt-1.5 text-stone-600 text-[11px] line-clamp-2 italic">{subtitle}</div>
+          </div>
+        </div>
+      );
+
+    case "웹소설":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-purple-900 to-rose-900 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute right-2 top-2 w-24 h-24 text-yellow-200/60" viewBox="0 0 100 100" fill="currentColor">
+            <circle cx="75" cy="25" r="14" fill="currentColor" opacity="0.6"/>
+            <circle cx="78" cy="25" r="11" fill="#1e1b4b"/>
+            <circle cx="20" cy="60" r="1" fill="currentColor"/>
+            <circle cx="40" cy="80" r="1" fill="currentColor"/>
+            <circle cx="60" cy="50" r="0.8" fill="currentColor"/>
+            <circle cx="35" cy="35" r="0.6" fill="currentColor"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-rose-300 relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-white text-lg font-black leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-white/60 text-[11px] line-clamp-2">{subtitle}</div>
+          </div>
+        </div>
+      );
+
+    case "전문서":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-blue-900 to-blue-950 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute inset-0 w-full h-full opacity-15" viewBox="0 0 100 140" preserveAspectRatio="none">
+            <defs>
+              <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.3"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="140" fill="url(#grid)"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300 relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-white text-base font-bold leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-blue-200/60 text-[11px] line-clamp-2">{subtitle}</div>
+            <div className="mt-2 flex gap-1">
+              <div className="w-3 h-3 border border-blue-300/50" />
+              <div className="w-3 h-3 border border-blue-300/50 bg-blue-300/20" />
+              <div className="w-3 h-3 border border-blue-300/50" />
+            </div>
+          </div>
+        </div>
+      );
+
+    case "매뉴얼":
+      return (
+        <div className="w-full h-full bg-cyan-50 flex flex-col justify-between p-5 relative overflow-hidden">
+          <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 140" preserveAspectRatio="none">
+            <defs>
+              <pattern id="bp" width="8" height="8" patternUnits="userSpaceOnUse">
+                <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#0e7490" strokeWidth="0.3"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="140" fill="url(#bp)"/>
+            <circle cx="50" cy="50" r="20" fill="none" stroke="#f97316" strokeWidth="1" strokeDasharray="3 2"/>
+            <line x1="30" y1="50" x2="70" y2="50" stroke="#f97316" strokeWidth="0.5"/>
+            <line x1="50" y1="30" x2="50" y2="70" stroke="#f97316" strokeWidth="0.5"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-800 relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-cyan-950 text-base font-bold leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-cyan-900/60 text-[11px] line-clamp-2 font-mono">{subtitle}</div>
+            <div className="mt-2 flex items-center gap-2 text-[9px] font-mono text-cyan-800">
+              <span>v1.0</span>
+              <span>·</span>
+              <span className="w-1.5 h-1.5 bg-tiger-orange rounded-full"/>
+            </div>
+          </div>
+        </div>
+      );
+
+    case "실용서":
+    default:
+      return (
+        <div className="w-full h-full bg-white flex flex-col justify-between p-5 relative overflow-hidden border-l-4 border-tiger-orange">
+          <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-24 h-24 text-tiger-orange/15" viewBox="0 0 60 60" fill="currentColor">
+            <rect x="5" y="5" width="50" height="50" rx="8"/>
+            <rect x="14" y="20" width="32" height="3" fill="white" opacity="0.8"/>
+            <rect x="14" y="28" width="32" height="3" fill="white" opacity="0.6"/>
+            <rect x="14" y="36" width="20" height="3" fill="white" opacity="0.4"/>
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange relative z-10">{category}</span>
+          <div className="relative z-10">
+            <div className="text-ink-900 text-lg font-black leading-tight tracking-tight">{title}</div>
+            <div className="mt-1.5 text-gray-600 text-[11px] line-clamp-2">{subtitle}</div>
+            <div className="mt-3 flex items-center gap-1 text-[10px] font-mono text-gray-400">
+              <span>TIGERBOOKMAKER</span>
+            </div>
+          </div>
+        </div>
+      );
+  }
 }
 
