@@ -646,7 +646,7 @@ export async function* callStreamWithFallback(opts: {
 
 export interface ImageResult {
   base64: string;
-  vendor: "gemini" | "openai";
+  vendor: "pollinations" | "gemini" | "openai";
   costUSD: number;
   durationMs: number;
 }
@@ -656,9 +656,18 @@ export async function callImageGeneration(opts: {
   timeoutMs?: number;
 }): Promise<ImageResult> {
   const started = Date.now();
-  const timeoutMs = opts.timeoutMs ?? 30000;
+  const timeoutMs = opts.timeoutMs ?? 45000;  // Pollinations 첫 호출이 느릴 수 있음
   const errors: string[] = [];
 
+  // 1순위: Pollinations (무료, 키 불필요)
+  try {
+    const r = await callPollinations(opts.prompt, timeoutMs);
+    return { ...r, durationMs: Date.now() - started };
+  } catch (e: any) {
+    errors.push(`Pollinations: ${e?.message ?? e}`);
+  }
+
+  // 2순위: Imagen (paid)
   if (process.env.GEMINI_API_KEY) {
     try {
       const r = await callImagenFast(opts.prompt, timeoutMs);
@@ -667,6 +676,7 @@ export async function callImageGeneration(opts: {
       errors.push(`Imagen: ${e?.message ?? e}`);
     }
   }
+  // 3순위: OpenAI gpt-image-1 (paid)
   if (process.env.OPENAI_API_KEY) {
     try {
       const r = await callOpenAIImage(opts.prompt, timeoutMs);
@@ -675,7 +685,28 @@ export async function callImageGeneration(opts: {
       errors.push(`OpenAI Image: ${e?.message ?? e}`);
     }
   }
-  throw new Error(`이미지 생성 실패. 결제 활성화가 필요할 수 있습니다. ${errors.join(" / ") || "API 키 없음"}`);
+  throw new Error(`이미지 생성 실패. ${errors.join(" / ") || "API 키 없음"}`);
+}
+
+async function callPollinations(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+  // Pollinations.ai — 무료, API 키 불필요. flux 모델로 1024x1024 PNG 반환.
+  // private=true: feed에 이미지 노출 안 함
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&model=flux&nologo=true&private=true`;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`Pollinations ${res.status}`);
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 1000) throw new Error(`Pollinations: too small response (${buf.byteLength} bytes)`);
+    const base64 = Buffer.from(buf).toString("base64");
+    return { base64, vendor: "pollinations", costUSD: 0 };
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`Pollinations 시간 초과 (${timeoutMs}ms)`);
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 async function callImagenFast(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
