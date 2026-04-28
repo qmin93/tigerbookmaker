@@ -46,22 +46,23 @@ export const TIER_DISPLAY: Record<Tier, TierDisplay> = {
 
 // 각 티어의 이상적 모델 chain (1순위 → fallback). 호출 시점에 키 가용성으로 필터.
 const TIER_CHAIN_TEMPLATE: Record<Tier, AIModel[]> = {
-  basic:   ["gemini-2.0-flash",   "gpt-4o-mini"],
-  pro:     ["gemini-2.5-flash",   "claude-haiku-4-5", "gpt-4.1-mini"],
-  premium: ["claude-sonnet-4-6",  "gpt-4o",           "gemini-2.5-pro"],
+  basic:   ["gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gpt-4o-mini"],
+  pro:     ["gemini-flash-latest",      "gemini-2.5-flash",      "claude-haiku-4-5", "gpt-4.1-mini"],
+  premium: ["claude-sonnet-4-6",        "gpt-4o",                "gemini-2.5-pro"],
 };
 
 // 모델별 필요 환경변수
 const MODEL_VENDOR: Record<AIModel, "gemini" | "openai" | "anthropic"> = {
-  "gemini-2.0-flash":     "gemini",
-  "gemini-2.5-flash":     "gemini",
-  "gemini-flash-latest":  "gemini",
-  "gemini-2.5-pro":       "gemini",
-  "gpt-4o-mini":          "openai",
-  "gpt-4o":               "openai",
-  "gpt-4.1-mini":         "openai",
-  "claude-haiku-4-5":     "anthropic",
-  "claude-sonnet-4-6":    "anthropic",
+  "gemini-2.5-flash-lite":   "gemini",
+  "gemini-flash-lite-latest":"gemini",
+  "gemini-2.5-flash":        "gemini",
+  "gemini-flash-latest":     "gemini",
+  "gemini-2.5-pro":          "gemini",
+  "gpt-4o-mini":             "openai",
+  "gpt-4o":                  "openai",
+  "gpt-4.1-mini":            "openai",
+  "claude-haiku-4-5":        "anthropic",
+  "claude-sonnet-4-6":       "anthropic",
 };
 
 const VENDOR_ENV: Record<"gemini" | "openai" | "anthropic", string> = {

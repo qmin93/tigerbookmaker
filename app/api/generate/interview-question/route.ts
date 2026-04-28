@@ -46,21 +46,35 @@ export async function POST(req: Request) {
     if (candidates.length === 0) {
       return NextResponse.json({ error: "TIER_UNAVAILABLE" }, { status: 503 });
     }
-    const model: AIModel = candidates[0];
 
+    // 진짜 fallback chain — 첫 candidate 실패 시 다음 vendor로
     let result;
-    try {
-      result = await callAIServer({
-        model,
-        system: "당신은 책 작가 인터뷰어입니다. 한국어로 JSON만 출력합니다.",
-        user: interviewerPrompt(project, history),
-        maxTokens: 1024,
-        temperature: 0.8,
-        timeoutMs: 15000,
-        retries: 1,
-      });
-    } catch (e: any) {
-      return NextResponse.json({ error: "AI_CALL_FAILED", message: e?.message }, { status: 502 });
+    let actualModel: AIModel = candidates[0];
+    let lastError: any = null;
+    for (const candidate of candidates) {
+      try {
+        result = await callAIServer({
+          model: candidate,
+          system: "당신은 책 작가 인터뷰어입니다. 한국어로 JSON만 출력합니다.",
+          user: interviewerPrompt(project, history),
+          maxTokens: 1024,
+          temperature: 0.8,
+          timeoutMs: 15000,
+          retries: 0,
+        });
+        actualModel = candidate;
+        break;
+      } catch (e: any) {
+        lastError = e;
+        const msg = String(e?.message ?? "");
+        const transient = /\b50[23]\b|UNAVAILABLE|overloaded|timeout|시간 초과|429|quota/i.test(msg);
+        if (!transient) {
+          return NextResponse.json({ error: "AI_CALL_FAILED", message: msg }, { status: 502 });
+        }
+      }
+    }
+    if (!result) {
+      return NextResponse.json({ error: "AI_CALL_FAILED", message: lastError?.message ?? "all candidates failed" }, { status: 502 });
     }
 
     let parsed: any;
@@ -73,7 +87,7 @@ export async function POST(req: Request) {
 
     const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
     const { id: usageId } = await logAIUsage({
-      userId, task: "edit", model,
+      userId, task: "edit", model: actualModel,
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       thoughtsTokens: result.usage.thoughtsTokens,
@@ -88,7 +102,7 @@ export async function POST(req: Request) {
     if (costKRW > 0) {
       const r = await deductBalance({
         userId, amountKRW: costKRW, aiUsageId: usageId,
-        reason: `인터뷰 질문 ${history.length + 1}번 (${model})`,
+        reason: `인터뷰 질문 ${history.length + 1}번 (${actualModel})`,
       });
       newBalance = r.newBalance;
     }

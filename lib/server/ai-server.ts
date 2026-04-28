@@ -4,7 +4,8 @@
 import "server-only";
 
 export type AIModel =
-  | "gemini-2.0-flash"
+  | "gemini-2.5-flash-lite"
+  | "gemini-flash-lite-latest"
   | "gemini-2.5-flash"
   | "gemini-flash-latest"
   | "gemini-2.5-pro"
@@ -30,15 +31,16 @@ export interface AIResult {
 }
 
 const PRICING: Record<AIModel, { in: number; out: number }> = {
-  "gemini-2.0-flash":     { in: 0.075, out: 0.30 },
-  "gemini-2.5-flash":     { in: 0.30,  out: 2.50 },
-  "gemini-flash-latest":  { in: 0.30,  out: 2.50 },
-  "gemini-2.5-pro":       { in: 1.25,  out: 10.00 },
-  "gpt-4o-mini":          { in: 0.15,  out: 0.60 },
-  "gpt-4o":               { in: 2.50,  out: 10.00 },
-  "gpt-4.1-mini":         { in: 0.40,  out: 1.60 },
-  "claude-sonnet-4-6":    { in: 3.00,  out: 15.00 },
-  "claude-haiku-4-5":     { in: 1.00,  out: 5.00 },
+  "gemini-2.5-flash-lite":   { in: 0.10,  out: 0.40 },
+  "gemini-flash-lite-latest":{ in: 0.10,  out: 0.40 },
+  "gemini-2.5-flash":        { in: 0.30,  out: 2.50 },
+  "gemini-flash-latest":     { in: 0.30,  out: 2.50 },
+  "gemini-2.5-pro":          { in: 1.25,  out: 10.00 },
+  "gpt-4o-mini":             { in: 0.15,  out: 0.60 },
+  "gpt-4o":                  { in: 2.50,  out: 10.00 },
+  "gpt-4.1-mini":            { in: 0.40,  out: 1.60 },
+  "claude-sonnet-4-6":       { in: 3.00,  out: 15.00 },
+  "claude-haiku-4-5":        { in: 1.00,  out: 5.00 },
 };
 
 export async function callAIServer(opts: {
