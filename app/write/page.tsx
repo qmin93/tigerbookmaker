@@ -409,15 +409,19 @@ function Inner() {
         setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
         return;
       }
-      if (!confirm("크몽 패키지 생성 — 표지 + 카피 5종 (~₩30). 나머지 이미지 5장은 모달에서 개별 생성. 진행할까요?")) return;
+      if (!confirm("크몽 패키지 생성 — 카피 5종 (~₩30). 이미지 6장은 모달에서 개별 [생성] 클릭 (각 ~5초). 진행할까요?")) return;
     }
-    setKmongBusy(regenerateOnly ? "이미지 재생성 중..." : "표지 + 카피 생성 중 (약 15초)...");
+    setKmongBusy(regenerateOnly ? "이미지 생성 중..." : "카피 생성 중 (약 10초)...");
     setError(null);
+    // 90초 client timeout — backend가 hang되어도 무한 대기 X
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 90_000);
     try {
       const res = await fetch("/api/generate/kmong-package", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId, regenerateOnly }),
+        signal: ctrl.signal,
       });
       const data = await res.json();
       if (res.status === 402) {
@@ -430,8 +434,10 @@ function Inner() {
       setProject(fresh);
       setKmongModalOpen(true);
     } catch (e: any) {
-      if (e.message !== "잔액 부족") setError(e.message);
+      if (e.name === "AbortError") setError("요청 시간 초과 (90초). 새로고침 후 다시 시도해주세요.");
+      else if (e.message !== "잔액 부족") setError(e.message);
     } finally {
+      clearTimeout(tid);
       setKmongBusy("");
     }
   };

@@ -39,11 +39,12 @@ export async function POST(req: Request) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-    // Vercel 60s 한도 안에 끝나야 함. 자동 생성은 cover 1개 + 카피만.
-    // 나머지 5개(thumb/toc/spec/audience/preview)는 모달에서 사용자가 개별 [생성] 버튼으로 호출.
+    // Vercel 60s 한도 회피 — 자동 생성은 카피만 (이미지 0).
+    // 표지 포함 6개 이미지 모두 모달의 개별 [생성] 버튼으로 호출 (각 ~5초).
+    // 이렇게 분리하면 단일 요청이 절대 30초 못 넘김.
     const imageTypes: KmongImageType[] = regenerateOnly && regenerateOnly.length > 0
       ? regenerateOnly
-      : ["cover"];
+      : [];
 
     // Cloudflare 무료라 이미지 비용 0. 카피만 ~₩30. 잔액 사전 체크 최소.
     if (user.balance_krw < 50) {
