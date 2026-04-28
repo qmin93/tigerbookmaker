@@ -14,13 +14,43 @@ export interface KmongCopy {
 
 // 영어 prompt — Cloudflare Workers AI (Flux 1 Schnell) 가 한국어 약함.
 // 책 정보를 영어로 짧게 인라인.
+
+// 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기를 분기.
+function coverPromptByGenre(p: BookProject, topic: string): string {
+  const base = `Korean ebook cover, square 1:1, premium publishing aesthetic, NO Korean text, NO Hangul characters in image. Topic: "${topic}".`;
+
+  switch (p.type) {
+    case "자기계발서":
+      return `${base} Bold typography-driven design. Strong abstract shape (arrow, rising curve, mountain peak) suggesting growth and momentum. Two-color palette: warm orange (#f97316) accent on cream/white background. Editorial book cover style. Confident, motivational mood. NO photo realism.`;
+
+    case "재테크":
+      return `${base} Financial book cover. Subtle line chart or upward graph as background motif. Dark navy + gold accent palette, OR clean white with deep green accent. Trustworthy professional banking aesthetic. Geometric and serious. NO cartoon style, NO cash piles.`;
+
+    case "에세이":
+      return `${base} Emotional abstract cover. Soft watercolor wash, single botanical element (leaf, branch, single flower), or atmospheric landscape silhouette. Muted earthy palette (sage, terracotta, cream). Quiet contemplative mood. Hand-drawn illustration style. NO bold typography focus.`;
+
+    case "웹소설":
+      return `${base} Webnovel cover style. Single dramatic character silhouette or evocative scene, cinematic mood lighting, vivid contrast. Webtoon-influenced illustration aesthetic but painterly. Genre-appropriate atmosphere (romantic / fantasy / mystery based on topic). High visual drama.`;
+
+    case "전문서":
+      return `${base} Academic/professional book cover. Geometric grid layout, restrained typography hierarchy, single conceptual diagram or symbolic icon. Cool palette (deep blue, charcoal, white). Serious authoritative mood, like a university press publication. Minimalist and structured.`;
+
+    case "매뉴얼":
+      return `${base} Technical manual cover. Schematic diagram or exploded-view illustration of relevant tool/process. Blueprint aesthetic — fine line work, monochrome with single safety-orange (#f97316) accent. Functional and clear. NO decorative flourishes.`;
+
+    case "실용서":
+    default:
+      return `${base} Modern minimalist cover. Big bold typography-led layout, clean white background, single accent color (orange #f97316), one simple geometric or symbolic icon. Editorial design. NO complex illustration.`;
+  }
+}
+
 export function imagePrompt(type: KmongImageType, p: BookProject): string {
   const topic = p.topic.slice(0, 80);
   const audience = p.audience.slice(0, 50);
 
   switch (type) {
     case "cover":
-      return `Modern minimalist Korean book cover design. Topic: "${topic}". Big bold typography centered, clean white background with single accent color (orange #f97316). Premium publishing aesthetic. Editorial design. Square 1:1. NO photo realism, NO complex illustration. Just typography + minimal geometric accent.`;
+      return coverPromptByGenre(p, topic);
 
     case "thumb":
       return `Eye-catching ebook marketplace thumbnail. Topic: "${topic}". Bold visual metaphor in center, bright color contrast (orange #f97316 accent), professional publishing look. Square 1:1. NO text in image (will overlay separately).`;

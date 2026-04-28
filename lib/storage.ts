@@ -13,7 +13,7 @@ export interface BookProject {
   id: string;
   topic: string;
   audience: string;
-  type: "자기계발서" | "실용서" | "에세이" | "매뉴얼";
+  type: "자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서";
   targetPages: number;
   tier?: "basic" | "pro" | "premium";
   interview?: {

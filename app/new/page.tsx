@@ -19,7 +19,7 @@ export default function NewProjectPage() {
   const r = useRouter();
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
-  const [type, setType] = useState<"자기계발서" | "실용서" | "에세이" | "매뉴얼">("실용서");
+  const [type, setType] = useState<"자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서">("실용서");
   const [targetPages, setTargetPages] = useState(120);
   const [tier, setTier] = useState<"basic" | "pro" | "premium">("pro");
   const [tiers, setTiers] = useState<TierInfo[]>([]);
@@ -85,7 +85,7 @@ export default function NewProjectPage() {
         </Field>
         <Field label="책 유형">
           <div className="flex gap-2 flex-wrap">
-            {(["자기계발서", "실용서", "에세이", "매뉴얼"] as const).map(t => (
+            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서"] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setType(t)}

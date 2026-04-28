@@ -1,5 +1,70 @@
 import type { BookProject } from "./storage";
 
+// 장르 블루프린트 — 책 유형별 system prompt 추가 instruction.
+// SYSTEM_WRITER 뒤에 합쳐져서 LLM에 들어감.
+const GENRE_PRESETS: Record<string, string> = {
+  "자기계발서": `
+[자기계발서 블루프린트 — 반드시 준수]
+- 챕터마다 1) 독자가 겪는 구체적 상황 → 2) 그 상황의 진짜 원인(통념과 다른) → 3) 작가의 변화 사례 → 4) 독자가 오늘 당장 할 수 있는 1~3개 행동
+- 추상적 격려 ("당신은 할 수 있다") 금지. 구체적 행동 + 측정 가능한 결과
+- 친근한 형/누나 톤. 단정적이되 강요는 X
+- 데이터·연구 인용은 1챕터에 1~2개 (출처 명시)`,
+
+  "재테크": `
+[재테크 블루프린트 — 반드시 준수]
+- 모든 금액·수익률·기간을 구체적 숫자로 ("월 30만원", "3년 후 1,500만원", "연 7%")
+- 리스크·실패 사례 반드시 함께 (성공만 말하지 말 것 — 자본시장법 우회)
+- "투자 권유" 표현 금지. "참고 자료" 톤 ("저는 ~했습니다", "결과는 ~였습니다")
+- 챕터마다 단계별 실행 가이드 (스크린샷 placeholder 자주 사용)
+- 면책 문구 자연스럽게 ("개인 경험이며 투자 권유 아닙니다")`,
+
+  "에세이": `
+[에세이 블루프린트 — 반드시 준수]
+- 챕터마다 구체적 장면 1~2개 (시간·장소·인물·감정 묘사)
+- 통계·일반론 X. 개인의 사적이고 구체적인 순간들
+- 결론을 강요하지 말 것 — 통찰을 독자가 발견하게
+- 시적 호흡 (짧은 문장 ↔ 긴 문장 교차). 마침표 신중히
+- 비유·은유 적극 사용. 단 흔한 비유 ("인생은 여행") 금지`,
+
+  "웹소설": `
+[웹소설 블루프린트 — 반드시 준수]
+- 챕터당 분량 2,500~3,500자 (모바일 읽기 최적)
+- 모든 챕터 끝에 cliffhanger (다음 챕터 보고 싶게)
+- 주인공 시점 1인칭 (또는 명확한 3인칭 한정)
+- 대화 비중 높게 (지문보다 대사). "나는 말했다" 같은 군더더기 X
+- 챕터 첫 문단: 즉시 갈등·긴장. 배경 설명은 본론 중간에
+- 묘사는 oversee 동작 + 감정 한 줄. 풍경 묘사 길게 X`,
+
+  "전문서": `
+[전문서 블루프린트 — 반드시 준수]
+- 챕터마다 1) 정의 → 2) 사례·실험 → 3) 검증 가능한 방법 → 4) 한계·예외
+- 학술적 톤. 단 박사 논문 아니므로 일반 독자 이해 가능 수준
+- 인용·자료는 본문에 자연스럽게 (예: "2023년 OECD 보고서에 따르면 ~")
+- 이론보다 적용에 무게 (실무자가 쓸 수 있는 책)
+- 도식·표 placeholder 적극 사용 [IMAGE: 인포그래픽 설명]`,
+
+  "실용서": `
+[실용서 블루프린트 — 반드시 준수]
+- 챕터마다 따라할 수 있는 단계별 가이드 (1, 2, 3, 4...)
+- 도구·앱·서비스 이름 정확히 (버전·URL·가격 명시)
+- 함정·실수 미리 알려주기 ("저는 처음에 ~했다가 ~로 바꿨습니다")
+- 스크린샷·스펙 placeholder [IMAGE: ...] 적극 사용
+- "쉽다" 말하지 말고 진짜 쉽게 쓰기 (전문용어 첫 등장 시 한 줄 설명)`,
+
+  "매뉴얼": `
+[매뉴얼 블루프린트 — 반드시 준수]
+- 대상 사용자·작업 명확히 정의 (전제 조건·필요 도구 첫 챕터에)
+- 모든 단계 번호 + 동사 명령형 ("1. ~를 클릭합니다 → 2. ~을 입력합니다")
+- 함정·예외 케이스 별도 박스 (Note·Warning 톤)
+- 검증 방법 명시 ("이 단계가 끝나면 ~ 화면이 보여야 합니다")
+- 스크린샷 placeholder 매 단계마다`,
+};
+
+export function genreBlock(p: BookProject): string {
+  const preset = GENRE_PRESETS[p.type];
+  return preset ? `\n${preset}\n` : "";
+}
+
 // Strong system prompt tuned for Sonnet to deliver Opus-level Korean ebook writing.
 // Principles:
 // - Hard constraints over soft guidance (Sonnet follows explicit rules better)
@@ -117,7 +182,7 @@ export function tocPrompt(p: BookProject) {
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
 - 목표 분량: ${p.targetPages}쪽
-${interviewBlock(p)}
+${genreBlock(p)}${interviewBlock(p)}
 [요구사항]
 - 정확히 10~15개 챕터.
 - 첫 챕터: 독자의 현재 상태/문제 상황 공감.
@@ -152,7 +217,7 @@ export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: 
 - 주제: ${p.topic}
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
-${interviewBlock(p)}
+${genreBlock(p)}${interviewBlock(p)}
 [전체 목차]
 ${prevTitles || "(이 챕터가 첫 챕터입니다)"}
 → ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
