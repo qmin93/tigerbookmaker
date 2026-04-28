@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     // tier 기반 모델 chain (사용자가 명시 model 보냈으면 그것만 사용)
-    const tier: Tier = (project as any).tier ?? "pro";
+    const tier: Tier = (project as any).tier ?? "basic";
     let candidates: AIModel[];
     if (explicitModel) {
       candidates = [explicitModel as AIModel];

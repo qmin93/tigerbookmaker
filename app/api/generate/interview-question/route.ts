@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       }, { status: 402 });
     }
 
-    const tier: Tier = (project as any).tier ?? "pro";
+    const tier: Tier = (project as any).tier ?? "basic";
     const candidates = getModelChain(tier);
     if (candidates.length === 0) {
       return NextResponse.json({ error: "TIER_UNAVAILABLE" }, { status: 503 });

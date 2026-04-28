@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const project = projectRow.data;
 
     // tier 기반 chain
-    const tier: Tier = (project as any).tier ?? "pro";
+    const tier: Tier = (project as any).tier ?? "basic";
     let candidates: AIModel[];
     if (explicitModel) {
       candidates = [explicitModel as AIModel];

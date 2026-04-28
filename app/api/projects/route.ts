@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
   const safeTier: "basic" | "pro" | "premium" =
-    tier === "basic" || tier === "pro" || tier === "premium" ? tier : "pro";
+    tier === "basic" || tier === "pro" || tier === "premium" ? tier : "basic";
 
   const data = { topic, audience, type, targetPages, tier: safeTier, chapters: [] };
   const { rows } = await sql<{ id: string }>`
