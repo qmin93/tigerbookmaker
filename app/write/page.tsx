@@ -841,12 +841,13 @@ function Inner() {
                 <ShareToggle
                   projectId={projectId!}
                   enabled={(project as any).shareEnabled === true}
-                  onChange={async (enabled) => {
-                    setProject({ ...(project as any), shareEnabled: enabled });
+                  shareLinks={(project as any).shareLinks ?? {}}
+                  onChange={async (patch) => {
+                    setProject({ ...(project as any), ...patch });
                     await fetch(`/api/projects/${projectId}`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ data: { shareEnabled: enabled } }),
+                      body: JSON.stringify({ data: patch }),
                     }).catch(() => {});
                   }}
                 />
@@ -1391,8 +1392,23 @@ function Center({ children }: { children: React.ReactNode }) {
   return <main className="min-h-screen flex items-center justify-center text-gray-500">{children}</main>;
 }
 
-function ShareToggle({ projectId, enabled, onChange }: { projectId: string; enabled: boolean; onChange: (v: boolean) => void }) {
+interface ShareLinks {
+  kmong?: string;
+  ridi?: string;
+  kyobo?: string;
+  custom?: { label: string; url: string }[];
+}
+
+function ShareToggle({
+  projectId, enabled, shareLinks, onChange,
+}: {
+  projectId: string;
+  enabled: boolean;
+  shareLinks: ShareLinks;
+  onChange: (patch: { shareEnabled?: boolean; shareLinks?: ShareLinks }) => void;
+}) {
   const [copied, setCopied] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/share/${projectId}` : "";
 
   const copy = async () => {
@@ -1403,6 +1419,16 @@ function ShareToggle({ projectId, enabled, onChange }: { projectId: string; enab
     } catch {}
   };
 
+  const updateLink = (key: "kmong" | "ridi" | "kyobo", value: string) => {
+    onChange({ shareLinks: { ...shareLinks, [key]: value.trim() || undefined } });
+  };
+
+  const linkCount =
+    (shareLinks.kmong ? 1 : 0) +
+    (shareLinks.ridi ? 1 : 0) +
+    (shareLinks.kyobo ? 1 : 0) +
+    (shareLinks.custom?.length ?? 0);
+
   return (
     <div>
       <label className="flex items-center justify-between gap-2 px-2 py-1.5 cursor-pointer text-xs">
@@ -1410,7 +1436,7 @@ function ShareToggle({ projectId, enabled, onChange }: { projectId: string; enab
         <input
           type="checkbox"
           checked={enabled}
-          onChange={e => onChange(e.target.checked)}
+          onChange={e => onChange({ shareEnabled: e.target.checked })}
           className="w-4 h-4 accent-tiger-orange"
         />
       </label>
@@ -1431,9 +1457,51 @@ function ShareToggle({ projectId, enabled, onChange }: { projectId: string; enab
               {copied ? "✓" : "복사"}
             </button>
           </div>
-          <p className="text-[10px] text-gray-500 mt-1.5 leading-tight">로그인 없이 누구나 책 읽을 수 있음. SNS·블로그 공유 OK.</p>
+          <button
+            onClick={() => setShowLinks(s => !s)}
+            className="mt-2 w-full text-[10px] text-tiger-orange hover:underline text-left"
+          >
+            🛒 구매 링크 {linkCount > 0 ? `(${linkCount})` : "추가"} {showLinks ? "▲" : "▼"}
+          </button>
+          {showLinks && (
+            <div className="mt-1.5 space-y-1.5 pl-2 border-l-2 border-tiger-orange/20">
+              <LinkField label="크몽" value={shareLinks.kmong ?? ""} onSave={v => updateLink("kmong", v)} placeholder="https://kmong.com/gig/..." />
+              <LinkField label="리디" value={shareLinks.ridi ?? ""} onSave={v => updateLink("ridi", v)} placeholder="https://ridibooks.com/..." />
+              <LinkField label="교보" value={shareLinks.kyobo ?? ""} onSave={v => updateLink("kyobo", v)} placeholder="https://kyobobook.co.kr/..." />
+              <p className="text-[9px] text-gray-400 leading-tight pt-1">공유 페이지 마지막에 [구매] 버튼으로 노출됩니다.</p>
+            </div>
+          )}
+          <p className="text-[10px] text-gray-500 mt-2 leading-tight">로그인 없이 누구나 책 읽을 수 있음. SNS·블로그 공유 OK.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function LinkField({ label, value, onSave, placeholder }: { label: string; value: string; onSave: (v: string) => void; placeholder: string }) {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+  // 외부에서 value 바뀌면 sync
+  useEffect(() => { setDraft(value); }, [value]);
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="w-8 text-[10px] font-bold text-gray-600">{label}</span>
+      <input
+        type="url"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== value) {
+            setSaving(true);
+            onSave(draft);
+            setTimeout(() => setSaving(false), 600);
+          }
+        }}
+        placeholder={placeholder}
+        className="flex-1 text-[10px] px-2 py-1 bg-white border border-gray-200 rounded focus:border-tiger-orange focus:outline-none truncate"
+      />
+      {saving && <span className="text-[9px] text-tiger-orange">✓</span>}
     </div>
   );
 }
