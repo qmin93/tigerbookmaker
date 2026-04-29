@@ -80,6 +80,12 @@ function Inner() {
   const [variantBusy, setVariantBusy] = useState(false);
   const [continueModal, setContinueModal] = useState<{ chapterIdx: number; seed: string } | null>(null);
   const [continueBusy, setContinueBusy] = useState(false);
+  const [editChat, setEditChat] = useState<{
+    chapterIdx: number;
+    instruction: string;
+    proposal: string | null;
+    busy: boolean;
+  } | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -735,6 +741,39 @@ function Inner() {
     }
   };
 
+  // AI 글쓰기 챗 — 자연어 지시 → AI 수정안 → 적용/거절
+  const askChapterEdit = async () => {
+    if (!editChat || !projectId) return;
+    setEditChat(c => c ? { ...c, busy: true, proposal: null } : c);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/chapter-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, chapterIdx: editChat.chapterIdx, instruction: editChat.instruction }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족. 충전 페이지로?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
+      if (data.newBalance != null) setBalance(data.newBalance);
+      setEditChat(c => c ? { ...c, busy: false, proposal: data.newContent } : c);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+      setEditChat(c => c ? { ...c, busy: false } : c);
+    }
+  };
+
+  const applyChapterEdit = async () => {
+    if (!editChat?.proposal || !project) return;
+    const chapters = [...project.chapters];
+    chapters[editChat.chapterIdx] = { ...chapters[editChat.chapterIdx], content: editChat.proposal };
+    await saveProject({ ...project, chapters });
+    setEditChat(null);
+  };
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -998,13 +1037,23 @@ function Inner() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {active.content && editingContent === null && (
-                  <button
-                    onClick={() => setEditingContent(active.content)}
-                    disabled={!!loading}
-                    className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
-                  >
-                    ✏️ 수정
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false })}
+                      disabled={!!loading}
+                      className="text-xs px-3 py-1 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg hover:bg-orange-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
+                      title="자연어로 AI에게 수정 요청"
+                    >
+                      💬 AI 수정 요청
+                    </button>
+                    <button
+                      onClick={() => setEditingContent(active.content)}
+                      disabled={!!loading}
+                      className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
+                    >
+                      ✏️ 직접 수정
+                    </button>
+                  </>
                 )}
                 <button onClick={() => generateChapter(activeIdx)} disabled={!!loading || editingContent !== null} className="text-xs px-3 py-1 bg-tiger-orange text-white rounded-lg disabled:opacity-50 whitespace-nowrap">
                   {loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`) ? loading : active.content ? "다시 생성" : "집필"}
@@ -1428,6 +1477,86 @@ function Inner() {
               {kmongProgress ? "첫 작업 완료까지 잠시 기다려주세요..." : "패키지가 없습니다."}
             </div>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* AI 글쓰기 챗 — 챕터 본문에 자연어 수정 요청 */}
+    {editChat && (
+      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !editChat.busy && setEditChat(null)}>
+        <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-ink-900">💬 AI 수정 요청</h3>
+              <p className="text-xs text-gray-500 mt-1">{editChat.chapterIdx + 1}장 — {project.chapters[editChat.chapterIdx]?.title}</p>
+            </div>
+            {!editChat.busy && <button onClick={() => setEditChat(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>}
+          </div>
+
+          {/* 입력 */}
+          <div className="mb-4">
+            <label className="text-xs font-bold text-ink-900 mb-1 block">자연어로 수정 요청</label>
+            <textarea
+              value={editChat.instruction}
+              onChange={e => setEditChat(c => c ? { ...c, instruction: e.target.value } : c)}
+              disabled={editChat.busy}
+              rows={3}
+              placeholder="예시:&#10;• '결말이 약해. 다음 장으로 자연스럽게 연결되는 강한 마무리 문단 추가'&#10;• '두 번째 소제목 부분을 더 짧고 강하게'&#10;• '전체적으로 더 친근한 형/누나 톤으로 다시'&#10;• '구체적 숫자·예시 더 추가. 추상적 표현 줄임'"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none resize-none disabled:bg-gray-50"
+            />
+            <div className="flex justify-between text-xs mt-1">
+              <span className="text-gray-400">{editChat.instruction.length}/500자</span>
+              <button
+                onClick={askChapterEdit}
+                disabled={editChat.busy || editChat.instruction.trim().length < 5 || editChat.instruction.length > 500}
+                className="px-4 py-1.5 bg-tiger-orange text-white rounded-lg text-xs font-bold hover:bg-orange-600 disabled:opacity-50"
+              >
+                {editChat.busy ? "AI 작업 중..." : "✨ 수정안 요청"}
+              </button>
+            </div>
+          </div>
+
+          {/* 진행 중 */}
+          {editChat.busy && !editChat.proposal && (
+            <div className="p-4 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900 mb-4">
+              ⏳ AI가 챕터 분석 + 새 본문 작성 중... (10~30초)
+            </div>
+          )}
+
+          {/* 제안 */}
+          {editChat.proposal && (
+            <div className="border border-tiger-orange/40 rounded-xl p-4 bg-orange-50/40 mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-tiger-orange">📄 AI 수정안 ({editChat.proposal.length.toLocaleString()}자)</span>
+                <span className="text-[10px] text-gray-500">아래 [✓ 적용] 시 챕터 본문 교체</span>
+              </div>
+              <div className="max-h-80 overflow-y-auto p-3 bg-white rounded border border-gray-200 text-sm whitespace-pre-wrap break-keep leading-relaxed">
+                {editChat.proposal}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setEditChat(c => c ? { ...c, proposal: null, instruction: c.instruction } : c)}
+                  className="flex-1 py-2 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50"
+                >
+                  ↻ 다시 (새 요청)
+                </button>
+                <button
+                  onClick={applyChapterEdit}
+                  className="flex-1 py-2 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600"
+                >
+                  ✓ 챕터 본문에 적용
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 참고: 원본 보기 */}
+          <details className="text-xs text-gray-500">
+            <summary className="cursor-pointer hover:text-ink-900">📜 원본 본문 보기</summary>
+            <div className="mt-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded text-xs whitespace-pre-wrap break-keep leading-relaxed">
+              {project.chapters[editChat.chapterIdx]?.content}
+            </div>
+          </details>
         </div>
       </div>
     )}
