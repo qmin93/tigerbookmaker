@@ -3,7 +3,7 @@
 
 "use client";
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Chapter {
   title: string;
@@ -64,8 +64,8 @@ function buildPages(book: ShareData): Page[] {
   return pages;
 }
 
-export default function SharePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function SharePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [book, setBook] = useState<ShareData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idx, setIdx] = useState(0);

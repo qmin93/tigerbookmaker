@@ -26,8 +26,8 @@ async function fetchShareSummary(id: string, baseUrl: string): Promise<ShareSumm
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { id } = params;
   // base URL — production은 vercel domain 또는 사용자 도메인
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://tigerbookmaker.vercel.app");
