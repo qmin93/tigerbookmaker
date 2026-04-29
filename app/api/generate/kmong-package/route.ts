@@ -65,11 +65,15 @@ export async function POST(req: Request) {
     const newImages: any[] = [];
 
     // 6 이미지 생성 (순차 — Vercel function 60s 한도 안에서)
+    // cover/thumb/toc/spec — 한국어 글자·로고가 중요 → Imagen 4 Fast 우선 (Gemini paid, ₩28/장)
+    // audience/preview — 분위기 사진·일러스트 → Cloudflare 무료 우선
+    const PAID_TYPES = new Set<KmongImageType>(["cover", "thumb", "toc", "spec"]);
     for (const type of imageTypes) {
       try {
         const img = await callImageGeneration({
           prompt: imagePrompt(type, project),
           timeoutMs: 30000,
+          preferPaid: PAID_TYPES.has(type),
         });
         const costKRW = Math.ceil(img.costUSD * USD_TO_KRW);
         totalCostKRW += costKRW;

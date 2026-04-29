@@ -681,12 +681,22 @@ let cloudflareDownUntil = 0;
 export async function callImageGeneration(opts: {
   prompt: string;
   timeoutMs?: number;
+  preferPaid?: boolean;  // true면 Imagen 4 Fast 우선 (한국어 글자 깔끔, 표지·썸네일·인포그래픽용). 기본 false.
 }): Promise<ImageResult> {
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? 30000;
   const errors: string[] = [];
   const now = Date.now();
 
+  // preferPaid: 한국어 글자 정확 필요 (표지/썸네일/인포그래픽) — Imagen 4 Fast 우선
+  if (opts.preferPaid && process.env.GEMINI_API_KEY) {
+    try {
+      const r = await callImagenFast(opts.prompt, timeoutMs);
+      return { ...r, durationMs: Date.now() - started };
+    } catch (e: any) {
+      errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
+    }
+  }
   // 1순위: Cloudflare Workers AI (무료 1만/일) — quota 도달 시 1시간 skip
   if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && now > cloudflareDownUntil) {
     try {
@@ -711,8 +721,8 @@ export async function callImageGeneration(opts: {
       errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
     }
   }
-  // 3순위: Imagen 4 Fast (paid, 한국어 깔끔) — Gemini billing 활성화 시
-  if (process.env.GEMINI_API_KEY) {
+  // 3순위: Imagen 4 Fast (paid, 한국어 깔끔) — preferPaid 아닐 때 fallback
+  if (!opts.preferPaid && process.env.GEMINI_API_KEY) {
     try {
       const r = await callImagenFast(opts.prompt, timeoutMs);
       return { ...r, durationMs: Date.now() - started };
