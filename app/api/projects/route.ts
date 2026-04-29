@@ -26,6 +26,8 @@ export async function GET() {
       targetPages: r.target_pages,
       chapterCount: r.data?.chapters?.length ?? 0,
       writtenCount: (r.data?.chapters ?? []).filter((c: any) => c.content).length,
+      favorite: r.data?.favorite === true,
+      archived: r.data?.archived === true,
       updatedAt: r.updated_at,
     })),
   });

@@ -29,7 +29,11 @@ export async function POST(req: Request) {
     if (!rl.ok) return NextResponse.json({ error: "RATE_LIMITED", resetIn: rl.resetIn }, { status: 429 });
 
     const body = await req.json().catch(() => ({}));
-    const { projectId, regenerateOnly } = body as { projectId?: string; regenerateOnly?: KmongImageType[] };
+    const { projectId, regenerateOnly, regenerateCopyOnly } = body as {
+      projectId?: string;
+      regenerateOnly?: KmongImageType[];
+      regenerateCopyOnly?: boolean;
+    };
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
     const projectRow = await getProject(projectId, userId);
@@ -39,10 +43,11 @@ export async function POST(req: Request) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-    // Vercel 60s 한도 회피 — 자동 생성은 카피만 (이미지 0).
-    // 표지 포함 6개 이미지 모두 모달의 개별 [생성] 버튼으로 호출 (각 ~5초).
-    // 이렇게 분리하면 단일 요청이 절대 30초 못 넘김.
-    const imageTypes: KmongImageType[] = regenerateOnly && regenerateOnly.length > 0
+    // Vercel 60s 한도 회피 — frontend가 한 type씩 호출.
+    // regenerateCopyOnly: 이미지 안 만들고 카피만.
+    const imageTypes: KmongImageType[] = regenerateCopyOnly
+      ? []
+      : regenerateOnly && regenerateOnly.length > 0
       ? regenerateOnly
       : [];
 
@@ -102,9 +107,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // 카피 생성 (regenerateOnly가 아닐 때만)
+    // 카피 생성 — regenerateOnly(이미지만)일 때는 skip. regenerateCopyOnly 또는 둘 다 없을 때만.
     let copy: KmongCopy | null = (project as any).kmongPackage?.copy ?? null;
-    if (!regenerateOnly) {
+    if (!regenerateOnly || regenerateCopyOnly) {
       const tier: Tier = (project as any).tier ?? "basic";
       const candidates = getModelChain(tier);
       if (candidates.length > 0) {

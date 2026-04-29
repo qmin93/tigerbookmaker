@@ -44,18 +44,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { data } = body;
   if (!data) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
-  // 기존 data 읽어서 kmongPackage / interview / tier 보존 (frontend가 chapters만 보내도 안 잃음).
-  // backend 자체가 update할 때만 (kmong-package route) 그 필드 갱신.
+  // 기존 data와 spread merge — 클라이언트가 부분 update해도 나머지 필드 보존.
+  // (favorite/archived 토글, chapters만 저장, kmongPackage 단독 update 모두 안전)
   const { rows: existing } = await sql<{ data: any }>`
     SELECT data FROM book_projects WHERE id = ${params.id} AND user_id = ${session.user.id}
   `;
   const existingData = existing[0]?.data ?? {};
-  const merged = {
-    ...data,
-    kmongPackage: data.kmongPackage ?? existingData.kmongPackage,
-    interview: data.interview ?? existingData.interview,
-    tier: data.tier ?? existingData.tier,
-  };
+  const merged = { ...existingData, ...data };
 
   const { rowCount } = await sql`
     UPDATE book_projects SET data = ${JSON.stringify(merged)}, updated_at = NOW()

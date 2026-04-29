@@ -612,7 +612,7 @@ function Inner() {
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2">목차 ({project.chapters.length})</p>
             {project.chapters.map((c, i) => (
-              <div key={i} className={`group rounded-lg mb-1 transition ${i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"}`}>
+              <div key={i} className={`relative group rounded-lg mb-1 transition ${i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"}`}>
                 <button onClick={() => {
                   if (editingContent !== null && i !== activeIdx && !confirm("편집 중인 내용이 있습니다. 저장 안 하고 다른 챕터로 이동할까요?")) return;
                   if (i !== activeIdx) setEditingContent(null);
@@ -630,6 +630,24 @@ function Inner() {
                   <button onClick={() => startEditTitle(i)} className="hover:underline">수정</button>
                   <button onClick={() => deleteChapter(i)} className="hover:underline ml-auto">삭제</button>
                 </div>
+                {/* hover tooltip — 챕터 요약 */}
+                {(c.subtitle || (c as any).summary) && (
+                  <div className="absolute left-full ml-3 top-0 w-72 p-3.5 bg-ink-900 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[60] hidden lg:block">
+                    <div className="font-bold mb-1.5 text-tiger-orange text-[10px] uppercase tracking-wider">{i + 1}장 — {c.content ? "집필 완료" : "미집필"}</div>
+                    {c.subtitle && <div className="text-white/80 italic mb-2 text-[11px]">{c.subtitle}</div>}
+                    {(c as any).summary && (
+                      <>
+                        <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1">요약</div>
+                        <div className="text-white/90 leading-relaxed line-clamp-6">{(c as any).summary}</div>
+                      </>
+                    )}
+                    {!c.content && !(c as any).summary && (
+                      <div className="text-white/50 italic text-[11px]">아직 본문 작성 안 됨</div>
+                    )}
+                    {/* tooltip 화살표 */}
+                    <div className="absolute -left-1.5 top-3 w-3 h-3 bg-ink-900 rotate-45" />
+                  </div>
+                )}
               </div>
             ))}
           </aside>
@@ -895,7 +913,36 @@ function Inner() {
 
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-bold text-ink-900">마케팅 카피 (8종)</h3>
-            <span className="text-xs text-gray-400">← 옆으로 스와이프 →</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  if (!projectId) return;
+                  setKmongBusy("카피 재생성 중 (~10초)...");
+                  setError(null);
+                  try {
+                    const res = await fetch("/api/generate/kmong-package", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ projectId, regenerateCopyOnly: true }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || `재생성 실패 (${res.status})`);
+                    if (data.newBalance != null) setBalance(data.newBalance);
+                    const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+                    setProject(fresh);
+                  } catch (e: any) {
+                    setError(e.message);
+                  } finally {
+                    setKmongBusy("");
+                  }
+                }}
+                disabled={!!kmongBusy}
+                className="text-[11px] px-2 py-1 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                🔄 카피 재생성
+              </button>
+              <span className="text-xs text-gray-400">← 옆으로 스와이프 →</span>
+            </div>
           </div>
           <p className="text-xs text-gray-500 mb-3">크몽 등록 + SNS + 콘텐츠 마케팅 채널별 카피. 카드 안 [복사] 버튼으로 즉시 복사.</p>
           <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 -mx-2 px-2 scroll-smooth">
