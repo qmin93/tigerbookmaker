@@ -29,10 +29,11 @@ export async function POST(req: Request) {
     if (!rl.ok) return NextResponse.json({ error: "RATE_LIMITED", resetIn: rl.resetIn }, { status: 429 });
 
     const body = await req.json().catch(() => ({}));
-    const { projectId, regenerateOnly, regenerateCopyOnly } = body as {
+    const { projectId, regenerateOnly, regenerateCopyOnly, dryRun } = body as {
       projectId?: string;
       regenerateOnly?: KmongImageType[];
       regenerateCopyOnly?: boolean;
+      dryRun?: boolean;  // true면 DB 저장 X, base64만 응답 (표지 후보 5장 비교용)
     };
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
@@ -150,6 +151,19 @@ export async function POST(req: Request) {
           }).catch(() => {});
         }
       }
+    }
+
+    // dryRun: DB 저장 안 함, 새 이미지/카피만 응답 (표지 후보 5장 비교용)
+    if (dryRun) {
+      const refreshedUserDry = await getUser(userId);
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        newImages,
+        copy,
+        newBalance: refreshedUserDry?.balance_krw ?? user.balance_krw - totalCostKRW,
+        totalCostKRW,
+      });
     }
 
     // 기존 패키지와 병합

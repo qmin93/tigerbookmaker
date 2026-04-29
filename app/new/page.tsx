@@ -25,6 +25,29 @@ export default function NewProjectPage() {
   const [tiers, setTiers] = useState<TierInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [suggestions, setSuggestions] = useState<{ topic: string; audience: string; type: string }[]>([]);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+
+  const fetchSuggestions = async () => {
+    if (!keyword.trim()) return;
+    setSuggestBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/topic-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: keyword.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `추천 실패 (${res.status})`);
+      setSuggestions(data.suggestions || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSuggestBusy(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
@@ -62,6 +85,59 @@ export default function NewProjectPage() {
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">새 프로젝트</p>
       <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">새 책 시작.</h1>
       <p className="text-gray-600 mb-10">기본 정보를 입력하면 AI가 목차를 제안합니다.</p>
+
+      {/* AI 주제 추천 — 키워드 → 5개 구체적 주제 카드 */}
+      <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-tiger-orange/30 p-5 md:p-6 rounded-2xl mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold">✨ AI 주제 추천</p>
+            <p className="text-xs text-gray-600 mt-0.5">막막하면 키워드만 입력 → 구체적 주제 5개 즉시 받기</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={keyword}
+            onChange={e => setKeyword(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !suggestBusy) fetchSuggestions(); }}
+            placeholder="예: 재테크, 다이어트, 부업, 글쓰기..."
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none bg-white"
+          />
+          <button
+            onClick={fetchSuggestions}
+            disabled={!keyword.trim() || suggestBusy}
+            className="px-4 py-2 bg-tiger-orange text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition disabled:opacity-50 whitespace-nowrap"
+          >
+            {suggestBusy ? "추천 중..." : "추천받기"}
+          </button>
+        </div>
+        {suggestions.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setTopic(s.topic);
+                  setAudience(s.audience);
+                  if (["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서"].includes(s.type)) {
+                    setType(s.type as any);
+                  }
+                  setSuggestions([]);
+                }}
+                className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-tiger-orange hover:shadow-sm transition group"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mt-0.5">{s.type}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold text-ink-900 group-hover:text-tiger-orange transition leading-snug">{s.topic}</div>
+                    <div className="text-xs text-gray-500 mt-1">독자: {s.audience}</div>
+                  </div>
+                  <span className="text-tiger-orange text-xs font-bold opacity-0 group-hover:opacity-100 transition">→ 적용</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="space-y-5 bg-white p-6 md:p-8 rounded-2xl border border-gray-200">
         {/* 티어 선택 UI는 베타 기간 중 숨김. default "pro"로 자동 — 필요해지면 부활.

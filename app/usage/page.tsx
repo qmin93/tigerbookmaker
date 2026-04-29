@@ -72,6 +72,14 @@ export default function UsagePage() {
           <Card label="누적 사용" value={`₩${u.total_spent.toLocaleString()}`} />
         </div>
 
+        {/* 차트 */}
+        {data.aiUsage && data.aiUsage.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-10">
+            <DailyCostChart usage={data.aiUsage} />
+            <ProjectCostChart usage={data.aiUsage} />
+          </div>
+        )}
+
         {/* 모델·작업별 통계 */}
         {data.stats && data.stats.length > 0 && (
           <section className="mb-10">
@@ -187,6 +195,95 @@ function Card({ label, value, accent }: { label: string; value: string; accent?:
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-2">{label}</div>
       <div className={`font-mono text-2xl md:text-3xl font-bold tracking-tight ${accent ? "text-tiger-orange" : "text-ink-900"}`}>{value}</div>
+    </div>
+  );
+}
+
+// 최근 14일 일별 비용 — bar chart
+function DailyCostChart({ usage }: { usage: AIUsage[] }) {
+  const today = new Date();
+  const days: { day: string; label: string; cost: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ day: key, label: `${d.getMonth() + 1}/${d.getDate()}`, cost: 0 });
+  }
+  usage.forEach(u => {
+    const day = new Date(u.created_at).toISOString().slice(0, 10);
+    const slot = days.find(d => d.day === day);
+    if (slot) slot.cost += u.cost_krw;
+  });
+  const max = Math.max(...days.map(d => d.cost), 1);
+  const total = days.reduce((s, d) => s + d.cost, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-baseline justify-between mb-4">
+        <h3 className="text-sm font-bold text-ink-900">최근 14일 비용</h3>
+        <span className="text-xs text-gray-500 font-mono">합계 ₩{total.toLocaleString()}</span>
+      </div>
+      <div className="flex items-end gap-1 h-40">
+        {days.map((d, i) => {
+          const h = max > 0 ? (d.cost / max) * 100 : 0;
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1 group" title={`${d.label}: ₩${d.cost.toLocaleString()}`}>
+              <div className="w-full flex-1 flex items-end">
+                <div
+                  className={`w-full rounded-t ${d.cost > 0 ? "bg-tiger-orange group-hover:bg-orange-600" : "bg-gray-100"} transition`}
+                  style={{ height: `${h}%`, minHeight: d.cost > 0 ? 2 : 0 }}
+                />
+              </div>
+              <div className="text-[9px] font-mono text-gray-400">{d.label.slice(-2)}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 text-xs text-gray-500 font-mono text-center">최대 ₩{max.toLocaleString()}/일</div>
+    </div>
+  );
+}
+
+// 책별 비용 top 5 — horizontal bar
+function ProjectCostChart({ usage }: { usage: AIUsage[] }) {
+  const projMap = new Map<string, number>();
+  usage.forEach(u => {
+    if (!u.project_id) return;
+    projMap.set(u.project_id, (projMap.get(u.project_id) || 0) + u.cost_krw);
+  });
+  const top = [...projMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const max = Math.max(...top.map(([, c]) => c), 1);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-baseline justify-between mb-4">
+        <h3 className="text-sm font-bold text-ink-900">책별 비용 Top 5</h3>
+        <span className="text-xs text-gray-500 font-mono">{projMap.size}권</span>
+      </div>
+      {top.length === 0 ? (
+        <div className="text-center text-sm text-gray-400 py-12">아직 데이터 없음</div>
+      ) : (
+        <div className="space-y-3">
+          {top.map(([id, cost], i) => {
+            const w = (cost / max) * 100;
+            return (
+              <div key={id}>
+                <div className="flex justify-between text-xs mb-1">
+                  <Link href={`/write?id=${id}`} className="font-mono text-gray-500 hover:text-tiger-orange truncate">
+                    {i + 1}. {id.slice(0, 8)}…
+                  </Link>
+                  <span className="font-bold text-tiger-orange font-mono">₩{cost.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-tiger-orange to-amber-400 transition-all" style={{ width: `${w}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

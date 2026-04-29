@@ -76,6 +76,8 @@ function Inner() {
     total: number;
     items: Record<string, "pending" | "done" | "failed">;
   } | null>(null);
+  const [coverVariants, setCoverVariants] = useState<string[]>([]);
+  const [variantBusy, setVariantBusy] = useState(false);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -507,6 +509,52 @@ function Inner() {
     }
   };
 
+  // 표지 5장 후보 생성 (dryRun, DB 저장 X)
+  const generateCoverVariants = async () => {
+    if (!projectId) return;
+    setCoverVariants([]);
+    setVariantBusy(true);
+    setError(null);
+    for (let i = 0; i < 5; i++) {
+      try {
+        if (i > 0) await new Promise(r => setTimeout(r, 1500));
+        const res = await fetch("/api/generate/kmong-package", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, regenerateOnly: ["cover"], dryRun: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) continue;
+        const b64 = data.newImages?.[0]?.base64;
+        if (b64) setCoverVariants(prev => [...prev, b64]);
+      } catch (e: any) {
+        console.error(`[cover-variant-${i}]`, e.message);
+      }
+    }
+    setVariantBusy(false);
+  };
+
+  const selectCoverVariant = async (base64: string) => {
+    if (!projectId) return;
+    const pkg = (project as any).kmongPackage;
+    if (!pkg) return;
+    const newImages = pkg.images.filter((i: any) => i.type !== "cover");
+    newImages.push({ type: "cover", base64, vendor: "cloudflare", generatedAt: Date.now() });
+    const updated = { ...pkg, images: newImages };
+    try {
+      await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: { kmongPackage: updated } }),
+      });
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+      setCoverVariants([]);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const downloadKmongPackage = async () => {
     if (!(project as any)?.kmongPackage) return;
     const { buildKmongZip, downloadKmongZip } = await import("@/lib/kmong-package-zip");
@@ -878,6 +926,45 @@ function Inner() {
           <button onClick={downloadKmongPackage} className="w-full mb-6 py-3 bg-tiger-orange text-white text-base font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
             📦 ZIP 다운로드 (이미지 + 카피 + README)
           </button>
+
+          {/* 표지 5장 후보 비교 */}
+          <div className="mb-6 p-4 border border-tiger-orange/30 bg-orange-50/60 rounded-xl">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-ink-900">✨ 표지 5장 후보 비교</h4>
+                <p className="text-xs text-gray-600 mt-0.5">5가지 다른 표지 받고 마음에 드는 것 클릭 → 자동 적용</p>
+              </div>
+              <button
+                onClick={generateCoverVariants}
+                disabled={variantBusy}
+                className="text-xs px-3 py-1.5 bg-tiger-orange text-white rounded-md font-bold hover:bg-orange-600 disabled:opacity-50 transition whitespace-nowrap"
+              >
+                {variantBusy ? `생성 중 ${coverVariants.length}/5...` : coverVariants.length > 0 ? "🔄 다시 5장" : "✨ 5장 후보 생성"}
+              </button>
+            </div>
+            {coverVariants.length > 0 && (
+              <div className="grid grid-cols-5 gap-2">
+                {coverVariants.map((b64, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectCoverVariant(b64)}
+                    className="aspect-[3/4] rounded-md overflow-hidden border-2 border-transparent hover:border-tiger-orange transition relative group"
+                    title={`표지 후보 ${i + 1} — 클릭하여 선택`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`data:image/png;base64,${b64}`} alt={`variant ${i + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                      <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
+                    </div>
+                    <div className="absolute top-1 left-1 text-[9px] font-mono px-1 bg-white/90 text-tiger-orange rounded">{i + 1}</div>
+                  </button>
+                ))}
+                {Array.from({ length: 5 - coverVariants.length }).map((_, i) => (
+                  <div key={`p${i}`} className="aspect-[3/4] rounded-md bg-gray-100 animate-pulse" />
+                ))}
+              </div>
+            )}
+          </div>
 
           <h3 className="text-sm font-bold text-ink-900 mb-1">이미지 ({(project as any).kmongPackage.images.length}/6)</h3>
           <p className="text-xs text-gray-500 mb-3">생성 실패한 이미지는 [재생성] 버튼으로 개별 재시도.</p>
