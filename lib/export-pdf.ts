@@ -294,18 +294,23 @@ body {
 }
 .chapter-body .img-block {
   text-align: center;
-  margin: 16px 0;
+  margin: 28px auto;
   page-break-inside: avoid;
+  max-width: 65%;
 }
 .chapter-body .img-block img {
   max-width: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 .chapter-body .caption {
-  font-size: 10pt;
-  color: #888;
+  font-size: 10.5pt;
+  color: #555;
   font-style: italic;
-  margin-top: 4px;
+  font-weight: 500;
+  margin-top: 10px;
+  padding: 0 12px;
+  line-height: 1.4;
 }
 
 .watermark {

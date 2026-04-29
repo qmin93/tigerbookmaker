@@ -435,6 +435,21 @@ function Inner() {
     await saveProject({ ...project, chapters });
   };
 
+  // 이미지 + 본문에서 placeholder 자체 제거 (이미지 자체를 책에서 빼기)
+  const removeImagePlaceholder = async (chapterIdx: number, placeholder: string) => {
+    const chapters = [...project.chapters];
+    const ch = { ...chapters[chapterIdx] };
+    // 본문에서 placeholder 줄 자체 제거 (앞뒤 빈 줄 정리)
+    ch.content = ch.content
+      .split("\n")
+      .filter(line => line.trim() !== placeholder)
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n");
+    ch.images = (ch.images ?? []).filter(im => im.placeholder !== placeholder);
+    chapters[chapterIdx] = ch;
+    await saveProject({ ...project, chapters });
+  };
+
   // 한 번 클릭으로 6 이미지 + 1 카피를 순차 생성 (각 ~5초, 총 ~35-50초).
   // 단일 요청이 30초를 절대 못 넘기게 분리 — Vercel 60s 한도와 무관.
   const generateFullKmongPackage = async () => {
@@ -975,11 +990,28 @@ function Inner() {
                               <div className="flex flex-col gap-1 items-end">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={img.dataUrl} alt={caption} className="w-20 h-20 object-cover rounded" />
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap justify-end">
                                   <button onClick={() => generateChapterImage(activeIdx, ph)} disabled={!!imageGenBusy} className="text-xs text-tiger-orange hover:underline disabled:opacity-50">
                                     재생성
                                   </button>
-                                  <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-red-600 hover:underline">삭제</button>
+                                  <label className="text-xs text-gray-600 hover:text-tiger-orange cursor-pointer">
+                                    교체
+                                    <input
+                                      type="file" accept="image/*" className="hidden"
+                                      onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
+                                    />
+                                  </label>
+                                  <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-gray-500 hover:text-orange-600">초기화</button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
+                                        removeImagePlaceholder(activeIdx, ph);
+                                      }
+                                    }}
+                                    className="text-xs text-red-600 hover:underline"
+                                  >
+                                    ✗ 자리 삭제
+                                  </button>
                                 </div>
                               </div>
                             ) : (
@@ -998,6 +1030,16 @@ function Inner() {
                                     onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
                                   />
                                 </label>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
+                                      removeImagePlaceholder(activeIdx, ph);
+                                    }
+                                  }}
+                                  className="text-[10px] text-red-500 hover:underline"
+                                >
+                                  ✗ 자리 삭제
+                                </button>
                               </div>
                             )}
                           </div>

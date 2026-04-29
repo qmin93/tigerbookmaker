@@ -28,6 +28,7 @@ export default function NewProjectPage() {
   const [keyword, setKeyword] = useState("");
   const [suggestions, setSuggestions] = useState<{ topic: string; audience: string; type: string }[]>([]);
   const [suggestBusy, setSuggestBusy] = useState(false);
+  const [noImages, setNoImages] = useState(false);
 
   const fetchSuggestions = async () => {
     if (!keyword.trim()) return;
@@ -62,7 +63,7 @@ export default function NewProjectPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, audience, type, targetPages, tier }),
+        body: JSON.stringify({ topic, audience, type, targetPages, tier, noImages }),
       });
       if (res.status === 401) { r.push("/login?redirect=/new"); return; }
       if (!res.ok) {
@@ -186,6 +187,19 @@ export default function NewProjectPage() {
           />
           <p className="text-xs text-gray-500 mt-1">크몽 규격: 최소 20쪽 / 권장 100~200쪽</p>
         </Field>
+
+        <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition">
+          <input
+            type="checkbox"
+            checked={noImages}
+            onChange={e => setNoImages(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-tiger-orange"
+          />
+          <div className="flex-1">
+            <div className="text-sm font-bold text-ink-900">📝 텍스트만 (이미지 없는 책)</div>
+            <div className="text-xs text-gray-500 mt-0.5">본문에 [IMAGE: ...] 안 만들고 텍스트만 깔끔하게. 에세이·소설·전문서 추천. 표지는 별도로 만들 수 있음.</div>
+          </div>
+        </label>
 
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>

@@ -89,11 +89,15 @@ function Inner() {
 
       {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
+      <div className="md:hidden mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+        📱 <strong>모바일 안내</strong>: PDF는 A4 인쇄용이라 폰에서 작게 보여요. 결과물 확인은 아래 [📖 미리보기]가 더 편하고, 다운로드는 PC에서 하시는 걸 권장합니다.
+      </div>
+
       <Link
         href={`/preview?id=${projectId}`}
-        className="block w-full mb-3 p-4 bg-ink-900 text-white text-center rounded-xl hover:bg-black font-bold transition"
+        className="block w-full mb-3 p-4 bg-ink-900 text-white text-center rounded-xl hover:bg-black font-bold transition shadow-md"
       >
-        📖 책 미리보기 — 다운로드 전 페이지 넘기듯 확인
+        📖 책 미리보기 — 폰에서도 깔끔하게 페이지 넘기기
       </Link>
 
       <div className="grid grid-cols-3 gap-3 md:gap-4">

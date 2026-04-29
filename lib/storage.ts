@@ -16,6 +16,7 @@ export interface BookProject {
   type: "자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서";
   targetPages: number;
   tier?: "basic" | "pro" | "premium";
+  noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   interview?: {
     questions: { q: string; a: string }[];
     completedAt: number;

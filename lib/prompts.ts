@@ -87,10 +87,20 @@ export const SYSTEM_WRITER = `당신은 한국어 실용서를 써서 출판해 
 - 마무리 1문단: 다음 장으로 자연스럽게 넘어가는 훅.
 - 한국어 문단 규칙: 들여쓰기 없음, 문단과 문단 사이는 한 줄 띄움.
 
-[이미지 placeholder]
-- 본론 중 정확히 1~2개만 배치 (사용자가 직접 이미지 만들어야 하니 최소화).
-- 형식: [IMAGE: 한 줄 설명] (예: [IMAGE: Claude Code 설치 완료 화면])
-- 추상 개념이 아닌 구체적 화면/도식/사진이 떠올라야 함.
+[이미지 placeholder — 매우 중요]
+- 한 챕터에 0~1개만. 챕터 내용이 시각적으로 강하게 떠오를 때만 배치. 굳이 안 넣어도 OK.
+- 형식: [IMAGE: 한 줄 설명]
+- 허용 placeholder (AI가 잘 그릴 수 있는 것):
+  · 추상 개념 인포그래픽 (예: [IMAGE: 시간 분배 도식 — 일·휴식·자기계발 비율])
+  · 분위기 사진 (예: [IMAGE: 새벽 5시 책상 위 따뜻한 조명], [IMAGE: 노트와 펜 정리된 책상])
+  · 감성 일러스트 (예: [IMAGE: 산 정상에서 일출 보는 실루엣])
+  · 추상 메타포 (예: [IMAGE: 큰 화살표가 위로 향하는 단순 그래픽])
+- 절대 금지 placeholder (AI가 못 그림):
+  · 특정 앱·사이트 UI 스크린샷 (예: "Claude Code 설치 화면", "키움증권 영웅문 화면")
+  · 특정 인물 사진
+  · 특정 제품·브랜드 이미지
+  · 특정 차트·표·데이터 시각화 (구체 수치)
+  · 한국어/영어 글자가 들어가야 하는 이미지
 - placeholder 앞뒤에는 반드시 본문 문단이 있어야 함 (연속 배치 금지).
 - 이미지 없어도 본문이 완결되도록 작성. 이미지는 보조용일 뿐.
 
@@ -211,13 +221,14 @@ export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: 
     .filter(Boolean)
     .join("\n\n");
 
+  const noImages = (p as any).noImages === true;
   return `다음 챕터의 본문을 작성합니다.
 
 [책 정보]
 - 주제: ${p.topic}
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
-${genreBlock(p)}${interviewBlock(p)}
+${genreBlock(p)}${interviewBlock(p)}${noImages ? "\n[이미지 없음]\n이 책은 텍스트 전용입니다. 본문에 [IMAGE: ...] placeholder 절대 만들지 마세요. 어떤 이미지 placeholder도 X.\n" : ""}
 [전체 목차]
 ${prevTitles || "(이 챕터가 첫 챕터입니다)"}
 → ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
@@ -232,7 +243,7 @@ ${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]
   · 한 문장으로 끝내지 말 것. "안녕하세요" 같은 인사말 금지. 본론 소제목 바로 시작 금지.
 - 본론: 2~4개의 ## 소제목. 각 소제목은 질문/선언/행동 형태.
 - 각 소제목 섹션은 600~1,200자.
-- 본론 중 1~2개의 [IMAGE: ...] placeholder만 (최소화).
+- 본론 중 0~1개의 [IMAGE: ...] placeholder만 (선택). 챕터에 시각 요소가 강할 때만${noImages ? " — 이 책은 이미지 X 모드라 절대 만들지 마세요" : ""}.
 - 마무리 1문단: 다음 장(${nextTitle ? nextTitle.title : "책의 결론"})으로 자연스럽게 연결.
 
 [대상 독자 맞춤]
