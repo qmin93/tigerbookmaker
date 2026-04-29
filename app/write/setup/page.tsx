@@ -229,6 +229,13 @@ function Inner() {
                 ref={textareaRef}
                 value={currentAnswer}
                 onChange={e => setCurrentAnswer(e.target.value)}
+                onKeyDown={e => {
+                  // 빈 상태에서 Enter (Shift 없이) → placeholder 그대로 채움
+                  if (e.key === "Enter" && !e.shiftKey && currentAnswer === "" && currentQ.placeholder) {
+                    e.preventDefault();
+                    setCurrentAnswer(currentQ.placeholder);
+                  }
+                }}
                 placeholder={currentQ.placeholder}
                 rows={5}
                 disabled={busy === "loading-next"}
@@ -236,7 +243,7 @@ function Inner() {
               />
               <div className="flex items-center justify-between mt-3 text-[11px] font-mono text-gray-500">
                 <span>{currentAnswer.length.toLocaleString()}자 — 길수록 책 품질↑</span>
-                <span>(빈 답도 허용)</span>
+                <span>{currentAnswer === "" && currentQ.placeholder ? "↵ Enter로 예시 그대로 사용" : "(빈 답도 허용)"}</span>
               </div>
             </div>
           </>
