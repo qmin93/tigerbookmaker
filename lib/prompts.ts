@@ -258,59 +258,6 @@ ${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]
 - 다른 설명/서문/마무리 인사 없이 본문만 출력.`;
 }
 
-// 작가가 시작한 첫 단락(seedText)에서 그 톤·문체로 챕터 끝까지 이어 작성.
-// 작가 색깔 + AI 자동의 하이브리드. 100% AI 책보다 진정성 ↑.
-export function continueChapterPrompt(
-  p: BookProject,
-  chapterIdx: number,
-  chapterTitle: string,
-  chapterSubtitle: string | undefined,
-  seedText: string,
-) {
-  const noImages = (p as any).noImages === true;
-  const prevTitles = p.chapters
-    .slice(0, chapterIdx)
-    .map((c, i) => `${i + 1}장. ${c.title}${c.subtitle ? ` — ${c.subtitle}` : ""}`)
-    .join("\n");
-  const nextTitle = p.chapters[chapterIdx + 1];
-  const prevSummaries = p.chapters
-    .slice(0, chapterIdx)
-    .map((c, i) => c.summary ? `${i + 1}장. 「${c.title}」 — ${c.summary}` : "")
-    .filter(Boolean)
-    .join("\n\n");
-
-  return `작가가 챕터의 첫 부분을 직접 썼습니다. 이 글의 톤·문체·1인칭/3인칭·시제를 그대로 유지하면서 챕터를 끝까지 이어 작성합니다.
-
-[책 정보]
-- 주제: ${p.topic}
-- 대상 독자: ${p.audience}
-- 책 유형: ${p.type}
-${genreBlock(p)}${interviewBlock(p)}
-[전체 목차]
-${prevTitles || "(이 챕터가 첫 챕터)"}
-→ ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
-${nextTitle ? `${chapterIdx + 2}장. ${nextTitle.title}${nextTitle.subtitle ? ` — ${nextTitle.subtitle}` : ""}` : "(이 챕터가 마지막)"}
-${prevSummaries ? `\n[지금까지 흐름]\n${prevSummaries}\n` : ""}
-[작가가 직접 쓴 부분 — 이 톤을 그대로 유지하세요]
-${seedText.trim()}
-
-[이어 작성 지침 — 매우 중요]
-- 위 작가의 글에서 톤·문체·시제·인칭(나/그/우리 등)·핵심 키워드를 정확히 파악하고 그대로 이어가세요.
-- "이어서 다음과 같이 ~" 같은 메타 표현 금지. 자연스럽게 다음 단락으로 흐르게.
-- 작가가 쓴 부분은 다시 반복하지 마세요. 그 다음부터만 작성.
-- 분량: 작가의 글 + AI 추가 = 합쳐서 3,000~5,000자가 되도록 (작가가 500자 썼으면 AI가 2,500~4,500자).
-- 본론 중에 ## 소제목 2~3개 배치. 각 소제목은 행동/질문/선언 형태.
-- 마무리 1문단: 다음 장(${nextTitle ? nextTitle.title : "책의 결론"})으로 자연스럽게 연결.
-${noImages ? "- 이 책은 텍스트 전용 — [IMAGE: ...] placeholder 절대 만들지 마세요.\n" : "- 본론 중 0~1개의 [IMAGE: ...] placeholder만 (선택). 챕터에 시각 요소가 강할 때만.\n"}
-[금지]
-- "이어서 작가의 글을 잇겠습니다" 같은 메타 설명
-- 챕터 제목을 본문 맨 위에 다시 쓰기
-- "이번 장에서는" "지금까지 우리는" 같은 메타
-- 마크다운 (** _ \` > ---) 일체 X. 허용: ## 소제목, [IMAGE: ...]만.
-
-작가가 쓴 부분 다음에 자연스럽게 이어지는 본문만 출력하세요. 다른 설명/서문 X.`;
-}
-
 export function editPrompt(original: string, instruction: string) {
   return `아래 본문을 다음 지시에 따라 수정합니다. 수정된 전체 본문만 출력하세요. 다른 설명 금지.
 
@@ -319,50 +266,6 @@ ${instruction}
 
 [원본]
 ${original}`;
-}
-
-// 챕터 본문 출판 품질 진단 — 6 카테고리 점수 + 구체 issue + 개선 제안
-export function analyzePrompt(p: BookProject, chapterTitle: string, content: string) {
-  return `당신은 한국어 출판 편집자입니다. 이 챕터를 출판 품질 관점에서 진단하세요.
-
-[책 정보]
-- 주제: ${p.topic}
-- 대상 독자: ${p.audience}
-- 책 유형: ${p.type}
-
-[챕터 제목]
-${chapterTitle}
-
-[챕터 본문]
-${content}
-
-[진단 항목 — 6가지, 각 0~100점]
-1. tone (톤 일관성): 해요체 통일? 갑자기 반말 X? AI 특유 표현 ("혁신적인", "AI 시대에", "오늘날 우리는", "패러다임") 사용 X?
-2. repetition (반복): 같은 단어·문구·표현 과다 사용 X?
-3. sentenceLength (문장 길이): 너무 긴 문장(100자+) 비율 적절? 문장 길이 다양성?
-4. structure (구조): 서두 → 본론 → 마무리 균형. 소제목 활용. 단락 분리.
-5. consistency (인물·용어 일관성): 같은 개념·인물을 다른 단어로 바꿔 부르지 X? 한 챕터 내 통일?
-6. aiSignature (AI 티): "그러나/이러한/그러므로" 과다 사용 X? 추상적 표현 X? 구체적 숫자·예시 충분?
-
-[출력 형식 — 순수 JSON만, 마크다운 코드블록 X]
-{
-  "score": 0~100 (전체 평균),
-  "categories": {
-    "tone": { "score": 0~100, "comment": "한 문장 평가" },
-    "repetition": { "score": 0~100, "comment": "..." },
-    "sentenceLength": { "score": 0~100, "comment": "..." },
-    "structure": { "score": 0~100, "comment": "..." },
-    "consistency": { "score": 0~100, "comment": "..." },
-    "aiSignature": { "score": 0~100, "comment": "..." }
-  },
-  "issues": [
-    { "type": "tone|repetition|sentenceLength|structure|consistency|aiSignature", "text": "문제 부분 인용 (50자 이내)", "suggestion": "구체적 개선 제안 (한 줄)" }
-  ],
-  "summary": "전체 한 문장 평가 (예: '해요체와 구조는 좋으나 반복 표현 줄이면 더 깔끔')"
-}
-
-issues는 가장 임팩트 큰 5개 이내. 점수 90+ 카테고리는 issues에 안 넣어도 됨.
-순수 JSON만 출력하세요.`;
 }
 
 export function summaryPrompt(chapterTitle: string, content: string) {

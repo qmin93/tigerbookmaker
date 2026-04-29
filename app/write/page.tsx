@@ -78,20 +78,6 @@ function Inner() {
   } | null>(null);
   const [coverVariants, setCoverVariants] = useState<string[]>([]);
   const [variantBusy, setVariantBusy] = useState(false);
-  const [continueModal, setContinueModal] = useState<{ chapterIdx: number; seed: string } | null>(null);
-  const [continueBusy, setContinueBusy] = useState(false);
-  const [editChat, setEditChat] = useState<{
-    chapterIdx: number;
-    instruction: string;
-    proposal: string | null;
-    busy: boolean;
-  } | null>(null);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [analyzeModal, setAnalyzeModal] = useState<{
-    chapterIdx: number;
-    busy: boolean;
-    result: any | null;
-  } | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -140,24 +126,16 @@ function Inner() {
 
   // ─── DB 동기화: project.data 통째로 PUT ───
   const saveProject = async (next: Project) => {
-    setSaveStatus("saving");
     const data = {
       topic: next.topic, audience: next.audience, type: next.type, targetPages: next.targetPages,
       chapters: next.chapters,
     };
-    try {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data }),
-      });
-      if (!res.ok) throw new Error("저장 실패");
-      setProject(next);
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus(s => s === "saved" ? "idle" : s), 2500);
-    } catch (e) {
-      setSaveStatus("error");
-      throw e;
-    }
+    const res = await fetch(`/api/projects/${projectId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data }),
+    });
+    if (!res.ok) throw new Error("저장 실패");
+    setProject(next);
   };
 
   const callApi = async (path: string, body: any, label: string) => {
@@ -690,163 +668,6 @@ function Inner() {
     }
   };
 
-  // 작가가 시작한 첫 단락에서 AI가 이어 작성
-  const continueChapterAI = async (chapterIdx: number, seed: string) => {
-    if (!projectId) return;
-    setContinueBusy(true);
-    setError(null);
-    setStreamingChapterIdx(chapterIdx);
-    setStreamingText(seed + "\n\n");
-    setActiveIdx(chapterIdx);
-    try {
-      const res = await fetch("/api/generate/chapter-continue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, chapterIdx, seedText: seed }),
-      });
-      if (res.status === 402) {
-        const data = await res.json().catch(() => ({}));
-        if (confirm(`잔액 부족: ₩${data.shortfall?.toLocaleString()} 부족. 충전 페이지로?`)) router.push("/billing");
-        throw new Error("잔액 부족");
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `요청 실패 (${res.status})`);
-      }
-      if (!res.body) throw new Error("응답 body 없음");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let accumulated = seed + "\n\n";
-      let doneMsg: any = null;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          let msg: any;
-          try { msg = JSON.parse(trimmed); } catch { continue; }
-          if (msg.type === "chunk") {
-            accumulated += msg.text;
-            setStreamingText(accumulated);
-          } else if (msg.type === "done") {
-            doneMsg = msg;
-          } else if (msg.type === "error") {
-            throw new Error(msg.message || "AI 응답 실패");
-          }
-        }
-      }
-      if (!doneMsg) throw new Error("Stream이 done 없이 종료됨");
-      if (doneMsg.newBalance != null) setBalance(doneMsg.newBalance);
-      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
-      setProject(fresh);
-      setContinueModal(null);
-    } catch (e: any) {
-      if (e.message !== "잔액 부족") setError(e.message);
-    } finally {
-      setContinueBusy(false);
-      setStreamingChapterIdx(null);
-      setStreamingText("");
-    }
-  };
-
-  // 챕터 품질 진단 — 출판 편집자 관점 6 카테고리 점수
-  const analyzeChapter = async (chapterIdx: number) => {
-    if (!projectId) return;
-    setAnalyzeModal({ chapterIdx, busy: true, result: null });
-    setError(null);
-    try {
-      const res = await fetch("/api/generate/chapter-analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, chapterIdx }),
-      });
-      const data = await res.json();
-      if (res.status === 402) {
-        if (confirm("잔액 부족. 충전 페이지로?")) router.push("/billing");
-        setAnalyzeModal(null);
-        throw new Error("잔액 부족");
-      }
-      if (!res.ok) throw new Error(data.message || `진단 실패 (${res.status})`);
-      if (data.newBalance != null) setBalance(data.newBalance);
-      setAnalyzeModal({ chapterIdx, busy: false, result: data.analysis });
-    } catch (e: any) {
-      if (e.message !== "잔액 부족") setError(e.message);
-      setAnalyzeModal(null);
-    }
-  };
-
-  // AI 글쓰기 챗 — 자연어 지시 → AI 수정안 → 적용/거절
-  const askChapterEdit = async () => {
-    if (!editChat || !projectId) return;
-    setEditChat(c => c ? { ...c, busy: true, proposal: null } : c);
-    setError(null);
-    try {
-      const res = await fetch("/api/generate/chapter-edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, chapterIdx: editChat.chapterIdx, instruction: editChat.instruction }),
-      });
-      const data = await res.json();
-      if (res.status === 402) {
-        if (confirm(`잔액 부족. 충전 페이지로?`)) router.push("/billing");
-        throw new Error("잔액 부족");
-      }
-      if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
-      if (data.newBalance != null) setBalance(data.newBalance);
-      setEditChat(c => c ? { ...c, busy: false, proposal: data.newContent } : c);
-    } catch (e: any) {
-      if (e.message !== "잔액 부족") setError(e.message);
-      setEditChat(c => c ? { ...c, busy: false } : c);
-    }
-  };
-
-  const applyChapterEdit = async () => {
-    if (!editChat?.proposal || !project) return;
-    const chapters = [...project.chapters];
-    chapters[editChat.chapterIdx] = { ...chapters[editChat.chapterIdx], content: editChat.proposal };
-    await saveProject({ ...project, chapters });
-    setEditChat(null);
-  };
-
-  // 단축키: Ctrl/Cmd+S 저장, Ctrl/Cmd+Enter 다음 챕터, Ctrl/Cmd+Shift+Enter 이전
-  useEffect(() => {
-    if (!project) return;
-    const onKey = (e: KeyboardEvent) => {
-      const meta = e.ctrlKey || e.metaKey;
-      // Ctrl+S — 강제 저장 (편집 중이면 본문 적용 후 저장)
-      if (meta && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (editingContent !== null) {
-          const chapters = [...project.chapters];
-          chapters[activeIdx] = { ...chapters[activeIdx], content: editingContent };
-          saveProject({ ...project, chapters }).then(() => setEditingContent(null)).catch(() => {});
-        } else {
-          // 그냥 표시만 (이미 저장됨 보통)
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus(s => s === "saved" ? "idle" : s), 1500);
-        }
-        return;
-      }
-      // Ctrl+Enter — 다음 챕터, Ctrl+Shift+Enter — 이전 챕터
-      if (meta && e.key === "Enter") {
-        e.preventDefault();
-        if (e.shiftKey) {
-          if (activeIdx > 0) setActiveIdx(activeIdx - 1);
-        } else {
-          if (activeIdx < project.chapters.length - 1) setActiveIdx(activeIdx + 1);
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [editingContent, activeIdx, project, projectId]);
-
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -1104,42 +925,19 @@ function Inner() {
             />
             <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
-                  <span>{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</span>
-                  {saveStatus === "saving" && <span className="text-tiger-orange">⏳ 저장 중</span>}
-                  {saveStatus === "saved" && <span className="text-green-600">✓ 저장됨</span>}
-                  {saveStatus === "error" && <span className="text-red-600">✗ 저장 실패</span>}
-                </p>
+                <p className="text-xs text-gray-500">{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</p>
                 <h2 className="text-lg sm:text-xl font-black break-keep">{active.title}</h2>
                 {active.subtitle && <p className="text-sm text-gray-500 mt-1 break-keep">{active.subtitle}</p>}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {active.content && editingContent === null && (
-                  <>
-                    <button
-                      onClick={() => analyzeChapter(activeIdx)}
-                      disabled={!!loading || !!analyzeModal?.busy}
-                      className="text-xs px-3 py-1 bg-white border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
-                      title="출판 편집자 관점 품질 진단 (~₩10)"
-                    >
-                      🔍 품질 진단
-                    </button>
-                    <button
-                      onClick={() => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false })}
-                      disabled={!!loading}
-                      className="text-xs px-3 py-1 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg hover:bg-orange-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
-                      title="자연어로 AI에게 수정 요청"
-                    >
-                      💬 AI 수정
-                    </button>
-                    <button
-                      onClick={() => setEditingContent(active.content)}
-                      disabled={!!loading}
-                      className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
-                    >
-                      ✏️ 직접
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setEditingContent(active.content)}
+                    disabled={!!loading}
+                    className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
+                  >
+                    ✏️ 수정
+                  </button>
                 )}
                 <button onClick={() => generateChapter(activeIdx)} disabled={!!loading || editingContent !== null} className="text-xs px-3 py-1 bg-tiger-orange text-white rounded-lg disabled:opacity-50 whitespace-nowrap">
                   {loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`) ? loading : active.content ? "다시 생성" : "집필"}
@@ -1275,31 +1073,8 @@ function Inner() {
                 )}
               </>
             ) : (
-              <div className="text-center py-12 px-4">
-                <div className="text-5xl mb-4">📝</div>
-                <p className="text-gray-500 text-sm mb-6">{loading || "이 챕터는 아직 집필 전입니다"}</p>
-                {!loading && (
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
-                    <button
-                      onClick={() => generateChapter(activeIdx)}
-                      className="flex-1 px-4 py-3 bg-tiger-orange text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition shadow-glow-orange-sm"
-                    >
-                      ✨ AI 자동 집필
-                    </button>
-                    <button
-                      onClick={() => setContinueModal({ chapterIdx: activeIdx, seed: "" })}
-                      className="flex-1 px-4 py-3 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg font-bold text-sm hover:bg-orange-50 transition"
-                      title="첫 단락을 직접 쓰면 AI가 그 톤으로 이어 작성"
-                    >
-                      ✏️ 직접 시작 + AI 이어쓰기
-                    </button>
-                  </div>
-                )}
-                {!loading && (
-                  <p className="text-xs text-gray-400 mt-4 max-w-md mx-auto leading-relaxed">
-                    💡 <strong>이어쓰기</strong>는 첫 200~500자만 작가 본인이 쓰면 AI가 그 문체로 챕터 끝까지 완성. 100% AI 책보다 진정성 ↑
-                  </p>
-                )}
+              <div className="text-center text-gray-400 py-20 text-sm">
+                {loading || "이 챕터는 아직 집필 전입니다"}
               </div>
             )}
           </section>
@@ -1567,166 +1342,6 @@ function Inner() {
       </div>
     )}
 
-    {/* 품질 진단 모달 — 출판 편집자 관점 점수 + 개선 제안 */}
-    {analyzeModal && (
-      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !analyzeModal.busy && setAnalyzeModal(null)}>
-        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-black tracking-tight text-ink-900">🔍 품질 진단</h3>
-              <p className="text-xs text-gray-500 mt-1">{analyzeModal.chapterIdx + 1}장 — {project.chapters[analyzeModal.chapterIdx]?.title}</p>
-            </div>
-            {!analyzeModal.busy && <button onClick={() => setAnalyzeModal(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>}
-          </div>
-
-          {analyzeModal.busy && (
-            <div className="py-12 text-center">
-              <div className="text-4xl mb-3">🔍</div>
-              <p className="text-sm text-gray-600">출판 편집자 관점 분석 중... (~10초)</p>
-            </div>
-          )}
-
-          {analyzeModal.result && <AnalysisReport result={analyzeModal.result} onSuggestEdit={(suggestion) => {
-            setAnalyzeModal(null);
-            setEditChat({ chapterIdx: analyzeModal.chapterIdx, instruction: suggestion, proposal: null, busy: false });
-          }} />}
-        </div>
-      </div>
-    )}
-
-    {/* AI 글쓰기 챗 — 챕터 본문에 자연어 수정 요청 */}
-    {editChat && (
-      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !editChat.busy && setEditChat(null)}>
-        <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h3 className="text-xl font-black tracking-tight text-ink-900">💬 AI 수정 요청</h3>
-              <p className="text-xs text-gray-500 mt-1">{editChat.chapterIdx + 1}장 — {project.chapters[editChat.chapterIdx]?.title}</p>
-            </div>
-            {!editChat.busy && <button onClick={() => setEditChat(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>}
-          </div>
-
-          {/* 입력 */}
-          <div className="mb-4">
-            <label className="text-xs font-bold text-ink-900 mb-1 block">자연어로 수정 요청</label>
-            <textarea
-              value={editChat.instruction}
-              onChange={e => setEditChat(c => c ? { ...c, instruction: e.target.value } : c)}
-              disabled={editChat.busy}
-              rows={3}
-              placeholder="예시:&#10;• '결말이 약해. 다음 장으로 자연스럽게 연결되는 강한 마무리 문단 추가'&#10;• '두 번째 소제목 부분을 더 짧고 강하게'&#10;• '전체적으로 더 친근한 형/누나 톤으로 다시'&#10;• '구체적 숫자·예시 더 추가. 추상적 표현 줄임'"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none resize-none disabled:bg-gray-50"
-            />
-            <div className="flex justify-between text-xs mt-1">
-              <span className="text-gray-400">{editChat.instruction.length}/500자</span>
-              <button
-                onClick={askChapterEdit}
-                disabled={editChat.busy || editChat.instruction.trim().length < 5 || editChat.instruction.length > 500}
-                className="px-4 py-1.5 bg-tiger-orange text-white rounded-lg text-xs font-bold hover:bg-orange-600 disabled:opacity-50"
-              >
-                {editChat.busy ? "AI 작업 중..." : "✨ 수정안 요청"}
-              </button>
-            </div>
-          </div>
-
-          {/* 진행 중 */}
-          {editChat.busy && !editChat.proposal && (
-            <div className="p-4 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900 mb-4">
-              ⏳ AI가 챕터 분석 + 새 본문 작성 중... (10~30초)
-            </div>
-          )}
-
-          {/* 제안 + diff 강조 */}
-          {editChat.proposal && (
-            <div className="border border-tiger-orange/40 rounded-xl p-4 bg-orange-50/40 mb-3">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-tiger-orange">📄 AI 수정안 ({editChat.proposal.length.toLocaleString()}자) — 원본과 비교</span>
-                <span className="text-[10px] text-gray-500">아래 [✓ 적용] 시 챕터 본문 교체</span>
-              </div>
-              <ChapterDiff
-                original={project.chapters[editChat.chapterIdx]?.content || ""}
-                proposed={editChat.proposal}
-              />
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => setEditChat(c => c ? { ...c, proposal: null, instruction: c.instruction } : c)}
-                  className="flex-1 py-2 border border-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50"
-                >
-                  ↻ 다시 (새 요청)
-                </button>
-                <button
-                  onClick={applyChapterEdit}
-                  className="flex-1 py-2 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600"
-                >
-                  ✓ 챕터 본문에 적용
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* 챕터 이어쓰기 모달 — 작가가 첫 단락 입력 → AI가 같은 톤으로 이어 */}
-    {continueModal && (
-      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !continueBusy && setContinueModal(null)}>
-        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h3 className="text-xl font-black tracking-tight text-ink-900">✏️ 직접 시작 + AI 이어쓰기</h3>
-              <p className="text-xs text-gray-500 mt-1">{continueModal.chapterIdx + 1}장 — {project.chapters[continueModal.chapterIdx]?.title}</p>
-            </div>
-            {!continueBusy && (
-              <button onClick={() => setContinueModal(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>
-            )}
-          </div>
-          <p className="text-sm text-gray-700 mb-4 leading-relaxed">
-            챕터의 <strong>첫 단락 (200~500자 권장)</strong>을 직접 써보세요.<br />
-            AI가 그 톤·문체·1인칭/3인칭을 그대로 유지하며 챕터를 끝까지 이어 작성합니다.
-          </p>
-          <textarea
-            value={continueModal.seed}
-            onChange={e => setContinueModal(m => m ? { ...m, seed: e.target.value } : m)}
-            disabled={continueBusy}
-            rows={10}
-            placeholder={`예시:\n\n월요일 오전 9시, 출근하자마자 가장 먼저 하는 일은 어제의 매출 데이터를 확인하는 것입니다. 엑셀 파일을 열어 거래처별로 정리하고, 입금된 금액과 미수금을 분리합니다. 이 작업이 끝나야 비로소 그날 해야 할 일들이 명확해집니다.\n\n그런데 이 30분 남짓의 시간이, 사실 자동화 한 번이면 사라질 일이라는 걸 깨달은 건 입사 3년 차 때였습니다.`}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none resize-none font-sans leading-relaxed disabled:bg-gray-50"
-            style={{ wordBreak: "keep-all" }}
-          />
-          <div className="flex items-center justify-between mt-2 mb-4 text-xs text-gray-500">
-            <span>{continueModal.seed.length}자</span>
-            <span>
-              {continueModal.seed.length < 50 && <span className="text-red-500">최소 50자 필요</span>}
-              {continueModal.seed.length >= 50 && continueModal.seed.length < 200 && <span className="text-amber-600">200자+ 권장 (AI 톤 학습 정확도 ↑)</span>}
-              {continueModal.seed.length >= 200 && continueModal.seed.length <= 3000 && <span className="text-green-600">✓ 좋아요</span>}
-              {continueModal.seed.length > 3000 && <span className="text-red-500">최대 3000자</span>}
-            </span>
-          </div>
-          {continueBusy && (
-            <div className="mb-4 p-3 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900">
-              ⏳ AI가 작가님 톤을 분석하고 이어 작성 중... (30~60초)
-            </div>
-          )}
-          <div className="flex gap-2">
-            <button
-              onClick={() => !continueBusy && setContinueModal(null)}
-              disabled={continueBusy}
-              className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              취소
-            </button>
-            <button
-              onClick={() => continueChapterAI(continueModal.chapterIdx, continueModal.seed)}
-              disabled={continueBusy || continueModal.seed.trim().length < 50 || continueModal.seed.length > 3000}
-              className="flex-1 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600 transition disabled:opacity-50"
-            >
-              {continueBusy ? "이어 작성 중..." : "✨ AI 이어쓰기 시작"}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
     {/* ConfirmModal — native confirm() 대체 (모바일 안정성) */}
     {confirmModal && (
       <div
@@ -1782,163 +1397,6 @@ interface ShareLinks {
   ridi?: string;
   kyobo?: string;
   custom?: { label: string; url: string }[];
-}
-
-// 챕터 품질 진단 결과 — 6 카테고리 점수 + 구체 issue + 개선 제안
-const CATEGORY_LABEL: Record<string, string> = {
-  tone: "📝 톤 일관성",
-  repetition: "🔁 반복 표현",
-  sentenceLength: "📏 문장 길이",
-  structure: "🏗️ 구조 균형",
-  consistency: "🎯 인물·용어 일관성",
-  aiSignature: "🤖 AI 티",
-};
-
-function ScoreBar({ score }: { score: number }) {
-  const color = score >= 90 ? "bg-green-500" : score >= 75 ? "bg-amber-400" : score >= 60 ? "bg-orange-500" : "bg-red-500";
-  return (
-    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-      <div className={`h-full ${color} transition-all`} style={{ width: `${score}%` }} />
-    </div>
-  );
-}
-
-function AnalysisReport({ result, onSuggestEdit }: { result: any; onSuggestEdit: (s: string) => void }) {
-  const score = Number(result?.score ?? 0);
-  const overallColor = score >= 90 ? "text-green-600" : score >= 75 ? "text-amber-600" : score >= 60 ? "text-orange-600" : "text-red-600";
-  const overallEmoji = score >= 90 ? "⭐⭐⭐⭐⭐" : score >= 80 ? "⭐⭐⭐⭐" : score >= 70 ? "⭐⭐⭐" : score >= 60 ? "⭐⭐" : "⭐";
-
-  return (
-    <div>
-      {/* 전체 점수 */}
-      <div className="text-center py-4 mb-4 bg-gradient-to-br from-gray-50 to-orange-50 rounded-xl border border-gray-200">
-        <div className={`text-5xl font-black tracking-tight ${overallColor}`}>{score}<span className="text-2xl text-gray-400">/100</span></div>
-        <div className="text-lg mt-1">{overallEmoji}</div>
-        {result?.summary && <p className="text-sm text-gray-700 mt-2 max-w-md mx-auto leading-relaxed">{result.summary}</p>}
-      </div>
-
-      {/* 카테고리별 점수 */}
-      <div className="space-y-2 mb-5">
-        {Object.entries(result?.categories ?? {}).map(([key, val]: [string, any]) => {
-          const s = Number(val?.score ?? 0);
-          return (
-            <div key={key} className="border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm font-bold text-ink-900">{CATEGORY_LABEL[key] ?? key}</span>
-                <span className={`text-sm font-bold font-mono ${s >= 90 ? "text-green-600" : s >= 75 ? "text-amber-600" : s >= 60 ? "text-orange-600" : "text-red-600"}`}>{s}</span>
-              </div>
-              <ScoreBar score={s} />
-              {val?.comment && <p className="text-xs text-gray-600 mt-2 leading-relaxed">{val.comment}</p>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 구체 issue + 자동 수정 제안 */}
-      {Array.isArray(result?.issues) && result.issues.length > 0 && (
-        <div>
-          <h4 className="text-sm font-bold text-ink-900 mb-2">⚠️ 개선 포인트 ({result.issues.length})</h4>
-          <div className="space-y-2">
-            {result.issues.map((iss: any, i: number) => (
-              <div key={i} className="border border-amber-200 bg-amber-50 rounded-lg p-3">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-amber-700 mb-1">{CATEGORY_LABEL[iss.type] ?? iss.type}</div>
-                {iss.text && <p className="text-xs text-ink-900 mb-1.5 italic">"{iss.text}"</p>}
-                {iss.suggestion && (
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs text-gray-700 flex-1">→ {iss.suggestion}</p>
-                    <button
-                      onClick={() => onSuggestEdit(iss.suggestion)}
-                      className="text-[10px] px-2 py-1 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 whitespace-nowrap"
-                      title="이 제안으로 AI 수정 요청"
-                    >
-                      ✨ AI에 요청
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// 두 본문 line 단위 비교 — 원본/제안 나란히 표시 + 변경된 line 색깔 강조.
-// 단순 Set 기반 (정확도 한계 있지만 시각적 비교에 충분).
-function ChapterDiff({ original, proposed }: { original: string; proposed: string }) {
-  const [view, setView] = useState<"side" | "proposed-only">("side");
-
-  const aLines = original.split("\n");
-  const bLines = proposed.split("\n");
-  const aSet = new Set(aLines.map(l => l.trim()).filter(Boolean));
-  const bSet = new Set(bLines.map(l => l.trim()).filter(Boolean));
-
-  const aMarked = aLines.map(l => ({
-    text: l,
-    changed: l.trim() && !bSet.has(l.trim()),
-  }));
-  const bMarked = bLines.map(l => ({
-    text: l,
-    changed: l.trim() && !aSet.has(l.trim()),
-  }));
-
-  const removedCount = aMarked.filter(l => l.changed).length;
-  const addedCount = bMarked.filter(l => l.changed).length;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2 text-xs">
-        <div className="flex gap-3 font-mono">
-          <span className="text-red-700">− {removedCount} 줄</span>
-          <span className="text-green-700">+ {addedCount} 줄</span>
-        </div>
-        <div className="flex border border-gray-300 rounded-md overflow-hidden text-[10px] font-bold">
-          <button
-            onClick={() => setView("side")}
-            className={`px-2 py-1 ${view === "side" ? "bg-ink-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-          >
-            ↔ 비교
-          </button>
-          <button
-            onClick={() => setView("proposed-only")}
-            className={`px-2 py-1 ${view === "proposed-only" ? "bg-ink-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-          >
-            제안만
-          </button>
-        </div>
-      </div>
-
-      {view === "side" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-          <div className="bg-white rounded border border-gray-200 p-2">
-            <div className="text-[9px] font-mono uppercase tracking-wider text-gray-400 mb-1.5 sticky top-0 bg-white">📜 원본</div>
-            <div className="text-xs leading-relaxed font-sans">
-              {aMarked.map((l, i) => (
-                <div key={i} className={l.changed ? "bg-red-50 -mx-1 px-1 py-0.5 text-red-900 line-through" : ""}>
-                  {l.text || " "}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded border border-gray-200 p-2">
-            <div className="text-[9px] font-mono uppercase tracking-wider text-tiger-orange mb-1.5 sticky top-0 bg-white">✨ AI 제안</div>
-            <div className="text-xs leading-relaxed font-sans">
-              {bMarked.map((l, i) => (
-                <div key={i} className={l.changed ? "bg-green-50 -mx-1 px-1 py-0.5 text-green-900" : ""}>
-                  {l.text || " "}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="max-h-96 overflow-y-auto p-3 bg-white rounded border border-gray-200 text-sm whitespace-pre-wrap break-keep leading-relaxed">
-          {proposed}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function ShareToggle({
