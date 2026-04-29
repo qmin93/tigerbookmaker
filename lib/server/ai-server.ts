@@ -43,6 +43,29 @@ const PRICING: Record<AIModel, { in: number; out: number }> = {
   "claude-haiku-4-5":        { in: 1.00,  out: 5.00 },
 };
 
+// non-streaming fallback chain — model 여러 개 순차 시도.
+// 한 모델이 retry 다 실패해도 다음 모델로 넘어감.
+export async function callAIServerWithFallback(opts: {
+  candidates: AIModel[];
+  system: string;
+  user: string;
+  maxTokens?: number;
+  temperature?: number;
+  timeoutMs?: number;
+  retries?: number;
+}): Promise<AIResult & { actualModel: AIModel }> {
+  const errors: string[] = [];
+  for (const model of opts.candidates) {
+    try {
+      const r = await callAIServer({ ...opts, model });
+      return { ...r, actualModel: model };
+    } catch (e: any) {
+      errors.push(`${model}: ${String(e?.message ?? e).slice(0, 100)}`);
+    }
+  }
+  throw new Error(`모든 모델 실패. ${errors.join(" / ")}`);
+}
+
 export async function callAIServer(opts: {
   model: AIModel;
   system: string;

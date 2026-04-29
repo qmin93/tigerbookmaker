@@ -5,7 +5,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { estimateCost } from "@/lib/cost-estimate";
-import { callAIServer, callStreamWithFallback, type AIModel } from "@/lib/server/ai-server";
+import { callAIServer, callAIServerWithFallback, callStreamWithFallback, type AIModel } from "@/lib/server/ai-server";
+void callAIServer;
 import { getModelChain, type Tier } from "@/lib/tiers";
 import {
   getUser, getProject, updateProjectData,
@@ -155,24 +156,32 @@ export async function POST(req: Request) {
           newBalance = r.newBalance;
         }
 
-        // 7. 요약 (동기, 실패해도 본문엔 영향 X)
+        // 7. 요약 (동기, 실패해도 본문엔 영향 X) — fallback chain 적용
+        // Gemini Flash → Flash Lite → 2.5 Flash Lite 순차 시도. 한 vendor 다운되어도 다음 시도.
+        // 본문이 너무 길면 (8000자 초과) 앞 6000자만 prompt에 — token·timeout 안전 마진.
         let summary = "";
         let summaryCostKRW = 0;
         let summaryNewBalance = newBalance;
+        const summaryCandidates: AIModel[] = [
+          "gemini-flash-latest",
+          "gemini-flash-lite-latest",
+          "gemini-2.5-flash-lite",
+        ];
+        const truncatedText = fullText.length > 8000 ? fullText.slice(0, 6000) + "\n\n[...본문 일부 생략...]" : fullText;
         try {
-          const sumResult = await callAIServer({
-            model: "gemini-flash-latest",
+          const sumResult = await callAIServerWithFallback({
+            candidates: summaryCandidates,
             system: "당신은 책 챕터를 200~300자로 압축하는 요약가입니다.",
-            user: summaryPrompt(ch.title, fullText),
+            user: summaryPrompt(ch.title, truncatedText),
             maxTokens: 512,
             temperature: 0.3,
-            timeoutMs: 25000,
-            retries: 1,
+            timeoutMs: 30000,
+            retries: 2,
           });
           summary = sumResult.text.trim();
           summaryCostKRW = Math.ceil(sumResult.usage.costUSD * USD_TO_KRW);
           const { id: sumUsageId } = await logAIUsage({
-            userId, task: "summary", model: "gemini-flash-latest",
+            userId, task: "summary", model: sumResult.actualModel,
             inputTokens: sumResult.usage.inputTokens,
             outputTokens: sumResult.usage.outputTokens,
             thoughtsTokens: sumResult.usage.thoughtsTokens,
@@ -187,7 +196,7 @@ export async function POST(req: Request) {
           if (summaryCostKRW > 0) {
             const r = await deductBalance({
               userId, amountKRW: summaryCostKRW, aiUsageId: sumUsageId,
-              reason: `${chapterIdx + 1}장 요약 (gemini-flash-latest)`,
+              reason: `${chapterIdx + 1}장 요약 (${sumResult.actualModel})`,
             });
             summaryNewBalance = r.newBalance;
           }
