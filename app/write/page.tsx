@@ -80,6 +80,17 @@ function Inner() {
   const [variantBusy, setVariantBusy] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    variant?: "default" | "danger" | "warn";
+    onConfirm: () => void;
+  } | null>(null);
+
+  const showConfirm = (opts: NonNullable<typeof confirmModal>) => setConfirmModal(opts);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -228,14 +239,20 @@ function Inner() {
   const estimateBatchKRW = (chaptersToWriteCount: number) =>
     Math.ceil(chaptersToWriteCount * 22 * 1.3);
 
-  // 잔액이 충분한지 사전 체크 (true면 OK, false면 alert + false)
+  // 잔액이 충분한지 사전 체크 (true면 OK, false면 모달 + false)
   const checkBalanceForBatch = (chaptersToWriteCount: number): boolean => {
     if (balance == null) return true;
     const need = estimateBatchKRW(chaptersToWriteCount);
     if (balance >= need) return true;
-    if (confirm(`잔액 부족 — ₩${need.toLocaleString()} 필요, 현재 ₩${balance.toLocaleString()}. 충전 페이지로 이동할까요?`)) {
-      router.push("/billing");
-    }
+    const shortage = need - balance;
+    showConfirm({
+      title: "🪙 잔액 부족",
+      message: `${chaptersToWriteCount}장 일괄 집필에 약 ₩${need.toLocaleString()}이 필요한데 현재 잔액은 ₩${balance.toLocaleString()}입니다. 약 ₩${shortage.toLocaleString()} 부족합니다.\n\n충전 페이지에서 잔액을 늘리거나 한 챕터씩 [다시 생성] 버튼으로 진행할 수 있습니다.`,
+      confirmLabel: "충전하러 가기",
+      cancelLabel: "다음에",
+      variant: "warn",
+      onConfirm: () => router.push("/billing"),
+    });
     return false;
   };
 
@@ -267,8 +284,16 @@ function Inner() {
       return;
     }
     if (!checkBalanceForBatch(pendingIdxs.length)) return;
-    if (!confirm(`${pendingIdxs.length}장 일괄 집필 (예상 ₩${estimateBatchKRW(pendingIdxs.length).toLocaleString()} 이내). 시작할까요?`)) return;
+    showConfirm({
+      title: "⚡ 전체 일괄 집필 시작",
+      message: `${pendingIdxs.length}장을 한 번에 집필합니다.\n예상 비용: 약 ₩${estimateBatchKRW(pendingIdxs.length).toLocaleString()} 이내\n예상 시간: 약 ${pendingIdxs.length}분 (장당 ~30~60초)\n\n중간에 [정지] 가능, 실패 시 [이어서] 가능합니다.`,
+      confirmLabel: "시작하기",
+      cancelLabel: "취소",
+      onConfirm: () => runBatch(pendingIdxs),
+    });
+  };
 
+  const runBatch = async (pendingIdxs: number[]) => {
     const controller = new AbortController();
     let cumulative = 0;
     setBatch({
@@ -1249,6 +1274,40 @@ function Inner() {
               {kmongProgress ? "첫 작업 완료까지 잠시 기다려주세요..." : "패키지가 없습니다."}
             </div>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* ConfirmModal — native confirm() 대체 (모바일 안정성) */}
+    {confirmModal && (
+      <div
+        className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4"
+        onClick={() => setConfirmModal(null)}
+      >
+        <div
+          className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          onClick={e => e.stopPropagation()}
+        >
+          <h3 className="text-xl font-black tracking-tight text-ink-900 mb-3">{confirmModal.title}</h3>
+          <p className="text-sm text-gray-700 whitespace-pre-line mb-6 leading-relaxed">{confirmModal.message}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmModal(null)}
+              className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition"
+            >
+              {confirmModal.cancelLabel ?? "취소"}
+            </button>
+            <button
+              onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-bold text-white transition ${
+                confirmModal.variant === "danger" ? "bg-red-600 hover:bg-red-700"
+                : confirmModal.variant === "warn" ? "bg-amber-500 hover:bg-amber-600"
+                : "bg-tiger-orange hover:bg-orange-600"
+              }`}
+            >
+              {confirmModal.confirmLabel ?? "확인"}
+            </button>
+          </div>
         </div>
       </div>
     )}
