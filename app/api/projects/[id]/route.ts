@@ -30,6 +30,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     kmongPackage: p.data?.kmongPackage,
     interview: p.data?.interview,
     tier: p.data?.tier,
+    shareEnabled: p.data?.shareEnabled === true,
+    shareLinks: p.data?.shareLinks,
+    noImages: p.data?.noImages === true,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });

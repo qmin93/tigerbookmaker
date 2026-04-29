@@ -836,6 +836,21 @@ function Inner() {
                   크몽 패키지 다시 보기
                 </button>
               )}
+              {/* 공유 링크 토글 — 책 자랑·홍보용 */}
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <ShareToggle
+                  projectId={projectId!}
+                  enabled={(project as any).shareEnabled === true}
+                  onChange={async (enabled) => {
+                    setProject({ ...(project as any), shareEnabled: enabled });
+                    await fetch(`/api/projects/${projectId}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ data: { shareEnabled: enabled } }),
+                    }).catch(() => {});
+                  }}
+                />
+              </div>
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
               <span>목차 ({project.chapters.length})</span>
@@ -1374,6 +1389,53 @@ export default function WritePage() {
 
 function Center({ children }: { children: React.ReactNode }) {
   return <main className="min-h-screen flex items-center justify-center text-gray-500">{children}</main>;
+}
+
+function ShareToggle({ projectId, enabled, onChange }: { projectId: string; enabled: boolean; onChange: (v: boolean) => void }) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/share/${projectId}` : "";
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  return (
+    <div>
+      <label className="flex items-center justify-between gap-2 px-2 py-1.5 cursor-pointer text-xs">
+        <span className="font-bold text-ink-900">🔗 공유 링크 활성</span>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={e => onChange(e.target.checked)}
+          className="w-4 h-4 accent-tiger-orange"
+        />
+      </label>
+      {enabled && (
+        <div className="px-2 pb-2">
+          <div className="flex gap-1">
+            <input
+              type="text"
+              readOnly
+              value={shareUrl}
+              onClick={e => (e.target as HTMLInputElement).select()}
+              className="flex-1 text-[10px] font-mono px-2 py-1 bg-gray-50 border border-gray-200 rounded text-ink-900 truncate"
+            />
+            <button
+              onClick={copy}
+              className="px-2 py-1 bg-tiger-orange text-white text-[10px] font-bold rounded hover:bg-orange-600 whitespace-nowrap"
+            >
+              {copied ? "✓" : "복사"}
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1.5 leading-tight">로그인 없이 누구나 책 읽을 수 있음. SNS·블로그 공유 OK.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function BatchBanner({
