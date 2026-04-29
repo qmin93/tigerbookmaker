@@ -28,7 +28,7 @@ interface Page {
   text?: string;
 }
 
-const CHARS_PER_PAGE = 700;
+const CHARS_PER_PAGE = 1300;
 
 // 본문을 페이지 단위로 분할 (문단 단위 보존)
 function splitToPages(content: string): string[] {

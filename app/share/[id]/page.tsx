@@ -28,7 +28,7 @@ interface ShareData {
   createdAt: string;
 }
 
-const CHARS_PER_PAGE = 700;
+const CHARS_PER_PAGE = 1300;
 
 function splitToPages(content: string): string[] {
   const stripped = content.replace(/\[IMAGE:[^\]]+\]/g, "").trim();
