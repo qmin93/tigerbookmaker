@@ -89,6 +89,13 @@ function Inner() {
 
       {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
+      <Link
+        href={`/preview?id=${projectId}`}
+        className="block w-full mb-3 p-4 bg-ink-900 text-white text-center rounded-xl hover:bg-black font-bold transition"
+      >
+        📖 책 미리보기 — 다운로드 전 페이지 넘기듯 확인
+      </Link>
+
       <div className="grid grid-cols-3 gap-3 md:gap-4">
         <button onClick={exportDocx} disabled={!!busy} className="p-5 md:p-6 bg-white border border-gray-300 rounded-xl hover:border-ink-900 hover:bg-ink-900 hover:text-white text-ink-900 font-bold transition disabled:opacity-50">
           {busy === "DOCX" ? "생성 중..." : "📄 DOCX"}

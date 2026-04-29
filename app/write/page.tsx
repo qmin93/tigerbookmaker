@@ -78,6 +78,8 @@ function Inner() {
   } | null>(null);
   const [coverVariants, setCoverVariants] = useState<string[]>([]);
   const [variantBusy, setVariantBusy] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
   useEffect(() => {
@@ -588,8 +590,97 @@ function Inner() {
     }
   };
 
+  // 챕터 드래그로 순서 변경
+  const handleDragStart = (i: number) => (e: React.DragEvent) => {
+    setDragIdx(i);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragOver = (i: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragIdx !== null && i !== dragIdx) setDragOverIdx(i);
+  };
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+  const handleDrop = (toIdx: number) => async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!project || dragIdx === null || dragIdx === toIdx) {
+      handleDragEnd();
+      return;
+    }
+    const chapters = [...project.chapters];
+    const [moved] = chapters.splice(dragIdx, 1);
+    chapters.splice(toIdx, 0, moved);
+    // activeIdx 보정
+    let newActive = activeIdx;
+    if (activeIdx === dragIdx) newActive = toIdx;
+    else if (dragIdx < activeIdx && toIdx >= activeIdx) newActive = activeIdx - 1;
+    else if (dragIdx > activeIdx && toIdx <= activeIdx) newActive = activeIdx + 1;
+    setActiveIdx(newActive);
+    handleDragEnd();
+    await saveProject({ ...project, chapters });
+  };
+
+  // 모든 챕터의 [IMAGE: ...] placeholder 다 모아서 일괄 생성 (이미 dataUrl 있으면 skip)
+  const generateAllChapterImages = async () => {
+    if (!project) return;
+    type Job = { chapterIdx: number; placeholder: string };
+    const jobs: Job[] = [];
+    project.chapters.forEach((c, ci) => {
+      const phs = extractImagePlaceholders(c.content);
+      phs.forEach(ph => {
+        const existing = c.images?.find(i => i.placeholder === ph);
+        if (!existing?.dataUrl) jobs.push({ chapterIdx: ci, placeholder: ph });
+      });
+    });
+    if (jobs.length === 0) {
+      setError("이미 모든 이미지가 생성되어 있습니다.");
+      return;
+    }
+    if (!confirm(`총 ${jobs.length}개 이미지를 일괄 생성합니다 (~${jobs.length * 6}초). 진행할까요?`)) return;
+    setError(null);
+    for (let i = 0; i < jobs.length; i++) {
+      const { chapterIdx, placeholder } = jobs[i];
+      setImageGenBusy(`${placeholder} (${i + 1}/${jobs.length})`);
+      try {
+        if (i > 0) await new Promise(r => setTimeout(r, 1500));
+        const res = await fetch("/api/generate/chapter-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, chapterIdx, placeholder }),
+        });
+        const data = await res.json();
+        if (res.status === 402) {
+          if (confirm(`잔액 부족 (${i + 1}/${jobs.length}에서 멈춤). 충전 페이지로?`)) router.push("/billing");
+          break;
+        }
+        if (!res.ok) {
+          console.error(`[batch-img-${i}]`, data.message);
+          continue;
+        }
+        if (data.newBalance != null) setBalance(data.newBalance);
+      } catch (e: any) {
+        console.error(`[batch-img-${i}]`, e.message);
+      }
+    }
+    // 모든 이미지 생성 후 한 번 fresh
+    try {
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch {}
+    setImageGenBusy("");
+  };
+
   const active = project.chapters[activeIdx];
   const placeholders = active ? extractImagePlaceholders(active.content) : [];
+
+  // 모든 챕터에 누락된 이미지가 있는지 (일괄 버튼 표시용)
+  const missingImageCount = project.chapters.reduce((sum, c) => {
+    const phs = extractImagePlaceholders(c.content);
+    return sum + phs.filter(ph => !c.images?.find(i => i.placeholder === ph)?.dataUrl).length;
+  }, 0);
 
   return (
     <>
@@ -649,6 +740,16 @@ function Inner() {
               >
                 {kmongBusy || ((project as any).kmongPackage ? "📦 크몽 패키지 (재생성)" : "📦 크몽 패키지 생성")}
               </button>
+              {missingImageCount > 0 && (
+                <button
+                  onClick={generateAllChapterImages}
+                  disabled={!!loading || !!imageGenBusy || batch.status === "running"}
+                  className="w-full px-3 py-2 mt-1 bg-orange-50 border border-tiger-orange/40 text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-100 transition disabled:opacity-50"
+                  title={`본문에 누락된 이미지 ${missingImageCount}개를 한 번에 생성`}
+                >
+                  {imageGenBusy.startsWith("[IMAGE:") ? `🖼️ ${imageGenBusy}` : `🖼️ 본문 이미지 일괄 (${missingImageCount}개)`}
+                </button>
+              )}
               {(project as any).kmongPackage && (
                 <button
                   onClick={() => setKmongModalOpen(true)}
@@ -660,13 +761,27 @@ function Inner() {
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2">목차 ({project.chapters.length})</p>
             {project.chapters.map((c, i) => (
-              <div key={i} className={`relative group rounded-lg mb-1 transition ${i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"}`}>
+              <div
+                key={i}
+                draggable
+                onDragStart={handleDragStart(i)}
+                onDragOver={handleDragOver(i)}
+                onDragLeave={() => setDragOverIdx(null)}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop(i)}
+                className={`relative group rounded-lg mb-1 transition ${
+                  i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"
+                } ${dragIdx === i ? "opacity-40" : ""} ${
+                  dragOverIdx === i ? "ring-2 ring-tiger-orange ring-offset-1" : ""
+                }`}
+              >
                 <button onClick={() => {
                   if (editingContent !== null && i !== activeIdx && !confirm("편집 중인 내용이 있습니다. 저장 안 하고 다른 챕터로 이동할까요?")) return;
                   if (i !== activeIdx) setEditingContent(null);
                   setActiveIdx(i);
                 }} className="w-full text-left px-3 py-2 text-sm">
                   <div className="flex items-center gap-2">
+                    <span className={`text-xs cursor-grab opacity-30 group-hover:opacity-70 transition ${i === activeIdx ? "text-white/70" : "text-gray-400"}`} title="드래그로 순서 변경">⋮⋮</span>
                     <span className="font-bold">{i + 1}.</span>
                     <span className="truncate flex-1">{c.title}</span>
                     {c.content && <span className="text-xs">✓</span>}
