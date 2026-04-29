@@ -78,6 +78,8 @@ function Inner() {
   } | null>(null);
   const [coverVariants, setCoverVariants] = useState<string[]>([]);
   const [variantBusy, setVariantBusy] = useState(false);
+  const [continueModal, setContinueModal] = useState<{ chapterIdx: number; seed: string } | null>(null);
+  const [continueBusy, setContinueBusy] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -668,6 +670,71 @@ function Inner() {
     }
   };
 
+  // 작가가 시작한 첫 단락에서 AI가 이어 작성
+  const continueChapterAI = async (chapterIdx: number, seed: string) => {
+    if (!projectId) return;
+    setContinueBusy(true);
+    setError(null);
+    setStreamingChapterIdx(chapterIdx);
+    setStreamingText(seed + "\n\n");
+    setActiveIdx(chapterIdx);
+    try {
+      const res = await fetch("/api/generate/chapter-continue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, chapterIdx, seedText: seed }),
+      });
+      if (res.status === 402) {
+        const data = await res.json().catch(() => ({}));
+        if (confirm(`잔액 부족: ₩${data.shortfall?.toLocaleString()} 부족. 충전 페이지로?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `요청 실패 (${res.status})`);
+      }
+      if (!res.body) throw new Error("응답 body 없음");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = seed + "\n\n";
+      let doneMsg: any = null;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          let msg: any;
+          try { msg = JSON.parse(trimmed); } catch { continue; }
+          if (msg.type === "chunk") {
+            accumulated += msg.text;
+            setStreamingText(accumulated);
+          } else if (msg.type === "done") {
+            doneMsg = msg;
+          } else if (msg.type === "error") {
+            throw new Error(msg.message || "AI 응답 실패");
+          }
+        }
+      }
+      if (!doneMsg) throw new Error("Stream이 done 없이 종료됨");
+      if (doneMsg.newBalance != null) setBalance(doneMsg.newBalance);
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+      setContinueModal(null);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setContinueBusy(false);
+      setStreamingChapterIdx(null);
+      setStreamingText("");
+    }
+  };
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -1073,8 +1140,31 @@ function Inner() {
                 )}
               </>
             ) : (
-              <div className="text-center text-gray-400 py-20 text-sm">
-                {loading || "이 챕터는 아직 집필 전입니다"}
+              <div className="text-center py-12 px-4">
+                <div className="text-5xl mb-4">📝</div>
+                <p className="text-gray-500 text-sm mb-6">{loading || "이 챕터는 아직 집필 전입니다"}</p>
+                {!loading && (
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
+                    <button
+                      onClick={() => generateChapter(activeIdx)}
+                      className="flex-1 px-4 py-3 bg-tiger-orange text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition shadow-glow-orange-sm"
+                    >
+                      ✨ AI 자동 집필
+                    </button>
+                    <button
+                      onClick={() => setContinueModal({ chapterIdx: activeIdx, seed: "" })}
+                      className="flex-1 px-4 py-3 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg font-bold text-sm hover:bg-orange-50 transition"
+                      title="첫 단락을 직접 쓰면 AI가 그 톤으로 이어 작성"
+                    >
+                      ✏️ 직접 시작 + AI 이어쓰기
+                    </button>
+                  </div>
+                )}
+                {!loading && (
+                  <p className="text-xs text-gray-400 mt-4 max-w-md mx-auto leading-relaxed">
+                    💡 <strong>이어쓰기</strong>는 첫 200~500자만 작가 본인이 쓰면 AI가 그 문체로 챕터 끝까지 완성. 100% AI 책보다 진정성 ↑
+                  </p>
+                )}
               </div>
             )}
           </section>
@@ -1338,6 +1428,66 @@ function Inner() {
               {kmongProgress ? "첫 작업 완료까지 잠시 기다려주세요..." : "패키지가 없습니다."}
             </div>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* 챕터 이어쓰기 모달 — 작가가 첫 단락 입력 → AI가 같은 톤으로 이어 */}
+    {continueModal && (
+      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !continueBusy && setContinueModal(null)}>
+        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-ink-900">✏️ 직접 시작 + AI 이어쓰기</h3>
+              <p className="text-xs text-gray-500 mt-1">{continueModal.chapterIdx + 1}장 — {project.chapters[continueModal.chapterIdx]?.title}</p>
+            </div>
+            {!continueBusy && (
+              <button onClick={() => setContinueModal(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>
+            )}
+          </div>
+          <p className="text-sm text-gray-700 mb-4 leading-relaxed">
+            챕터의 <strong>첫 단락 (200~500자 권장)</strong>을 직접 써보세요.<br />
+            AI가 그 톤·문체·1인칭/3인칭을 그대로 유지하며 챕터를 끝까지 이어 작성합니다.
+          </p>
+          <textarea
+            value={continueModal.seed}
+            onChange={e => setContinueModal(m => m ? { ...m, seed: e.target.value } : m)}
+            disabled={continueBusy}
+            rows={10}
+            placeholder={`예시:\n\n월요일 오전 9시, 출근하자마자 가장 먼저 하는 일은 어제의 매출 데이터를 확인하는 것입니다. 엑셀 파일을 열어 거래처별로 정리하고, 입금된 금액과 미수금을 분리합니다. 이 작업이 끝나야 비로소 그날 해야 할 일들이 명확해집니다.\n\n그런데 이 30분 남짓의 시간이, 사실 자동화 한 번이면 사라질 일이라는 걸 깨달은 건 입사 3년 차 때였습니다.`}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none resize-none font-sans leading-relaxed disabled:bg-gray-50"
+            style={{ wordBreak: "keep-all" }}
+          />
+          <div className="flex items-center justify-between mt-2 mb-4 text-xs text-gray-500">
+            <span>{continueModal.seed.length}자</span>
+            <span>
+              {continueModal.seed.length < 50 && <span className="text-red-500">최소 50자 필요</span>}
+              {continueModal.seed.length >= 50 && continueModal.seed.length < 200 && <span className="text-amber-600">200자+ 권장 (AI 톤 학습 정확도 ↑)</span>}
+              {continueModal.seed.length >= 200 && continueModal.seed.length <= 3000 && <span className="text-green-600">✓ 좋아요</span>}
+              {continueModal.seed.length > 3000 && <span className="text-red-500">최대 3000자</span>}
+            </span>
+          </div>
+          {continueBusy && (
+            <div className="mb-4 p-3 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900">
+              ⏳ AI가 작가님 톤을 분석하고 이어 작성 중... (30~60초)
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => !continueBusy && setContinueModal(null)}
+              disabled={continueBusy}
+              className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => continueChapterAI(continueModal.chapterIdx, continueModal.seed)}
+              disabled={continueBusy || continueModal.seed.trim().length < 50 || continueModal.seed.length > 3000}
+              className="flex-1 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600 transition disabled:opacity-50"
+            >
+              {continueBusy ? "이어 작성 중..." : "✨ AI 이어쓰기 시작"}
+            </button>
+          </div>
         </div>
       </div>
     )}
