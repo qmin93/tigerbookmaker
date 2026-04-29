@@ -13,10 +13,10 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { isDisposableEmail } from "@/lib/server/rate-limit";
 
-// 베타 환영 크레딧 — 책 3권. 어뷰즈 방지 위해 이메일 인증 후에만 지급.
+// 베타 환영 크레딧 — 이메일 인증 후 지급 (어뷰즈 방지).
 // 매직링크/Google: events.createUser에서 자동 (verify된 가입이라 즉시 OK)
 // 비밀번호 가입: 첫 매직링크 verify 시 signIn callback에서 지급
-const SIGNUP_BONUS_KRW = 3000;
+const SIGNUP_BONUS_KRW = 1000;
 
 let _resend: Resend | null = null;
 function getResend() {
