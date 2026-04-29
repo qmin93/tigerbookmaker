@@ -225,6 +225,12 @@ function Inner() {
             </div>
 
             <div className="ml-11">
+              {currentAnswer === "" && currentQ.placeholder && (
+                <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-orange-50 border border-tiger-orange/30 rounded-lg text-xs">
+                  <span className="text-tiger-orange font-bold">💡 TIP</span>
+                  <span className="text-ink-900">아래 회색 예시가 마음에 들면 <strong className="px-1.5 py-0.5 bg-white border border-tiger-orange/40 rounded font-mono text-tiger-orange">Enter ↵</strong> 한 번 → 그대로 입력됩니다</span>
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 value={currentAnswer}
@@ -243,7 +249,7 @@ function Inner() {
               />
               <div className="flex items-center justify-between mt-3 text-[11px] font-mono text-gray-500">
                 <span>{currentAnswer.length.toLocaleString()}자 — 길수록 책 품질↑</span>
-                <span>{currentAnswer === "" && currentQ.placeholder ? "↵ Enter로 예시 그대로 사용" : "(빈 답도 허용)"}</span>
+                <span>(빈 답도 허용)</span>
               </div>
             </div>
           </>
