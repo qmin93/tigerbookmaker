@@ -46,6 +46,77 @@ function renderChapterHtml(content: string, images: any[]): string {
   }).join("\n");
 }
 
+// 공통 EPUB 빌드 — POST와 GET 둘 다 사용
+async function buildEpubBuffer(projectId: string, userId: string) {
+  const projectRow = await getProject(projectId, userId);
+  if (!projectRow) throw new Error("PROJECT_NOT_FOUND");
+  const project = projectRow.data;
+
+  const chapters = project.chapters
+    .filter((ch: any) => ch.content)
+    .map((ch: any, i: number) => ({
+      title: `${i + 1}장. ${ch.title}`,
+      content: `${ch.subtitle ? `<p style="font-style:italic;color:#666;margin-bottom:1.5em">${escapeHtml(ch.subtitle)}</p>` : ""}${renderChapterHtml(ch.content, ch.images || [])}`,
+    }));
+  if (chapters.length === 0) throw new Error("NO_CONTENT");
+
+  const kPkg = (project as any).kmongPackage;
+  const coverImg = kPkg?.images?.find((i: any) => i.type === "cover");
+  const coverDataUrl = coverImg ? `data:image/png;base64,${coverImg.base64}` : undefined;
+
+  const epubMod: any = await import("epub-gen-memory");
+  const epubFn = epubMod.default;
+
+  const options: any = {
+    title: project.topic,
+    author: "Tigerbookmaker",
+    description: `${project.audience} 대상 ${project.type}. AI 자동 집필.`,
+    lang: "ko",
+    publisher: "Tigerbookmaker",
+    cover: coverDataUrl,
+    css: `
+      body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
+      h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; }
+      h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
+      h4 { font-size: 1.1em; margin-top: 1.2em; }
+      p { margin-bottom: 1em; text-align: justify; word-break: keep-all; }
+    `.trim(),
+  };
+
+  const buf: Buffer = await epubFn(options, chapters);
+  const filename = `${project.topic.slice(0, 50).replace(/[^\w가-힣\s]/g, "").trim() || "book"}.epub`;
+  return { buf, filename };
+}
+
+// GET: 모바일 안전 — 직접 binary 응답 (Content-Disposition: attachment)
+// blob: URL 차단하는 in-app 브라우저(Telegram·카톡·iOS Safari 일부)에서도 동작.
+export async function GET(req: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return new Response("UNAUTHORIZED", { status: 401 });
+    const url = new URL(req.url);
+    const projectId = url.searchParams.get("id");
+    if (!projectId) return new Response("INVALID_INPUT", { status: 400 });
+
+    const { buf, filename } = await buildEpubBuffer(projectId, session.user.id);
+    // RFC 5987 — 한국어 파일명 안전 인코딩
+    const encoded = encodeURIComponent(filename);
+    return new Response(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/epub+zip",
+        "Content-Disposition": `attachment; filename="${encoded}"; filename*=UTF-8''${encoded}`,
+        "Content-Length": String(buf.length),
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e: any) {
+    console.error("[/api/export/epub GET] uncaught:", e);
+    const status = e?.message === "PROJECT_NOT_FOUND" ? 404 : e?.message === "NO_CONTENT" ? 400 : 500;
+    return new Response(e?.message || "INTERNAL_ERROR", { status });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
