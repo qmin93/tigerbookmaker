@@ -27,7 +27,7 @@ const NO_BOOK_OBJECT = `flat 2D artwork only, NO 3D book mockup, NO physical boo
 
 // 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기 분기. topic은 prompt에 직접 사용 X.
 function coverPromptByGenre(p: BookProject): string {
-  const base = `Square 1:1 magazine cover art, premium editorial design. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
+  const base = `Square 1:1 abstract editorial graphic composition, premium publishing aesthetic. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
 
   switch (p.type) {
     case "자기계발서":
@@ -60,7 +60,7 @@ export function imagePrompt(type: KmongImageType, p: BookProject): string {
       return coverPromptByGenre(p);
 
     case "thumb":
-      return `Square 1:1 ebook marketplace thumbnail. Bold central visual metaphor — abstract icon or geometric shape representing growth/learning/insight. Bright color contrast with orange (#f97316) accent. Professional publishing aesthetic. ${NO_TEXT}`;
+      return `Square 1:1 abstract icon composition. Bold central visual metaphor — geometric shape or symbolic icon representing growth/learning/insight. Bright color contrast with orange (#f97316) accent. Professional aesthetic. ${NO_TEXT}`;
 
     case "toc":
       return `Square 1:1 abstract structural infographic. Vertical stack of horizontal lines or bars suggesting a hierarchical list, with subtle thin dividers. White background, monochrome with orange (#f97316) accent dots. Clean editorial. ${NO_TEXT}`;

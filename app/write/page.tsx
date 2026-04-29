@@ -511,27 +511,65 @@ function Inner() {
     }
   };
 
-  // 표지 5장 후보 생성 (dryRun, DB 저장 X)
-  const generateCoverVariants = async () => {
-    if (!projectId) return;
-    setCoverVariants([]);
-    setVariantBusy(true);
-    setError(null);
-    for (let i = 0; i < 5; i++) {
+  // 표지 5장 후보 생성 (dryRun, DB 저장 X). 단일 슬롯 재시도 가능.
+  const tryGenerateOneVariant = async (slotIdx: number): Promise<string | null> => {
+    if (!projectId) return null;
+    // 1차 시도 + 1회 retry (rate limit 방어)
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        if (i > 0) await new Promise(r => setTimeout(r, 1500));
+        if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
         const res = await fetch("/api/generate/kmong-package", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ projectId, regenerateOnly: ["cover"], dryRun: true }),
         });
-        const data = await res.json();
         if (!res.ok) continue;
+        const data = await res.json();
         const b64 = data.newImages?.[0]?.base64;
-        if (b64) setCoverVariants(prev => [...prev, b64]);
+        if (b64) return b64;
       } catch (e: any) {
-        console.error(`[cover-variant-${i}]`, e.message);
+        console.error(`[cover-variant-${slotIdx}-${attempt}]`, e.message);
       }
+    }
+    return null;
+  };
+
+  const generateCoverVariants = async () => {
+    if (!projectId) return;
+    setCoverVariants(Array(5).fill("")); // 빈 슬롯 5개
+    setVariantBusy(true);
+    setError(null);
+    let failCount = 0;
+    for (let i = 0; i < 5; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, 2500)); // 2.5s 간격 (rate limit ↓)
+      const b64 = await tryGenerateOneVariant(i);
+      if (b64) {
+        setCoverVariants(prev => {
+          const next = [...prev];
+          next[i] = b64;
+          return next;
+        });
+      } else {
+        failCount++;
+      }
+    }
+    setVariantBusy(false);
+    if (failCount > 0) setError(`${5 - failCount}/5장 생성. 빈 슬롯 클릭으로 개별 재시도 가능.`);
+  };
+
+  const retrySingleVariant = async (slotIdx: number) => {
+    if (variantBusy) return;
+    setVariantBusy(true);
+    setError(null);
+    const b64 = await tryGenerateOneVariant(slotIdx);
+    if (b64) {
+      setCoverVariants(prev => {
+        const next = [...prev];
+        next[slotIdx] = b64;
+        return next;
+      });
+    } else {
+      setError(`${slotIdx + 1}번 슬롯 재생성 실패. 다시 시도하거나 [다시 5장] 버튼 사용.`);
     }
     setVariantBusy(false);
   };
@@ -1059,24 +1097,39 @@ function Inner() {
             </div>
             {coverVariants.length > 0 && (
               <div className="grid grid-cols-5 gap-2">
-                {coverVariants.map((b64, i) => (
-                  <button
-                    key={i}
-                    onClick={() => selectCoverVariant(b64)}
-                    className="aspect-[3/4] rounded-md overflow-hidden border-2 border-transparent hover:border-tiger-orange transition relative group"
-                    title={`표지 후보 ${i + 1} — 클릭하여 선택`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`data:image/png;base64,${b64}`} alt={`variant ${i + 1}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
-                      <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
-                    </div>
-                    <div className="absolute top-1 left-1 text-[9px] font-mono px-1 bg-white/90 text-tiger-orange rounded">{i + 1}</div>
-                  </button>
-                ))}
-                {Array.from({ length: 5 - coverVariants.length }).map((_, i) => (
-                  <div key={`p${i}`} className="aspect-[3/4] rounded-md bg-gray-100 animate-pulse" />
-                ))}
+                {coverVariants.map((b64, i) => {
+                  if (b64) {
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => selectCoverVariant(b64)}
+                        className="aspect-[3/4] rounded-md overflow-hidden border-2 border-transparent hover:border-tiger-orange transition relative group"
+                        title={`표지 후보 ${i + 1} — 클릭하여 선택`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`data:image/png;base64,${b64}`} alt={`variant ${i + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                          <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
+                        </div>
+                        <div className="absolute top-1 left-1 text-[9px] font-mono px-1 bg-white/90 text-tiger-orange rounded">{i + 1}</div>
+                      </button>
+                    );
+                  }
+                  // 아직 빈 슬롯 — 작업 중이면 pulse, 끝났으면 재시도 버튼
+                  return variantBusy ? (
+                    <div key={i} className="aspect-[3/4] rounded-md bg-gray-100 animate-pulse" />
+                  ) : (
+                    <button
+                      key={i}
+                      onClick={() => retrySingleVariant(i)}
+                      className="aspect-[3/4] rounded-md bg-red-50 border-2 border-dashed border-red-300 hover:border-red-500 hover:bg-red-100 transition flex flex-col items-center justify-center text-red-500 text-[10px] font-bold gap-1 group"
+                      title={`${i + 1}번 슬롯 재시도`}
+                    >
+                      <span className="text-xl">↻</span>
+                      <span>{i + 1}번 재시도</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
