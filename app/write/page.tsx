@@ -86,6 +86,7 @@ function Inner() {
     proposal: string | null;
     busy: boolean;
   } | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -134,16 +135,24 @@ function Inner() {
 
   // ─── DB 동기화: project.data 통째로 PUT ───
   const saveProject = async (next: Project) => {
+    setSaveStatus("saving");
     const data = {
       topic: next.topic, audience: next.audience, type: next.type, targetPages: next.targetPages,
       chapters: next.chapters,
     };
-    const res = await fetch(`/api/projects/${projectId}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data }),
-    });
-    if (!res.ok) throw new Error("저장 실패");
-    setProject(next);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data }),
+      });
+      if (!res.ok) throw new Error("저장 실패");
+      setProject(next);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus(s => s === "saved" ? "idle" : s), 2500);
+    } catch (e) {
+      setSaveStatus("error");
+      throw e;
+    }
   };
 
   const callApi = async (path: string, body: any, label: string) => {
@@ -774,6 +783,39 @@ function Inner() {
     setEditChat(null);
   };
 
+  // 단축키: Ctrl/Cmd+S 저장, Ctrl/Cmd+Enter 다음 챕터, Ctrl/Cmd+Shift+Enter 이전
+  useEffect(() => {
+    if (!project) return;
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.ctrlKey || e.metaKey;
+      // Ctrl+S — 강제 저장 (편집 중이면 본문 적용 후 저장)
+      if (meta && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (editingContent !== null) {
+          const chapters = [...project.chapters];
+          chapters[activeIdx] = { ...chapters[activeIdx], content: editingContent };
+          saveProject({ ...project, chapters }).then(() => setEditingContent(null)).catch(() => {});
+        } else {
+          // 그냥 표시만 (이미 저장됨 보통)
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus(s => s === "saved" ? "idle" : s), 1500);
+        }
+        return;
+      }
+      // Ctrl+Enter — 다음 챕터, Ctrl+Shift+Enter — 이전 챕터
+      if (meta && e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (activeIdx > 0) setActiveIdx(activeIdx - 1);
+        } else {
+          if (activeIdx < project.chapters.length - 1) setActiveIdx(activeIdx + 1);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editingContent, activeIdx, project, projectId]);
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -1031,7 +1073,12 @@ function Inner() {
             />
             <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-xs text-gray-500">{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</p>
+                <p className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                  <span>{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</span>
+                  {saveStatus === "saving" && <span className="text-tiger-orange">⏳ 저장 중</span>}
+                  {saveStatus === "saved" && <span className="text-green-600">✓ 저장됨</span>}
+                  {saveStatus === "error" && <span className="text-red-600">✗ 저장 실패</span>}
+                </p>
                 <h2 className="text-lg sm:text-xl font-black break-keep">{active.title}</h2>
                 {active.subtitle && <p className="text-sm text-gray-500 mt-1 break-keep">{active.subtitle}</p>}
               </div>
@@ -1523,16 +1570,17 @@ function Inner() {
             </div>
           )}
 
-          {/* 제안 */}
+          {/* 제안 + diff 강조 */}
           {editChat.proposal && (
             <div className="border border-tiger-orange/40 rounded-xl p-4 bg-orange-50/40 mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-tiger-orange">📄 AI 수정안 ({editChat.proposal.length.toLocaleString()}자)</span>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-tiger-orange">📄 AI 수정안 ({editChat.proposal.length.toLocaleString()}자) — 원본과 비교</span>
                 <span className="text-[10px] text-gray-500">아래 [✓ 적용] 시 챕터 본문 교체</span>
               </div>
-              <div className="max-h-80 overflow-y-auto p-3 bg-white rounded border border-gray-200 text-sm whitespace-pre-wrap break-keep leading-relaxed">
-                {editChat.proposal}
-              </div>
+              <ChapterDiff
+                original={project.chapters[editChat.chapterIdx]?.content || ""}
+                proposed={editChat.proposal}
+              />
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setEditChat(c => c ? { ...c, proposal: null, instruction: c.instruction } : c)}
@@ -1549,14 +1597,6 @@ function Inner() {
               </div>
             </div>
           )}
-
-          {/* 참고: 원본 보기 */}
-          <details className="text-xs text-gray-500">
-            <summary className="cursor-pointer hover:text-ink-900">📜 원본 본문 보기</summary>
-            <div className="mt-2 max-h-60 overflow-y-auto p-3 bg-gray-50 rounded text-xs whitespace-pre-wrap break-keep leading-relaxed">
-              {project.chapters[editChat.chapterIdx]?.content}
-            </div>
-          </details>
         </div>
       </div>
     )}
@@ -1676,6 +1716,83 @@ interface ShareLinks {
   ridi?: string;
   kyobo?: string;
   custom?: { label: string; url: string }[];
+}
+
+// 두 본문 line 단위 비교 — 원본/제안 나란히 표시 + 변경된 line 색깔 강조.
+// 단순 Set 기반 (정확도 한계 있지만 시각적 비교에 충분).
+function ChapterDiff({ original, proposed }: { original: string; proposed: string }) {
+  const [view, setView] = useState<"side" | "proposed-only">("side");
+
+  const aLines = original.split("\n");
+  const bLines = proposed.split("\n");
+  const aSet = new Set(aLines.map(l => l.trim()).filter(Boolean));
+  const bSet = new Set(bLines.map(l => l.trim()).filter(Boolean));
+
+  const aMarked = aLines.map(l => ({
+    text: l,
+    changed: l.trim() && !bSet.has(l.trim()),
+  }));
+  const bMarked = bLines.map(l => ({
+    text: l,
+    changed: l.trim() && !aSet.has(l.trim()),
+  }));
+
+  const removedCount = aMarked.filter(l => l.changed).length;
+  const addedCount = bMarked.filter(l => l.changed).length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2 text-xs">
+        <div className="flex gap-3 font-mono">
+          <span className="text-red-700">− {removedCount} 줄</span>
+          <span className="text-green-700">+ {addedCount} 줄</span>
+        </div>
+        <div className="flex border border-gray-300 rounded-md overflow-hidden text-[10px] font-bold">
+          <button
+            onClick={() => setView("side")}
+            className={`px-2 py-1 ${view === "side" ? "bg-ink-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+          >
+            ↔ 비교
+          </button>
+          <button
+            onClick={() => setView("proposed-only")}
+            className={`px-2 py-1 ${view === "proposed-only" ? "bg-ink-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+          >
+            제안만
+          </button>
+        </div>
+      </div>
+
+      {view === "side" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+          <div className="bg-white rounded border border-gray-200 p-2">
+            <div className="text-[9px] font-mono uppercase tracking-wider text-gray-400 mb-1.5 sticky top-0 bg-white">📜 원본</div>
+            <div className="text-xs leading-relaxed font-sans">
+              {aMarked.map((l, i) => (
+                <div key={i} className={l.changed ? "bg-red-50 -mx-1 px-1 py-0.5 text-red-900 line-through" : ""}>
+                  {l.text || " "}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded border border-gray-200 p-2">
+            <div className="text-[9px] font-mono uppercase tracking-wider text-tiger-orange mb-1.5 sticky top-0 bg-white">✨ AI 제안</div>
+            <div className="text-xs leading-relaxed font-sans">
+              {bMarked.map((l, i) => (
+                <div key={i} className={l.changed ? "bg-green-50 -mx-1 px-1 py-0.5 text-green-900" : ""}>
+                  {l.text || " "}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="max-h-96 overflow-y-auto p-3 bg-white rounded border border-gray-200 text-sm whitespace-pre-wrap break-keep leading-relaxed">
+          {proposed}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ShareToggle({
