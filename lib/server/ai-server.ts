@@ -651,6 +651,10 @@ export interface ImageResult {
   durationMs: number;
 }
 
+// Cloudflare 일일 quota (10k neurons) hit detection — process 재시작 전까지 cache.
+// 한 번 429 받으면 다음 호출은 즉시 다음 vendor로 (15s timeout 낭비 X).
+let cloudflareDownUntil = 0;
+
 export async function callImageGeneration(opts: {
   prompt: string;
   timeoutMs?: number;
@@ -658,42 +662,49 @@ export async function callImageGeneration(opts: {
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? 30000;
   const errors: string[] = [];
+  const now = Date.now();
 
-  // 1순위: Cloudflare Workers AI (무료 1만/일, 안정적, ~2s)
-  if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID) {
+  // 1순위: Cloudflare Workers AI (무료 1만/일) — quota 도달 시 1시간 skip
+  if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && now > cloudflareDownUntil) {
     try {
       const r = await callCloudflareImage(opts.prompt, timeoutMs);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
-      errors.push(`Cloudflare: ${e?.message ?? e}`);
+      const msg = String(e?.message ?? e);
+      errors.push(`Cloudflare: ${msg.slice(0, 120)}`);
+      // daily quota 도달 — 1시간 skip (UTC 자정 reset되니 보수적)
+      if (msg.includes("429") || msg.includes("daily free allocation") || msg.includes("neurons")) {
+        cloudflareDownUntil = now + 60 * 60 * 1000;
+        console.warn("[image-gen] Cloudflare quota exceeded, skipping for 1h");
+      }
     }
   }
-  // 2순위: Pollinations (무료, 키 X) — Cloudflare 한도 초과 시
-  try {
-    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 15000));
-    return { ...r, durationMs: Date.now() - started };
-  } catch (e: any) {
-    errors.push(`Pollinations: ${e?.message ?? e}`);
-  }
-  // 3순위: Imagen (paid, 한국어 텍스트 깨끗)
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const r = await callImagenFast(opts.prompt, timeoutMs);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      errors.push(`Imagen: ${e?.message ?? e}`);
-    }
-  }
-  // 4순위: OpenAI gpt-image-1 (paid)
+  // 2순위: OpenAI gpt-image-1 (paid, 신뢰성 높음) — quota 도달 시 우선
   if (process.env.OPENAI_API_KEY) {
     try {
       const r = await callOpenAIImage(opts.prompt, timeoutMs);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
-      errors.push(`OpenAI Image: ${e?.message ?? e}`);
+      errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
     }
   }
-  throw new Error(`이미지 생성 실패. ${errors.join(" / ") || "API 키 없음"}`);
+  // 3순위: Imagen 4 Fast (paid, 한국어 깔끔) — Gemini billing 활성화 시
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const r = await callImagenFast(opts.prompt, timeoutMs);
+      return { ...r, durationMs: Date.now() - started };
+    } catch (e: any) {
+      errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
+    }
+  }
+  // 4순위: Pollinations (무료, 한국어 약함, Vercel server에서 종종 hang) — 마지막 보루, 짧은 timeout
+  try {
+    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 8000));
+    return { ...r, durationMs: Date.now() - started };
+  } catch (e: any) {
+    errors.push(`Pollinations: ${String(e?.message ?? e).slice(0, 120)}`);
+  }
+  throw new Error(`모든 이미지 vendor 실패. ${errors.join(" / ") || "API 키 없음"}`);
 }
 
 async function callCloudflareImage(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
