@@ -258,6 +258,59 @@ ${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]
 - 다른 설명/서문/마무리 인사 없이 본문만 출력.`;
 }
 
+// 작가가 시작한 첫 단락(seedText)에서 그 톤·문체로 챕터 끝까지 이어 작성.
+// 작가 색깔 + AI 자동의 하이브리드. 100% AI 책보다 진정성 ↑.
+export function continueChapterPrompt(
+  p: BookProject,
+  chapterIdx: number,
+  chapterTitle: string,
+  chapterSubtitle: string | undefined,
+  seedText: string,
+) {
+  const noImages = (p as any).noImages === true;
+  const prevTitles = p.chapters
+    .slice(0, chapterIdx)
+    .map((c, i) => `${i + 1}장. ${c.title}${c.subtitle ? ` — ${c.subtitle}` : ""}`)
+    .join("\n");
+  const nextTitle = p.chapters[chapterIdx + 1];
+  const prevSummaries = p.chapters
+    .slice(0, chapterIdx)
+    .map((c, i) => c.summary ? `${i + 1}장. 「${c.title}」 — ${c.summary}` : "")
+    .filter(Boolean)
+    .join("\n\n");
+
+  return `작가가 챕터의 첫 부분을 직접 썼습니다. 이 글의 톤·문체·1인칭/3인칭·시제를 그대로 유지하면서 챕터를 끝까지 이어 작성합니다.
+
+[책 정보]
+- 주제: ${p.topic}
+- 대상 독자: ${p.audience}
+- 책 유형: ${p.type}
+${genreBlock(p)}${interviewBlock(p)}
+[전체 목차]
+${prevTitles || "(이 챕터가 첫 챕터)"}
+→ ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
+${nextTitle ? `${chapterIdx + 2}장. ${nextTitle.title}${nextTitle.subtitle ? ` — ${nextTitle.subtitle}` : ""}` : "(이 챕터가 마지막)"}
+${prevSummaries ? `\n[지금까지 흐름]\n${prevSummaries}\n` : ""}
+[작가가 직접 쓴 부분 — 이 톤을 그대로 유지하세요]
+${seedText.trim()}
+
+[이어 작성 지침 — 매우 중요]
+- 위 작가의 글에서 톤·문체·시제·인칭(나/그/우리 등)·핵심 키워드를 정확히 파악하고 그대로 이어가세요.
+- "이어서 다음과 같이 ~" 같은 메타 표현 금지. 자연스럽게 다음 단락으로 흐르게.
+- 작가가 쓴 부분은 다시 반복하지 마세요. 그 다음부터만 작성.
+- 분량: 작가의 글 + AI 추가 = 합쳐서 3,000~5,000자가 되도록 (작가가 500자 썼으면 AI가 2,500~4,500자).
+- 본론 중에 ## 소제목 2~3개 배치. 각 소제목은 행동/질문/선언 형태.
+- 마무리 1문단: 다음 장(${nextTitle ? nextTitle.title : "책의 결론"})으로 자연스럽게 연결.
+${noImages ? "- 이 책은 텍스트 전용 — [IMAGE: ...] placeholder 절대 만들지 마세요.\n" : "- 본론 중 0~1개의 [IMAGE: ...] placeholder만 (선택). 챕터에 시각 요소가 강할 때만.\n"}
+[금지]
+- "이어서 작가의 글을 잇겠습니다" 같은 메타 설명
+- 챕터 제목을 본문 맨 위에 다시 쓰기
+- "이번 장에서는" "지금까지 우리는" 같은 메타
+- 마크다운 (** _ \` > ---) 일체 X. 허용: ## 소제목, [IMAGE: ...]만.
+
+작가가 쓴 부분 다음에 자연스럽게 이어지는 본문만 출력하세요. 다른 설명/서문 X.`;
+}
+
 export function editPrompt(original: string, instruction: string) {
   return `아래 본문을 다음 지시에 따라 수정합니다. 수정된 전체 본문만 출력하세요. 다른 설명 금지.
 
