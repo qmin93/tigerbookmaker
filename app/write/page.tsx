@@ -837,7 +837,12 @@ function Inner() {
                 </button>
               )}
             </div>
-            <p className="text-xs font-bold text-gray-500 px-2 py-2">목차 ({project.chapters.length})</p>
+            <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
+              <span>목차 ({project.chapters.length})</span>
+              <span className="lg:hidden text-[10px] font-mono text-gray-400">↕ 스크롤</span>
+            </p>
+            <div className="max-h-[40vh] lg:max-h-none overflow-y-auto -mx-1 px-1">
+              {/* 모바일: 본문 빠르게 보이게 챕터 목록만 max-h. lg+에선 풀 표시 */}
             {project.chapters.map((c, i) => (
               <div
                 key={i}
@@ -891,6 +896,7 @@ function Inner() {
                 )}
               </div>
             ))}
+            </div>
           </aside>
 
           {/* 본문 */}
@@ -1163,7 +1169,7 @@ function Inner() {
               </button>
             </div>
             {coverVariants.length > 0 && (
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                 {coverVariants.map((b64, i) => {
                   if (b64) {
                     return (

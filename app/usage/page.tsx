@@ -199,11 +199,19 @@ function Card({ label, value, accent }: { label: string; value: string; accent?:
   );
 }
 
-// 최근 14일 일별 비용 — bar chart
+// 일별 비용 — 모바일 7일 / 데스크탑 14일 bar chart
 function DailyCostChart({ usage }: { usage: AIUsage[] }) {
+  const [windowDays, setWindowDays] = useState(typeof window !== "undefined" && window.innerWidth < 640 ? 7 : 14);
+
+  useEffect(() => {
+    const onResize = () => setWindowDays(window.innerWidth < 640 ? 7 : 14);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const today = new Date();
   const days: { day: string; label: string; cost: number }[] = [];
-  for (let i = 13; i >= 0; i--) {
+  for (let i = windowDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
@@ -220,7 +228,7 @@ function DailyCostChart({ usage }: { usage: AIUsage[] }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex items-baseline justify-between mb-4">
-        <h3 className="text-sm font-bold text-ink-900">최근 14일 비용</h3>
+        <h3 className="text-sm font-bold text-ink-900">최근 {windowDays}일 비용</h3>
         <span className="text-xs text-gray-500 font-mono">합계 ₩{total.toLocaleString()}</span>
       </div>
       <div className="flex items-end gap-1 h-40">
@@ -234,7 +242,7 @@ function DailyCostChart({ usage }: { usage: AIUsage[] }) {
                   style={{ height: `${h}%`, minHeight: d.cost > 0 ? 2 : 0 }}
                 />
               </div>
-              <div className="text-[9px] font-mono text-gray-400">{d.label.slice(-2)}</div>
+              <div className="text-[9px] font-mono text-gray-400">{windowDays > 10 ? d.label.slice(-2) : d.label}</div>
             </div>
           );
         })}

@@ -100,15 +100,18 @@ function Inner() {
         📖 책 미리보기 — 폰에서도 깔끔하게 페이지 넘기기
       </Link>
 
-      <div className="grid grid-cols-3 gap-3 md:gap-4">
-        <button onClick={exportDocx} disabled={!!busy} className="p-5 md:p-6 bg-white border border-gray-300 rounded-xl hover:border-ink-900 hover:bg-ink-900 hover:text-white text-ink-900 font-bold transition disabled:opacity-50">
-          {busy === "DOCX" ? "생성 중..." : "📄 DOCX"}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <button onClick={exportPdf} disabled={!!busy} className="p-5 md:p-6 bg-tiger-orange text-white rounded-xl shadow-glow-orange-sm hover:bg-orange-600 font-bold transition disabled:opacity-50 disabled:shadow-none flex items-center sm:flex-col justify-center gap-3 sm:gap-2">
+          <span className="text-2xl">📕</span>
+          <span>{busy === "PDF" ? "생성 중..." : "PDF — 인쇄·등록용"}</span>
         </button>
-        <button onClick={exportPdf} disabled={!!busy} className="p-5 md:p-6 bg-tiger-orange text-white rounded-xl shadow-glow-orange-sm hover:bg-orange-600 font-bold transition disabled:opacity-50 disabled:shadow-none">
-          {busy === "PDF" ? "생성 중..." : "📕 PDF"}
+        <button onClick={exportEpub} disabled={!!busy} className="p-5 md:p-6 bg-white border-2 border-tiger-orange text-tiger-orange rounded-xl hover:bg-orange-50 font-bold transition disabled:opacity-50 flex items-center sm:flex-col justify-center gap-3 sm:gap-2">
+          <span className="text-2xl">📚</span>
+          <span>{busy === "EPUB" ? "생성 중..." : "EPUB — 모바일 추천"}</span>
         </button>
-        <button onClick={exportEpub} disabled={!!busy} className="p-5 md:p-6 bg-white border-2 border-tiger-orange text-tiger-orange rounded-xl hover:bg-orange-50 font-bold transition disabled:opacity-50">
-          {busy === "EPUB" ? "생성 중..." : "📚 EPUB"}
+        <button onClick={exportDocx} disabled={!!busy} className="p-5 md:p-6 bg-white border border-gray-300 rounded-xl hover:border-ink-900 hover:bg-ink-900 hover:text-white text-ink-900 font-bold transition disabled:opacity-50 flex items-center sm:flex-col justify-center gap-3 sm:gap-2">
+          <span className="text-2xl">📄</span>
+          <span>{busy === "DOCX" ? "생성 중..." : "DOCX — 편집용"}</span>
         </button>
       </div>
       <p className="mt-4 text-xs font-mono text-gray-500 text-center">
