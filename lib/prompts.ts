@@ -321,6 +321,50 @@ ${instruction}
 ${original}`;
 }
 
+// 챕터 본문 출판 품질 진단 — 6 카테고리 점수 + 구체 issue + 개선 제안
+export function analyzePrompt(p: BookProject, chapterTitle: string, content: string) {
+  return `당신은 한국어 출판 편집자입니다. 이 챕터를 출판 품질 관점에서 진단하세요.
+
+[책 정보]
+- 주제: ${p.topic}
+- 대상 독자: ${p.audience}
+- 책 유형: ${p.type}
+
+[챕터 제목]
+${chapterTitle}
+
+[챕터 본문]
+${content}
+
+[진단 항목 — 6가지, 각 0~100점]
+1. tone (톤 일관성): 해요체 통일? 갑자기 반말 X? AI 특유 표현 ("혁신적인", "AI 시대에", "오늘날 우리는", "패러다임") 사용 X?
+2. repetition (반복): 같은 단어·문구·표현 과다 사용 X?
+3. sentenceLength (문장 길이): 너무 긴 문장(100자+) 비율 적절? 문장 길이 다양성?
+4. structure (구조): 서두 → 본론 → 마무리 균형. 소제목 활용. 단락 분리.
+5. consistency (인물·용어 일관성): 같은 개념·인물을 다른 단어로 바꿔 부르지 X? 한 챕터 내 통일?
+6. aiSignature (AI 티): "그러나/이러한/그러므로" 과다 사용 X? 추상적 표현 X? 구체적 숫자·예시 충분?
+
+[출력 형식 — 순수 JSON만, 마크다운 코드블록 X]
+{
+  "score": 0~100 (전체 평균),
+  "categories": {
+    "tone": { "score": 0~100, "comment": "한 문장 평가" },
+    "repetition": { "score": 0~100, "comment": "..." },
+    "sentenceLength": { "score": 0~100, "comment": "..." },
+    "structure": { "score": 0~100, "comment": "..." },
+    "consistency": { "score": 0~100, "comment": "..." },
+    "aiSignature": { "score": 0~100, "comment": "..." }
+  },
+  "issues": [
+    { "type": "tone|repetition|sentenceLength|structure|consistency|aiSignature", "text": "문제 부분 인용 (50자 이내)", "suggestion": "구체적 개선 제안 (한 줄)" }
+  ],
+  "summary": "전체 한 문장 평가 (예: '해요체와 구조는 좋으나 반복 표현 줄이면 더 깔끔')"
+}
+
+issues는 가장 임팩트 큰 5개 이내. 점수 90+ 카테고리는 issues에 안 넣어도 됨.
+순수 JSON만 출력하세요.`;
+}
+
 export function summaryPrompt(chapterTitle: string, content: string) {
   return `다음은 책 한 챕터의 본문입니다. 다음 챕터를 쓸 때 일관성을 위해 참고할 200~300자 요약을 만듭니다.
 

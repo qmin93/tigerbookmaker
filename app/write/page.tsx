@@ -87,6 +87,11 @@ function Inner() {
     busy: boolean;
   } | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [analyzeModal, setAnalyzeModal] = useState<{
+    chapterIdx: number;
+    busy: boolean;
+    result: any | null;
+  } | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -750,6 +755,32 @@ function Inner() {
     }
   };
 
+  // 챕터 품질 진단 — 출판 편집자 관점 6 카테고리 점수
+  const analyzeChapter = async (chapterIdx: number) => {
+    if (!projectId) return;
+    setAnalyzeModal({ chapterIdx, busy: true, result: null });
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/chapter-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, chapterIdx }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm("잔액 부족. 충전 페이지로?")) router.push("/billing");
+        setAnalyzeModal(null);
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `진단 실패 (${res.status})`);
+      if (data.newBalance != null) setBalance(data.newBalance);
+      setAnalyzeModal({ chapterIdx, busy: false, result: data.analysis });
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+      setAnalyzeModal(null);
+    }
+  };
+
   // AI 글쓰기 챗 — 자연어 지시 → AI 수정안 → 적용/거절
   const askChapterEdit = async () => {
     if (!editChat || !projectId) return;
@@ -1086,19 +1117,27 @@ function Inner() {
                 {active.content && editingContent === null && (
                   <>
                     <button
+                      onClick={() => analyzeChapter(activeIdx)}
+                      disabled={!!loading || !!analyzeModal?.busy}
+                      className="text-xs px-3 py-1 bg-white border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
+                      title="출판 편집자 관점 품질 진단 (~₩10)"
+                    >
+                      🔍 품질 진단
+                    </button>
+                    <button
                       onClick={() => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false })}
                       disabled={!!loading}
                       className="text-xs px-3 py-1 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg hover:bg-orange-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
                       title="자연어로 AI에게 수정 요청"
                     >
-                      💬 AI 수정 요청
+                      💬 AI 수정
                     </button>
                     <button
                       onClick={() => setEditingContent(active.content)}
                       disabled={!!loading}
                       className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
                     >
-                      ✏️ 직접 수정
+                      ✏️ 직접
                     </button>
                   </>
                 )}
@@ -1528,6 +1567,33 @@ function Inner() {
       </div>
     )}
 
+    {/* 품질 진단 모달 — 출판 편집자 관점 점수 + 개선 제안 */}
+    {analyzeModal && (
+      <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !analyzeModal.busy && setAnalyzeModal(null)}>
+        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-ink-900">🔍 품질 진단</h3>
+              <p className="text-xs text-gray-500 mt-1">{analyzeModal.chapterIdx + 1}장 — {project.chapters[analyzeModal.chapterIdx]?.title}</p>
+            </div>
+            {!analyzeModal.busy && <button onClick={() => setAnalyzeModal(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>}
+          </div>
+
+          {analyzeModal.busy && (
+            <div className="py-12 text-center">
+              <div className="text-4xl mb-3">🔍</div>
+              <p className="text-sm text-gray-600">출판 편집자 관점 분석 중... (~10초)</p>
+            </div>
+          )}
+
+          {analyzeModal.result && <AnalysisReport result={analyzeModal.result} onSuggestEdit={(suggestion) => {
+            setAnalyzeModal(null);
+            setEditChat({ chapterIdx: analyzeModal.chapterIdx, instruction: suggestion, proposal: null, busy: false });
+          }} />}
+        </div>
+      </div>
+    )}
+
     {/* AI 글쓰기 챗 — 챕터 본문에 자연어 수정 요청 */}
     {editChat && (
       <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => !editChat.busy && setEditChat(null)}>
@@ -1716,6 +1782,86 @@ interface ShareLinks {
   ridi?: string;
   kyobo?: string;
   custom?: { label: string; url: string }[];
+}
+
+// 챕터 품질 진단 결과 — 6 카테고리 점수 + 구체 issue + 개선 제안
+const CATEGORY_LABEL: Record<string, string> = {
+  tone: "📝 톤 일관성",
+  repetition: "🔁 반복 표현",
+  sentenceLength: "📏 문장 길이",
+  structure: "🏗️ 구조 균형",
+  consistency: "🎯 인물·용어 일관성",
+  aiSignature: "🤖 AI 티",
+};
+
+function ScoreBar({ score }: { score: number }) {
+  const color = score >= 90 ? "bg-green-500" : score >= 75 ? "bg-amber-400" : score >= 60 ? "bg-orange-500" : "bg-red-500";
+  return (
+    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className={`h-full ${color} transition-all`} style={{ width: `${score}%` }} />
+    </div>
+  );
+}
+
+function AnalysisReport({ result, onSuggestEdit }: { result: any; onSuggestEdit: (s: string) => void }) {
+  const score = Number(result?.score ?? 0);
+  const overallColor = score >= 90 ? "text-green-600" : score >= 75 ? "text-amber-600" : score >= 60 ? "text-orange-600" : "text-red-600";
+  const overallEmoji = score >= 90 ? "⭐⭐⭐⭐⭐" : score >= 80 ? "⭐⭐⭐⭐" : score >= 70 ? "⭐⭐⭐" : score >= 60 ? "⭐⭐" : "⭐";
+
+  return (
+    <div>
+      {/* 전체 점수 */}
+      <div className="text-center py-4 mb-4 bg-gradient-to-br from-gray-50 to-orange-50 rounded-xl border border-gray-200">
+        <div className={`text-5xl font-black tracking-tight ${overallColor}`}>{score}<span className="text-2xl text-gray-400">/100</span></div>
+        <div className="text-lg mt-1">{overallEmoji}</div>
+        {result?.summary && <p className="text-sm text-gray-700 mt-2 max-w-md mx-auto leading-relaxed">{result.summary}</p>}
+      </div>
+
+      {/* 카테고리별 점수 */}
+      <div className="space-y-2 mb-5">
+        {Object.entries(result?.categories ?? {}).map(([key, val]: [string, any]) => {
+          const s = Number(val?.score ?? 0);
+          return (
+            <div key={key} className="border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-bold text-ink-900">{CATEGORY_LABEL[key] ?? key}</span>
+                <span className={`text-sm font-bold font-mono ${s >= 90 ? "text-green-600" : s >= 75 ? "text-amber-600" : s >= 60 ? "text-orange-600" : "text-red-600"}`}>{s}</span>
+              </div>
+              <ScoreBar score={s} />
+              {val?.comment && <p className="text-xs text-gray-600 mt-2 leading-relaxed">{val.comment}</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 구체 issue + 자동 수정 제안 */}
+      {Array.isArray(result?.issues) && result.issues.length > 0 && (
+        <div>
+          <h4 className="text-sm font-bold text-ink-900 mb-2">⚠️ 개선 포인트 ({result.issues.length})</h4>
+          <div className="space-y-2">
+            {result.issues.map((iss: any, i: number) => (
+              <div key={i} className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-amber-700 mb-1">{CATEGORY_LABEL[iss.type] ?? iss.type}</div>
+                {iss.text && <p className="text-xs text-ink-900 mb-1.5 italic">"{iss.text}"</p>}
+                {iss.suggestion && (
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs text-gray-700 flex-1">→ {iss.suggestion}</p>
+                    <button
+                      onClick={() => onSuggestEdit(iss.suggestion)}
+                      className="text-[10px] px-2 py-1 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 whitespace-nowrap"
+                      title="이 제안으로 AI 수정 요청"
+                    >
+                      ✨ AI에 요청
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // 두 본문 line 단위 비교 — 원본/제안 나란히 표시 + 변경된 line 색깔 강조.
