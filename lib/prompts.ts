@@ -1,4 +1,4 @@
-import type { BookProject } from "./storage";
+import type { BookProject, TonePreset } from "./storage";
 
 // 장르 블루프린트 — 책 유형별 system prompt 추가 instruction.
 // SYSTEM_WRITER 뒤에 합쳐져서 LLM에 들어감.
@@ -161,6 +161,83 @@ ${refsText}
 `;
 }
 
+// Phase 4: 톤 자동 추천 — 작가 인터뷰 답변 + 레퍼런스 chunk를 보고 어울리는 톤·문체를 한 단락으로 추천
+export function autoTonePrompt(
+  project: BookProject,
+  chunks: { content: string; referenceFilename: string; chunkIdx: number }[],
+): string {
+  const refsText = chunks.length > 0
+    ? chunks.map(c => `[${c.referenceFilename} 발췌 #${c.chunkIdx + 1}]\n${c.content}`).join("\n\n---\n\n")
+    : "(레퍼런스 없음)";
+
+  const iv = (project as any).interview;
+  const ivLines = iv && !iv.skipped
+    ? (iv.questions ?? [])
+        .filter((qa: any) => qa.a && qa.a.trim().length > 0)
+        .map((qa: any) => `- ${qa.q}\n  → ${qa.a.trim()}`)
+        .join("\n")
+    : "";
+
+  return `당신은 한국어 책의 톤·문체를 분석하고 추천하는 전문 에디터입니다.
+
+[책 정보]
+- 주제: ${project.topic}
+- 대상 독자: ${project.audience}
+- 책 유형: ${project.type}
+- 목표 분량: ${project.targetPages}쪽
+
+[작가 인터뷰 답변]
+${ivLines || "(인터뷰 정보 없음)"}
+
+[작가가 제공한 레퍼런스]
+${refsText}
+
+[작업]
+위 정보를 종합해서 이 책에 가장 어울리는 톤·문체를 한국어 한 단락(300~500자)으로 추천하세요.
+
+다음을 포함하세요:
+- 1인칭/3인칭, 시제, 호흡(짧은 문장 vs 긴 문장)
+- 친근함의 정도 (격식 vs 캐주얼)
+- 비유·은유·예시의 빈도와 스타일
+- 피해야 할 표현·톤 (예: 너무 학술적, 너무 가벼움)
+- 챕터 내내 일관되게 적용할 핵심 문체 규칙 1~2개
+
+[출력 형식]
+순수 텍스트 한 단락만. 마크다운·번호 매김·헤더 X. 추천 톤만 평서문으로 묘사.`;
+}
+
+// Phase 4: 6가지 톤 프리셋 — finalTone에 직접 들어가는 한국어 묘사
+export const tonePresetDescriptions: Record<TonePreset, string> = {
+  "friendly": "친근한 형/누나 톤. 해요체 존댓말 기반에 가벼운 농담과 일상적 비유를 섞어 독자가 옆에서 듣는 느낌. 짧은 문장 위주, 한 단락 3~5문장. 격식보다 공감 우선. 어려운 용어는 즉시 풀어 설명. 단정적이되 강요하지 않음.",
+  "professional": "전문가 톤. 해요체 존댓말이지만 격식 있고 단정적. 데이터·근거·출처를 자연스럽게 본문에 녹임. 비유는 신중하고 정확하게. 한 단락 4~7문장으로 호흡 길게. 추측 표현(\"~것 같습니다\") 금지. 구체적 수치와 사례로 신뢰도 ↑.",
+  "storytelling": "이야기 톤. 시간·장소·인물이 보이는 구체적 장면으로 시작. 시제는 현재형과 과거형을 자연스럽게 교차. 1인칭 시점 또는 명확한 3인칭 한정. 대화·내면 독백·감각 묘사 풍부. 결론을 강요하지 않고 독자가 느끼게. 한 단락 호흡 다양.",
+  "lecture": "강의 톤. 친절하고 명확한 설명자. 한 번에 한 개념씩 단계별로 풀이. \"왜 이게 중요한가 → 어떻게 작동하는가 → 어떻게 적용하는가\" 구조 반복. 비유 적극 활용해 추상 개념 구체화. 핵심은 반복해서 짚어줌. 너무 학술적이지 않게, 옆에서 가르쳐주는 선생님 톤.",
+  "essay": "에세이 톤. 시적 호흡 — 짧은 문장과 긴 문장 교차, 마침표 신중. 개인의 사적이고 구체적인 순간들을 통해 통찰 전달. 통계·일반론 X. 비유·은유 풍부하되 흔한 비유(\"인생은 여행\") 금지. 결론을 강요하지 말고 여백으로 남길 것. 1인칭 위주.",
+  "self-help": "자기계발 톤. 친근한 형/누나 어조에 단정적 권유. \"독자가 겪는 상황 → 진짜 원인 → 작가 변화 사례 → 오늘 당장 할 행동 1~3개\" 구조. 추상적 격려(\"당신은 할 수 있다\") 금지, 구체적 행동과 측정 가능한 결과로. 데이터·연구 인용은 1챕터 1~2개, 출처 명시.",
+};
+
+// Phase 4: 작가가 좋아하는 책 발췌를 받아 그 톤을 분석·재현 가이드로 변환
+export function referenceBookTonePrompt(excerpt: string): string {
+  return `당신은 한국어 산문의 톤·문체를 정밀 분석하는 에디터입니다.
+
+[작가가 좋아하는 책 발췌]
+${excerpt.trim()}
+
+[작업]
+위 발췌의 톤·문체를 분석하고, 다른 책에서 이 톤을 재현하기 위한 가이드를 한국어 한 단락(300~500자)으로 작성하세요.
+
+다음을 정확히 짚어내세요:
+- 시점(1인칭/3인칭)·시제·존댓/반말
+- 문장 길이 패턴 (짧은 문장 위주 vs 긴 문장 vs 교차)
+- 어휘 선택의 특징 (구어 vs 문어, 한자어 비율, 의성어·의태어)
+- 비유·은유·이미지 사용 방식
+- 단락 구성 — 호흡, 여백, 강조 방식
+- 피해야 할 것 (이 톤과 어긋나는 표현·구조)
+
+[출력 형식]
+순수 텍스트 한 단락만. 마크다운·번호 매김·헤더 X. 다른 작가가 이 가이드만 보고도 같은 톤을 흉내낼 수 있도록 구체적으로.`;
+}
+
 export function interviewerPrompt(
   p: BookProject,
   history: { q: string; a: string }[],
@@ -277,6 +354,7 @@ export function chapterPrompt(
   chapterTitle: string,
   chapterSubtitle?: string,
   references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+  toneSetting?: { finalTone: string },
 ) {
   const prevTitles = p.chapters
     .slice(0, chapterIdx)
@@ -309,6 +387,12 @@ ${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]
 - 자료 인용 시 "[파일명]에 따르면..." 같은 자연스러운 도입 사용
 - 자료 없으면 (위 블록이 비어있으면) 일반적으로 작성
 
+${toneSetting ? `
+[톤·문체 가이드]
+${toneSetting.finalTone}
+
+위 톤을 본문 전체에 일관되게 적용하세요. 챕터마다 흔들리지 않도록.
+` : ""}
 [이 챕터 작성 지침]
 - 분량: 정확히 3,000~5,000자 (공백 제외).
 - 서두 2~3문단, 최소 500자: 독자의 실제 문제 상황으로 깊이 들어가세요.
@@ -342,6 +426,7 @@ export function continueChapterPrompt(
   chapterSubtitle: string | undefined,
   seedText: string,
   references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+  toneSetting?: { finalTone: string },
 ) {
   const noImages = (p as any).noImages === true;
   const prevTitles = p.chapters
@@ -376,6 +461,12 @@ ${seedText.trim()}
 - 자료 인용 시 "[파일명]에 따르면..." 같은 자연스러운 도입 사용
 - 자료 없으면 (위 블록이 비어있으면) 일반적으로 작성
 
+${toneSetting ? `
+[톤·문체 가이드]
+${toneSetting.finalTone}
+
+위 톤을 본문 전체에 일관되게 적용하세요. 챕터마다 흔들리지 않도록.
+` : ""}
 [이어 작성 지침 — 매우 중요]
 - 위 작가의 글에서 톤·문체·시제·인칭(나/그/우리 등)·핵심 키워드를 정확히 파악하고 그대로 이어가세요.
 - "이어서 다음과 같이 ~" 같은 메타 표현 금지. 자연스럽게 다음 단락으로 흐르게.
