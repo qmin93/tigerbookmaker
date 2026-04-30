@@ -118,6 +118,11 @@ function Inner() {
   }>({});
   const [copyConfirm, setCopyConfirm] = useState(false);
 
+  // ─── Meta(FB/IG) 광고 패키지 (Sub-project 5) ───
+  const [metaAdPackage, setMetaAdPackage] = useState<any>(null);
+  const [metaAdBusy, setMetaAdBusy] = useState(false);
+  const [metaCopiedIdx, setMetaCopiedIdx] = useState<string | null>(null);
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -144,6 +149,11 @@ function Inner() {
       const mm = (project as any).marketingMeta ?? null;
       setMarketingMeta(mm);
     }
+  }, [project]);
+
+  // metaAdPackage sync (Sub-project 5)
+  useEffect(() => {
+    if ((project as any)?.metaAdPackage) setMetaAdPackage((project as any).metaAdPackage);
   }, [project]);
 
   if (unauthorized) {
@@ -868,6 +878,33 @@ function Inner() {
     }
   };
 
+  // ─── Meta 광고 패키지 핸들러 (Sub-project 5) ───
+  const generateMetaPackage = async () => {
+    if (!projectId) return;
+    setMetaAdBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/generate/meta-package", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `생성 실패 (${res.status})`);
+      setMetaAdPackage(data.metaAdPackage);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setMetaAdBusy(false);
+    }
+  };
+
+  const copyMetaItem = async (text: string, key: string) => {
+    await navigator.clipboard.writeText(text);
+    setMetaCopiedIdx(key);
+    setTimeout(() => setMetaCopiedIdx(null), 1500);
+  };
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -1158,6 +1195,82 @@ function Inner() {
                       >
                         {marketingBusy ? "저장 중..." : "저장"}
                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Meta(FB/IG) 광고 패키지 — Sub-project 5 */}
+              <div className="mb-3 p-3 bg-blue-50/50 border border-blue-300/40 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-ink-900">🎯 Meta 광고</h3>
+                  {metaAdPackage && (
+                    <button onClick={generateMetaPackage} disabled={metaAdBusy} className="text-[10px] text-blue-600 hover:underline">🔄 다시</button>
+                  )}
+                </div>
+
+                {!metaAdPackage && !metaAdBusy && (
+                  <button
+                    onClick={generateMetaPackage}
+                    disabled={metaAdBusy}
+                    className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
+                  >
+                    🎯 Meta 광고 카피 생성 (~₩40)
+                  </button>
+                )}
+
+                {metaAdBusy && (
+                  <div className="text-xs text-blue-700 text-center py-2">⏳ AI 카피 생성 중...</div>
+                )}
+
+                {metaAdPackage && (
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <div className="font-bold text-ink-900 mb-1">📰 헤드라인 (≤40자)</div>
+                      {metaAdPackage.headlines.map((h: string, i: number) => (
+                        <div key={i} className="flex items-center gap-2 p-2 bg-white rounded mb-1">
+                          <span className="flex-1 break-all">{h}</span>
+                          <button onClick={() => copyMetaItem(h, `h${i}`)} className="text-[10px] text-blue-600 hover:underline shrink-0">
+                            {metaCopiedIdx === `h${i}` ? "✓ 복사됨" : "복사"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <div className="font-bold text-ink-900 mb-1">📝 본문 (≤125자)</div>
+                      {metaAdPackage.primaryTexts.map((p: string, i: number) => (
+                        <div key={i} className="flex items-start gap-2 p-2 bg-white rounded mb-1">
+                          <span className="flex-1 break-all whitespace-pre-wrap">{p}</span>
+                          <button onClick={() => copyMetaItem(p, `p${i}`)} className="text-[10px] text-blue-600 hover:underline shrink-0">
+                            {metaCopiedIdx === `p${i}` ? "✓ 복사됨" : "복사"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <div className="font-bold text-ink-900 mb-1">🔘 CTA 버튼</div>
+                      <div className="flex flex-wrap gap-1">
+                        {metaAdPackage.ctaButtons.map((c: string, i: number) => (
+                          <span key={i} className="px-2 py-1 bg-blue-100 text-blue-800 rounded">{c}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="font-bold text-ink-900 mb-1">🎯 타겟팅 추천</div>
+                      <div className="p-2 bg-white rounded space-y-1">
+                        <div>나이: {metaAdPackage.audienceSuggestion?.ageMin}~{metaAdPackage.audienceSuggestion?.ageMax}세</div>
+                        <div>관심사: {metaAdPackage.audienceSuggestion?.interests?.join(", ")}</div>
+                        <div>지역: {metaAdPackage.audienceSuggestion?.locations?.join(", ")}</div>
+                        <button
+                          onClick={() => copyMetaItem(JSON.stringify(metaAdPackage.audienceSuggestion, null, 2), "aud")}
+                          className="text-[10px] text-blue-600 hover:underline"
+                        >
+                          {metaCopiedIdx === "aud" ? "✓ 복사됨" : "JSON 복사"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
