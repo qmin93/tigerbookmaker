@@ -17,6 +17,22 @@ export interface ReferencesSummary {
   basedOnChunkCount: number;
 }
 
+export type TonePreset =
+  | "friendly"
+  | "professional"
+  | "storytelling"
+  | "lecture"
+  | "essay"
+  | "self-help";
+
+export interface ToneSetting {
+  mode: "auto" | "preset" | "reference-book";
+  preset?: TonePreset;
+  referenceBookExcerpt?: string;
+  finalTone: string;
+  generatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -26,6 +42,7 @@ export interface BookProject {
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
+  toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;
