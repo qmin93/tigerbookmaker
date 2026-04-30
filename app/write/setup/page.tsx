@@ -4,6 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { FIRST_QUESTION } from "@/lib/interview-questions";
+import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 interface QA { q: string; a: string }
 interface NextQuestion {
@@ -214,6 +216,21 @@ function Inner() {
     }
   };
 
+  const updateThemeColor = async (themeColor: ThemeColorKey) => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ themeColor }),
+      });
+      if (!res.ok) throw new Error("색상 변경 실패");
+      setProject((prev: any) => prev ? { ...prev, themeColor } : prev);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const deleteReference = async (id: string) => {
     if (!confirm("이 레퍼런스를 삭제할까요? 해당 내용은 더 이상 인터뷰·목차·본문에 활용되지 않습니다.")) return;
     try {
@@ -351,6 +368,29 @@ function Inner() {
           <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange mb-1">집필 중인 책</p>
           <h1 className="text-base font-bold text-ink-900 line-clamp-1">{project.topic}</h1>
           <p className="text-xs text-gray-500 mt-1">{project.audience} · {project.type}</p>
+        </div>
+
+        {/* 색상 테마 — Sub-project 2 */}
+        <div className="mb-6 p-4 bg-white border border-gray-200 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-ink-900">🎨 색상</h3>
+            <span className="text-[10px] text-gray-500">언제든 변경 가능</span>
+          </div>
+          <div className="flex gap-2">
+            {(Object.keys(THEME_COLOR_PRESETS) as ThemeColorKey[]).map(key => {
+              const t = THEME_COLOR_PRESETS[key];
+              const selected = (project?.themeColor ?? "orange") === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => updateThemeColor(key)}
+                  className={`w-8 h-8 rounded-full border-2 transition ${selected ? 'border-ink-900 ring-2 ring-offset-1' : 'border-gray-300 hover:border-gray-500'}`}
+                  style={{ backgroundColor: t.hex }}
+                  title={t.label}
+                />
+              );
+            })}
+          </div>
         </div>
 
         {/* 레퍼런스 업로드 — Phase 1 */}
