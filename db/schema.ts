@@ -118,3 +118,26 @@ export const balanceTransactions = pgTable("balance_transactions", {
   reason: text("reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── 레퍼런스 RAG (Phase 1 — 2026-04-29) ───
+export const bookReferences = pgTable("book_references", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => bookProjects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  sourceType: text("source_type").notNull(),  // 'pdf' | 'url' | 'text'
+  sourceUrl: text("source_url"),
+  totalChars: integer("total_chars").notNull().default(0),
+  chunkCount: integer("chunk_count").notNull().default(0),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// embedding은 Drizzle pgvector type 미지원 — raw SQL로 처리. Drizzle에선 컬럼 정의만.
+export const referenceChunks = pgTable("reference_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  referenceId: uuid("reference_id").notNull().references(() => bookReferences.id, { onDelete: "cascade" }),
+  chunkIdx: integer("chunk_idx").notNull(),
+  content: text("content").notNull(),
+  // embedding vector(768) — Drizzle 직접 type 없음. 필요 시 raw SQL 사용
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
