@@ -2,6 +2,12 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./app/**/*.{js,ts,jsx,tsx,mdx}", "./components/**/*.{js,ts,jsx,tsx,mdx}"],
+  safelist: [
+    // 책 테마 색상 — 동적 사용 (lib/theme-colors.ts)
+    { pattern: /(text|border|bg|ring|hover:bg)-(orange|blue|emerald|violet|red|gray)-(50|100|500|600|700|800)/ },
+    { pattern: /border-l-(orange|blue|emerald|violet|red|gray)-500/ },
+    { pattern: /ring-(orange|blue|emerald|violet|red|gray)-500\/30/ },
+  ],
   theme: {
     extend: {
       colors: {
