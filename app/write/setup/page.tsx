@@ -31,6 +31,13 @@ function Inner() {
   const [balance, setBalance] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // 레퍼런스 업로드 — Phase 1
+  const [references, setReferences] = useState<{ id: string; filename: string; sourceType: string; chunkCount: number; totalChars: number }[]>([]);
+  const [refUploadBusy, setRefUploadBusy] = useState(false);
+  const [refUploadMode, setRefUploadMode] = useState<"none" | "pdf" | "url" | "text">("none");
+  const [refUrlInput, setRefUrlInput] = useState("");
+  const [refTextInput, setRefTextInput] = useState("");
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -59,6 +66,93 @@ function Inner() {
   useEffect(() => {
     textareaRef.current?.focus();
   }, [currentQ]);
+
+  // 레퍼런스 목록 로드
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/reference/list?projectId=${projectId}`)
+      .then(r => r.ok ? r.json() : { references: [] })
+      .then(d => setReferences(d.references || []))
+      .catch(() => {});
+  }, [projectId]);
+
+  const uploadPdfReference = async (file: File) => {
+    if (!projectId) return;
+    setRefUploadBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("projectId", projectId);
+      const res = await fetch("/api/reference/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `업로드 실패 (${res.status})`);
+      setReferences(prev => [{
+        id: data.id, filename: data.filename, sourceType: data.sourceType,
+        chunkCount: data.chunkCount, totalChars: data.totalChars,
+      }, ...prev]);
+      setRefUploadMode("none");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRefUploadBusy(false);
+    }
+  };
+
+  const uploadUrlReference = async () => {
+    if (!projectId || !refUrlInput.trim()) return;
+    setRefUploadBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reference/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, type: "url", url: refUrlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `업로드 실패 (${res.status})`);
+      setReferences(prev => [data, ...prev]);
+      setRefUrlInput("");
+      setRefUploadMode("none");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRefUploadBusy(false);
+    }
+  };
+
+  const uploadTextReference = async () => {
+    if (!projectId || refTextInput.trim().length < 50) return;
+    setRefUploadBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reference/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, type: "text", text: refTextInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `업로드 실패 (${res.status})`);
+      setReferences(prev => [data, ...prev]);
+      setRefTextInput("");
+      setRefUploadMode("none");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRefUploadBusy(false);
+    }
+  };
+
+  const deleteReference = async (id: string) => {
+    if (!confirm("이 레퍼런스를 삭제할까요? 해당 내용은 더 이상 인터뷰·목차·본문에 활용되지 않습니다.")) return;
+    try {
+      const res = await fetch(`/api/reference/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("삭제 실패");
+      setReferences(prev => prev.filter(r => r.id !== id));
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
 
   const askNextQuestion = async (newHistory: QA[]) => {
     setBusy("loading-next");
@@ -186,6 +280,90 @@ function Inner() {
           <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange mb-1">집필 중인 책</p>
           <h1 className="text-base font-bold text-ink-900 line-clamp-1">{project.topic}</h1>
           <p className="text-xs text-gray-500 mt-1">{project.audience} · {project.type}</p>
+        </div>
+
+        {/* 레퍼런스 업로드 — Phase 1 */}
+        <div className="mb-6 p-5 bg-orange-50/50 border border-tiger-orange/30 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-ink-900">📚 참고 자료 ({references.length})</h3>
+            {refUploadMode === "none" && (
+              <div className="flex gap-1">
+                <label className="text-xs px-2 py-1 bg-tiger-orange text-white rounded font-bold cursor-pointer hover:bg-orange-600">
+                  PDF
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={e => e.target.files?.[0] && uploadPdfReference(e.target.files[0])}
+                    disabled={refUploadBusy}
+                  />
+                </label>
+                <button onClick={() => setRefUploadMode("url")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">URL</button>
+                <button onClick={() => setRefUploadMode("text")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">텍스트</button>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-600 mb-3">
+            PDF·블로그 URL·메모 등을 올리면 AI가 정확히 읽고 인터뷰·목차·본문에 활용합니다. (10MB 이하 PDF, 정적 HTML URL, 50~50만자 텍스트)
+          </p>
+
+          {refUploadBusy && (
+            <div className="p-3 bg-white rounded-lg text-xs text-tiger-orange">⏳ 처리 중... (PDF는 페이지 수에 따라 10~60초)</div>
+          )}
+
+          {refUploadMode === "url" && (
+            <div className="flex gap-2 mb-3">
+              <input
+                type="url"
+                value={refUrlInput}
+                onChange={e => setRefUrlInput(e.target.value)}
+                placeholder="https://brunch.co.kr/@..."
+                className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded focus:border-tiger-orange focus:outline-none"
+              />
+              <button onClick={uploadUrlReference} disabled={refUploadBusy || !refUrlInput.trim()} className="text-xs px-3 py-2 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50">가져오기</button>
+              <button onClick={() => { setRefUploadMode("none"); setRefUrlInput(""); }} className="text-xs px-2 py-2 text-gray-500 hover:text-ink-900">취소</button>
+            </div>
+          )}
+
+          {refUploadMode === "text" && (
+            <div className="mb-3">
+              <textarea
+                value={refTextInput}
+                onChange={e => setRefTextInput(e.target.value)}
+                placeholder="참고할 텍스트를 붙여넣으세요 (50~500,000자)"
+                rows={5}
+                className="w-full text-xs px-3 py-2 border border-gray-300 rounded focus:border-tiger-orange focus:outline-none mb-2 resize-y"
+              />
+              <div className="flex gap-2 items-center">
+                <button onClick={uploadTextReference} disabled={refUploadBusy || refTextInput.trim().length < 50} className="text-xs px-3 py-2 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50">저장</button>
+                <button onClick={() => { setRefUploadMode("none"); setRefTextInput(""); }} className="text-xs px-2 py-2 text-gray-500 hover:text-ink-900">취소</button>
+                <span className="text-[10px] text-gray-500 ml-auto">{refTextInput.length}자</span>
+              </div>
+            </div>
+          )}
+
+          {references.length > 0 && (
+            <div className="space-y-1.5">
+              {references.map(r => (
+                <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200 text-xs">
+                  <span className="text-base">
+                    {r.sourceType === "pdf" ? "📄" : r.sourceType === "url" ? "🌐" : "📝"}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-ink-900 truncate">{r.filename}</div>
+                    <div className="text-[10px] text-gray-500">{r.totalChars.toLocaleString()}자 · {r.chunkCount} chunks</div>
+                  </div>
+                  <button onClick={() => deleteReference(r.id)} className="text-[10px] text-gray-400 hover:text-red-600">삭제</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {references.length === 0 && refUploadMode === "none" && !refUploadBusy && (
+            <div className="text-center py-4 text-xs text-gray-400">
+              참고 자료 없이 인터뷰만 진행해도 OK. 자료 있으면 더 정확한 책이 됩니다.
+            </div>
+          )}
         </div>
 
         {history.length > 0 && (
