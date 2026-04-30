@@ -83,12 +83,21 @@ export async function ensureProfileFor(userId: string, email: string): Promise<U
     handle = `${handle}_${Math.random().toString(36).slice(2, 5)}`;
   }
   const displayName = email.split("@")[0];
-  const { rows } = await sql<any>`
-    INSERT INTO user_profiles (user_id, handle, display_name)
-    VALUES (${userId}, ${handle}, ${displayName})
-    RETURNING id, user_id, handle, display_name, avatar_url, bio, social_links, created_at
-  `;
-  return mapRow(rows[0]);
+  try {
+    const { rows } = await sql<any>`
+      INSERT INTO user_profiles (user_id, handle, display_name)
+      VALUES (${userId}, ${handle}, ${displayName})
+      RETURNING id, user_id, handle, display_name, avatar_url, bio, social_links, created_at
+    `;
+    return mapRow(rows[0]);
+  } catch (e: any) {
+    // race: 동시에 같은 user 첫 INSERT 둘 다 통과 → 두 번째가 unique_violation (23505)
+    if (e?.code === "23505") {
+      const fallback = await getProfileByUserId(userId);
+      if (fallback) return fallback;
+    }
+    throw e;
+  }
 }
 
 export async function updateProfile(userId: string, updates: {
