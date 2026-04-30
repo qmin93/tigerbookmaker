@@ -109,9 +109,10 @@ function Inner() {
     }
   };
 
-  const clearSummary = () => {
+  const clearSummary = async () => {
     if (!confirm("요약을 지우고 다시 만들까요?")) return;
     setReferencesSummary(null);
+    await generateSummary();
   };
 
   const uploadPdfReference = async (file: File) => {
