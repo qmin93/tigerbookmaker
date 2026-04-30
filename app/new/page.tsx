@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
+import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 interface TierInfo {
   id: "basic" | "pro" | "premium";
@@ -29,6 +31,7 @@ export default function NewProjectPage() {
   const [suggestions, setSuggestions] = useState<{ topic: string; audience: string; type: string }[]>([]);
   const [suggestBusy, setSuggestBusy] = useState(false);
   const [noImages, setNoImages] = useState(false);
+  const [themeColor, setThemeColor] = useState<ThemeColorKey>("orange");
 
   const fetchSuggestions = async () => {
     if (!keyword.trim()) return;
@@ -63,7 +66,7 @@ export default function NewProjectPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, audience, type, targetPages, tier, noImages }),
+        body: JSON.stringify({ topic, audience, type, targetPages, tier, noImages, themeColor }),
       });
       if (res.status === 401) { r.push("/login?redirect=/new"); return; }
       if (!res.ok) {
@@ -187,6 +190,28 @@ export default function NewProjectPage() {
           />
           <p className="text-xs text-gray-500 mt-1">크몽 규격: 최소 20쪽 / 권장 100~200쪽</p>
         </Field>
+
+        <div>
+          <label className="block text-xs font-mono uppercase tracking-wider text-gray-600 mb-2">테마 색상</label>
+          <div className="grid grid-cols-6 gap-2">
+            {(Object.keys(THEME_COLOR_PRESETS) as ThemeColorKey[]).map(key => {
+              const t = THEME_COLOR_PRESETS[key];
+              const selected = themeColor === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setThemeColor(key)}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition ${selected ? `border-ink-900 ring-2 ${t.ring}` : 'border-gray-200 hover:border-gray-400'}`}
+                  title={t.label}
+                >
+                  <div className="w-8 h-8 rounded-full" style={{ backgroundColor: t.hex }}></div>
+                  <span className="text-[10px] text-gray-700">{t.label.replace(/^[^\s]+\s/, '')}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-gray-300 transition">
           <input
