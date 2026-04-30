@@ -35,6 +35,15 @@ export interface ToneSetting {
 
 export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
 
+export interface MarketingMeta {
+  tagline?: string;
+  description?: string;
+  authorName?: string;
+  authorBio?: string;
+  ctaButtons?: Array<{ label: string; url: string }>;
+  generatedAt?: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -44,6 +53,7 @@ export interface BookProject {
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
+  marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
