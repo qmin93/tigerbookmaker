@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/db";
 import { SYSTEM_WRITER, chapterPrompt, summaryPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { ragSearch, hasReferences } from "@/lib/server/rag";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Vercel Hobby 한계 (Pro 업그레이드 시 300으로)
@@ -87,6 +88,22 @@ export async function POST(req: Request) {
       }, { status: 402 });
     }
 
+    // 4.5. RAG 자동 주입 — references 있으면 챕터 제목 기반으로 관련 청크 검색
+    // (ReadableStream 밖에서 실행해 controller 에러를 회피, 결과는 closure로 전달)
+    let chapterChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    try {
+      if (await hasReferences(projectId)) {
+        chapterChunks = await ragSearch({
+          projectId,
+          query: `${ch.title}${ch.subtitle ? " — " + ch.subtitle : ""}`,
+          topN: 4,
+          maxDistance: 0.7,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[chapter] RAG search failed:", e?.message);
+    }
+
     // 5. AI 호출 (streaming) + 6. 차감 + 7. 요약 — 모두 ReadableStream 안에서
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -99,7 +116,7 @@ export async function POST(req: Request) {
           const gen = callStreamWithFallback({
             candidates,
             system: SYSTEM_WRITER,
-            user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle),
+            user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle, chapterChunks),
             timeoutMs: 55000,
           });
           for await (const evt of gen) {
