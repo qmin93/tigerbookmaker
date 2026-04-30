@@ -104,6 +104,8 @@ export async function POST(req: Request) {
       console.warn("[chapter] RAG search failed:", e?.message);
     }
 
+    const toneSetting = (project as any).toneSetting ?? undefined;
+
     // 5. AI 호출 (streaming) + 6. 차감 + 7. 요약 — 모두 ReadableStream 안에서
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -116,7 +118,7 @@ export async function POST(req: Request) {
           const gen = callStreamWithFallback({
             candidates,
             system: SYSTEM_WRITER,
-            user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle, chapterChunks),
+            user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle, chapterChunks, toneSetting),
             timeoutMs: 55000,
           });
           for await (const evt of gen) {

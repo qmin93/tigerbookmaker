@@ -87,6 +87,8 @@ export async function POST(req: Request) {
       console.warn("[chapter-continue] RAG search failed:", e?.message);
     }
 
+    const toneSetting = (project as any).toneSetting ?? undefined;
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -102,7 +104,7 @@ export async function POST(req: Request) {
           const gen = callStreamWithFallback({
             candidates,
             system: SYSTEM_WRITER,
-            user: continueChapterPrompt(project, chapterIdx, ch.title, ch.subtitle, seed, chapterChunks),
+            user: continueChapterPrompt(project, chapterIdx, ch.title, ch.subtitle, seed, chapterChunks, toneSetting),
             timeoutMs: 55000,
           });
           for await (const evt of gen) {
