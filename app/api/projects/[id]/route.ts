@@ -47,21 +47,51 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const userId = session.user.id;
+  const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor } = body ?? {};
+  const { themeColor, marketingMeta } = body ?? {};
 
-  // 현재는 themeColor만 허용
-  if (typeof themeColor !== "string" || !(VALID_THEME_COLORS as readonly string[]).includes(themeColor)) {
-    return NextResponse.json({ error: "INVALID_INPUT", message: "themeColor must be one of: " + VALID_THEME_COLORS.join(", ") }, { status: 400 });
+  const projectRow = await getProject(projectId, userId);
+  if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+
+  const updates: any = {};
+
+  if (themeColor !== undefined) {
+    if (typeof themeColor !== "string" || !(VALID_THEME_COLORS as readonly string[]).includes(themeColor)) {
+      return NextResponse.json({ error: "INVALID_THEME", message: "themeColor must be one of: " + VALID_THEME_COLORS.join(", ") }, { status: 400 });
+    }
+    updates.themeColor = themeColor as ThemeColorKey;
   }
 
-  const project = await getProject(params.id, session.user.id);
-  if (!project) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (marketingMeta !== undefined) {
+    if (typeof marketingMeta !== "object" || marketingMeta === null) {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "marketingMeta는 object여야 합니다" }, { status: 400 });
+    }
+    const sanitized: any = {};
+    if (typeof marketingMeta.tagline === "string") sanitized.tagline = marketingMeta.tagline.slice(0, 200);
+    if (typeof marketingMeta.description === "string") sanitized.description = marketingMeta.description.slice(0, 3000);
+    if (typeof marketingMeta.authorName === "string") sanitized.authorName = marketingMeta.authorName.slice(0, 50);
+    if (typeof marketingMeta.authorBio === "string") sanitized.authorBio = marketingMeta.authorBio.slice(0, 300);
+    if (Array.isArray(marketingMeta.ctaButtons)) {
+      sanitized.ctaButtons = marketingMeta.ctaButtons
+        .slice(0, 5)
+        .filter((c: any) => typeof c?.label === "string" && typeof c?.url === "string")
+        .map((c: any) => ({ label: c.label.slice(0, 30), url: c.url.slice(0, 500) }));
+    }
+    sanitized.generatedAt = Date.now();
+    // 기존 marketingMeta가 있으면 부분 업데이트로 머지
+    const existing = (projectRow.data as any)?.marketingMeta ?? {};
+    updates.marketingMeta = { ...existing, ...sanitized };
+  }
 
-  const merged = { ...(project.data ?? {}), themeColor: themeColor as ThemeColorKey };
-  await updateProjectData(params.id, session.user.id, merged);
-  return NextResponse.json({ ok: true, themeColor });
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "NO_UPDATES" }, { status: 400 });
+  }
+
+  await updateProjectData(projectId, userId, { ...(projectRow.data ?? {}), ...updates });
+  return NextResponse.json({ ok: true, updates });
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
