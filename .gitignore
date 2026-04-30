@@ -7,3 +7,6 @@ out
 
 .vercel
 .env*.local
+
+# Git worktrees (isolated workspaces)
+.worktrees/
