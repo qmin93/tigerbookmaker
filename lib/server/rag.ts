@@ -60,3 +60,12 @@ export function formatRagContext(chunks: RagChunk[]): string {
   );
   return `\n[작가가 제공한 레퍼런스 — 참고 자료]\n${blocks.join("\n")}\n`;
 }
+
+export async function hasReferences(projectId: string): Promise<boolean> {
+  const { rows } = await sql<{ exists: boolean }>`
+    SELECT EXISTS(
+      SELECT 1 FROM book_references WHERE project_id = ${projectId} LIMIT 1
+    ) AS exists
+  `;
+  return rows[0]?.exists ?? false;
+}
