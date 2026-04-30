@@ -488,6 +488,7 @@ export function editPrompt(
   original: string,
   instruction: string,
   references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+  toneSetting?: { finalTone: string },
 ) {
   return `아래 본문을 다음 지시에 따라 수정합니다. 수정된 전체 본문만 출력하세요. 다른 설명 금지.
 ${references.length > 0 ? referencesBlock(references) : ""}
@@ -495,7 +496,12 @@ ${references.length > 0 ? referencesBlock(references) : ""}
 - 위 자료에 사용자 지시와 관련된 내용이 있으면 활용
 - 자료 표현 자연스럽게 녹이기. "[파일명]에서..." 정도의 도입 가능
 - 자료 없으면 일반적으로 수정
+${toneSetting ? `
+[톤·문체 가이드 — 챕터 일관성]
+${toneSetting.finalTone}
 
+수정 후에도 위 톤이 유지되어야 합니다. 톤이 흔들리지 않게.
+` : ""}
 [수정 지시]
 ${instruction}
 

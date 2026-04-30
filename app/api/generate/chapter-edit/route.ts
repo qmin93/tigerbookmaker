@@ -72,12 +72,14 @@ export async function POST(req: Request) {
       console.warn("[chapter-edit] RAG failed:", e?.message);
     }
 
+    const toneSetting = (project as any).toneSetting ?? undefined;
+
     let result;
     try {
       result = await callAIServerWithFallback({
         candidates,
         system: SYSTEM_WRITER,
-        user: editPrompt(ch.content, inst, editChunks),
+        user: editPrompt(ch.content, inst, editChunks, toneSetting),
         maxTokens: 8192,
         temperature: 0.7,
         timeoutMs: 50000,
