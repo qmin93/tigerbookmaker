@@ -101,6 +101,23 @@ function Inner() {
   const showConfirm = (opts: NonNullable<typeof confirmModal>) => setConfirmModal(opts);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
 
+  // ─── 마케팅 메타 (tagline / description / authorName / authorBio) ───
+  const [marketingMeta, setMarketingMeta] = useState<{
+    tagline?: string;
+    description?: string;
+    authorName?: string;
+    authorBio?: string;
+  } | null>(null);
+  const [marketingBusy, setMarketingBusy] = useState(false);
+  const [marketingEditOpen, setMarketingEditOpen] = useState(false);
+  const [marketingForm, setMarketingForm] = useState<{
+    tagline?: string;
+    description?: string;
+    authorName?: string;
+    authorBio?: string;
+  }>({});
+  const [copyConfirm, setCopyConfirm] = useState(false);
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -120,6 +137,14 @@ function Inner() {
       })
       .catch(e => setError(e.message));
   }, [projectId, router]);
+
+  // marketingMeta sync — project이 로드되거나 갱신될 때마다 동기화
+  useEffect(() => {
+    if (project) {
+      const mm = (project as any).marketingMeta ?? null;
+      setMarketingMeta(mm);
+    }
+  }, [project]);
 
   if (unauthorized) {
     return (
@@ -774,6 +799,75 @@ function Inner() {
     setEditChat(null);
   };
 
+  // ─── 마케팅 메타 핸들러 ───
+  const generateMarketingMeta = async () => {
+    if (!projectId) return;
+    setMarketingBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/marketing-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
+      if (data.newBalance != null) setBalance(data.newBalance);
+      if (data.marketingMeta) setMarketingMeta(data.marketingMeta);
+      // project도 fresh로 동기화 (PATCH 머지 결과 반영)
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setMarketingBusy(false);
+    }
+  };
+
+  const openMarketingEditor = () => {
+    setMarketingForm({ ...(marketingMeta ?? {}) });
+    setMarketingEditOpen(true);
+  };
+
+  const saveMarketingMeta = async () => {
+    if (!projectId) return;
+    setMarketingBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marketingMeta: marketingForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `저장 실패 (${res.status})`);
+      const merged = data.updates?.marketingMeta ?? { ...(marketingMeta ?? {}), ...marketingForm };
+      setMarketingMeta(merged);
+      setMarketingEditOpen(false);
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setMarketingBusy(false);
+    }
+  };
+
+  const copyMarketingUrl = async () => {
+    if (!projectId) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/book/${projectId}`);
+      setCopyConfirm(true);
+      setTimeout(() => setCopyConfirm(false), 2000);
+    } catch (e: any) {
+      setError(`URL 복사 실패: ${e.message}`);
+    }
+  };
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -957,6 +1051,116 @@ function Inner() {
                     }).catch(() => {});
                   }}
                 />
+              </div>
+
+              {/* 마케팅 페이지 — AI 카피 + 편집 + URL 복사 */}
+              <div className="mt-2 pt-2 border-t border-gray-100 px-2 pb-1">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-xs font-bold text-ink-900">🔗 마케팅 페이지</span>
+                  <a
+                    href={`/book/${projectId}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-xs text-tiger-orange hover:underline"
+                  >
+                    미리보기 →
+                  </a>
+                </div>
+                {!marketingMeta ? (
+                  <button
+                    onClick={generateMarketingMeta}
+                    disabled={marketingBusy || !!loading}
+                    className="w-full px-2 py-1.5 border border-tiger-orange/40 text-tiger-orange rounded-lg text-[11px] font-bold hover:bg-orange-50 transition disabled:opacity-50"
+                  >
+                    {marketingBusy ? "AI 카피 생성 중..." : "🤖 AI가 마케팅 카피 생성"}
+                  </button>
+                ) : (
+                  <>
+                    {marketingMeta.tagline && (
+                      <p className="text-[11px] text-gray-700 truncate mb-1.5" title={marketingMeta.tagline}>
+                        📌 {marketingMeta.tagline}
+                      </p>
+                    )}
+                    <div className="flex gap-1 text-[11px]">
+                      <button
+                        onClick={openMarketingEditor}
+                        disabled={marketingBusy}
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded hover:bg-gray-50 transition disabled:opacity-50"
+                      >
+                        편집
+                      </button>
+                      <button
+                        onClick={copyMarketingUrl}
+                        className="flex-1 px-2 py-1 border border-gray-200 rounded hover:bg-gray-50 transition"
+                      >
+                        {copyConfirm ? "✓ 복사됨" : "URL 복사"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {marketingEditOpen && (
+                  <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">한 줄 소개 (tagline)</label>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        value={marketingForm.tagline ?? ""}
+                        onChange={e => setMarketingForm(f => ({ ...f, tagline: e.target.value }))}
+                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
+                        placeholder="이 책을 한 줄로"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">상세 설명 (description)</label>
+                      <textarea
+                        maxLength={3000}
+                        rows={4}
+                        value={marketingForm.description ?? ""}
+                        onChange={e => setMarketingForm(f => ({ ...f, description: e.target.value }))}
+                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded resize-y"
+                        placeholder="책 소개를 자세히"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">저자 이름</label>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={marketingForm.authorName ?? ""}
+                        onChange={e => setMarketingForm(f => ({ ...f, authorName: e.target.value }))}
+                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">저자 소개</label>
+                      <input
+                        type="text"
+                        maxLength={300}
+                        value={marketingForm.authorBio ?? ""}
+                        onChange={e => setMarketingForm(f => ({ ...f, authorBio: e.target.value }))}
+                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
+                      />
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <button
+                        onClick={() => setMarketingEditOpen(false)}
+                        disabled={marketingBusy}
+                        className="flex-1 px-2 py-1 text-[11px] border border-gray-200 rounded hover:bg-white transition disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={saveMarketingMeta}
+                        disabled={marketingBusy}
+                        className="flex-1 px-2 py-1 text-[11px] bg-tiger-orange text-white font-bold rounded hover:bg-orange-600 transition disabled:opacity-50"
+                      >
+                        {marketingBusy ? "저장 중..." : "저장"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
