@@ -117,9 +117,19 @@ export const SYSTEM_WRITER = `당신은 한국어 실용서를 써서 출판해 
 - 코드 예시가 필요하면 문장 안에 그대로 쓰세요 — "pip install claude-code" 처럼.
 - 목록은 문장으로 풀어쓰거나 꼭 필요하면 평범한 하이픈(-)만 사용.`;
 
+// RAG context block — 인터뷰·목차·챕터 prompt에 주입할 레퍼런스 chunks
+export function referencesBlock(chunks: { content: string; referenceFilename: string; chunkIdx: number }[]): string {
+  if (chunks.length === 0) return "";
+  const blocks = chunks.map(c =>
+    `[${c.referenceFilename} 발췌 #${c.chunkIdx + 1}]\n${c.content}`
+  ).join("\n\n");
+  return `\n[작가가 제공한 레퍼런스 — 다음 자료를 정확히 이해하고 질문에 활용]\n${blocks}\n`;
+}
+
 export function interviewerPrompt(
   p: BookProject,
-  history: { q: string; a: string }[]
+  history: { q: string; a: string }[],
+  references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
 ): string {
   const historyText = history
     .map((qa, i) => `Q${i + 1}: ${qa.q}\nA${i + 1}: ${qa.a || "(건너뜀)"}`)
@@ -132,7 +142,7 @@ export function interviewerPrompt(
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
 - 목표 분량: ${p.targetPages}쪽
-
+${referencesBlock(references)}
 [지금까지 인터뷰 ${history.length}회]
 ${historyText || "(아직 답변 없음)"}
 
@@ -152,6 +162,11 @@ ${historyText || "(아직 답변 없음)"}
 - 같은 차원 반복 X (이미 다룬 주제 또 묻지 X)
 - 너무 일반적인 질문 X ("뭘 더 알려주실 수 있나요?" 같은)
 - 책 유형에 맞는 차원 우선 탐색
+
+[레퍼런스 활용 — 매우 중요]
+- 위 레퍼런스가 있으면 그 내용을 정확히 이해하고 질문에 구체적으로 활용
+- 일반적 질문 X. "방금 본 [파일명] 발췌 #2에서 X라 하셨는데, 본인 경험으로 풀어주실 수 있나요?" 같이 구체적
+- 레퍼런스 없으면 (위 블록이 비어있으면) 일반 인터뷰 진행
 
 [출력 형식 — 순수 JSON만, 마크다운 코드블록 금지]
 

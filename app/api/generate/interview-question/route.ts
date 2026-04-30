@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/db";
 import { interviewerPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { ragSearch } from "@/lib/server/rag";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -47,6 +48,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "TIER_UNAVAILABLE" }, { status: 503 });
     }
 
+    // RAG 검색 — 사용자 마지막 답변 또는 책 주제로 query
+    const lastAnswer = history.length > 0 ? history[history.length - 1].a : "";
+    const ragQuery = lastAnswer && lastAnswer.trim().length > 20 ? lastAnswer : project.topic;
+
+    let ragChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    try {
+      ragChunks = await ragSearch({
+        projectId,
+        query: ragQuery,
+        topN: 3,
+        maxDistance: 0.7,
+      });
+    } catch (e: any) {
+      console.warn("[interview-question] RAG search failed:", e?.message);
+      // RAG 실패해도 인터뷰는 진행 (degraded mode)
+    }
+
     // 진짜 fallback chain — 첫 candidate 실패 시 다음 vendor로
     let result;
     let actualModel: AIModel = candidates[0];
@@ -56,7 +74,7 @@ export async function POST(req: Request) {
         result = await callAIServer({
           model: candidate,
           system: "당신은 책 작가 인터뷰어입니다. 한국어로 JSON만 출력합니다.",
-          user: interviewerPrompt(project, history),
+          user: interviewerPrompt(project, history, ragChunks),
           maxTokens: 1024,
           temperature: 0.8,
           timeoutMs: 15000,
