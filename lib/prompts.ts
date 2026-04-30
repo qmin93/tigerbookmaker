@@ -271,7 +271,13 @@ ${genreBlock(p)}${interviewBlock(p)}
 [{"title":"1장 제목","subtitle":"부제 한 줄"},{"title":"2장 제목","subtitle":"부제 한 줄"},...]`;
 }
 
-export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: string, chapterSubtitle?: string) {
+export function chapterPrompt(
+  p: BookProject,
+  chapterIdx: number,
+  chapterTitle: string,
+  chapterSubtitle?: string,
+  references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+) {
   const prevTitles = p.chapters
     .slice(0, chapterIdx)
     .map((c, i) => `${i + 1}장. ${c.title}${c.subtitle ? ` — ${c.subtitle}` : ""}`)
@@ -291,12 +297,18 @@ export function chapterPrompt(p: BookProject, chapterIdx: number, chapterTitle: 
 - 주제: ${p.topic}
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
-${genreBlock(p)}${interviewBlock(p)}${noImages ? "\n[이미지 없음]\n이 책은 텍스트 전용입니다. 본문에 [IMAGE: ...] placeholder 절대 만들지 마세요. 어떤 이미지 placeholder도 X.\n" : ""}
+${genreBlock(p)}${interviewBlock(p)}${noImages ? "\n[이미지 없음]\n이 책은 텍스트 전용입니다. 본문에 [IMAGE: ...] placeholder 절대 만들지 마세요. 어떤 이미지 placeholder도 X.\n" : ""}${references.length > 0 ? referencesBlock(references) : ""}
 [전체 목차]
 ${prevTitles || "(이 챕터가 첫 챕터입니다)"}
 → ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
 ${nextTitle ? `${chapterIdx + 2}장. ${nextTitle.title}${nextTitle.subtitle ? ` — ${nextTitle.subtitle}` : ""}` : "(이 챕터가 마지막입니다)"}
 ${prevSummaries ? `\n[지금까지의 흐름 — 앞 챕터들의 핵심 요지]\n${prevSummaries}\n\n앞 챕터에서 이미 정의한 인물·용어·예시는 같은 표현으로 받아 쓰세요. 새 명칭으로 바꾸지 마세요.\n` : ""}
+[레퍼런스 활용]
+- 위 자료에서 이 챕터 주제와 관련된 부분 발견 시 자연스럽게 인용·예시로 녹여 쓰세요
+- 자료의 표현·용어를 이어 쓰면 일관성 ↑ (단, 그대로 통째로 베끼기 X)
+- 자료 인용 시 "[파일명]에 따르면..." 같은 자연스러운 도입 사용
+- 자료 없으면 (위 블록이 비어있으면) 일반적으로 작성
+
 [이 챕터 작성 지침]
 - 분량: 정확히 3,000~5,000자 (공백 제외).
 - 서두 2~3문단, 최소 500자: 독자의 실제 문제 상황으로 깊이 들어가세요.
@@ -329,6 +341,7 @@ export function continueChapterPrompt(
   chapterTitle: string,
   chapterSubtitle: string | undefined,
   seedText: string,
+  references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
 ) {
   const noImages = (p as any).noImages === true;
   const prevTitles = p.chapters
@@ -348,7 +361,7 @@ export function continueChapterPrompt(
 - 주제: ${p.topic}
 - 대상 독자: ${p.audience}
 - 책 유형: ${p.type}
-${genreBlock(p)}${interviewBlock(p)}
+${genreBlock(p)}${interviewBlock(p)}${references.length > 0 ? referencesBlock(references) : ""}
 [전체 목차]
 ${prevTitles || "(이 챕터가 첫 챕터)"}
 → ${chapterIdx + 1}장. ${chapterTitle}${chapterSubtitle ? ` — ${chapterSubtitle}` : ""} ← **지금 이 챕터**
@@ -356,6 +369,12 @@ ${nextTitle ? `${chapterIdx + 2}장. ${nextTitle.title}${nextTitle.subtitle ? ` 
 ${prevSummaries ? `\n[지금까지 흐름]\n${prevSummaries}\n` : ""}
 [작가가 직접 쓴 부분 — 이 톤을 그대로 유지하세요]
 ${seedText.trim()}
+
+[레퍼런스 활용]
+- 위 자료에서 이 챕터 주제와 관련된 부분 발견 시 자연스럽게 인용·예시로 녹여 쓰세요
+- 자료의 표현·용어를 이어 쓰면 일관성 ↑ (단, 그대로 통째로 베끼기 X)
+- 자료 인용 시 "[파일명]에 따르면..." 같은 자연스러운 도입 사용
+- 자료 없으면 (위 블록이 비어있으면) 일반적으로 작성
 
 [이어 작성 지침 — 매우 중요]
 - 위 작가의 글에서 톤·문체·시제·인칭(나/그/우리 등)·핵심 키워드를 정확히 파악하고 그대로 이어가세요.
@@ -374,8 +393,17 @@ ${noImages ? "- 이 책은 텍스트 전용 — [IMAGE: ...] placeholder 절대 
 작가가 쓴 부분 다음에 자연스럽게 이어지는 본문만 출력하세요. 다른 설명/서문 X.`;
 }
 
-export function editPrompt(original: string, instruction: string) {
+export function editPrompt(
+  original: string,
+  instruction: string,
+  references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+) {
   return `아래 본문을 다음 지시에 따라 수정합니다. 수정된 전체 본문만 출력하세요. 다른 설명 금지.
+${references.length > 0 ? referencesBlock(references) : ""}
+[레퍼런스 활용 — 자연어 지시]
+- 위 자료에 사용자 지시와 관련된 내용이 있으면 활용
+- 자료 표현 자연스럽게 녹이기. "[파일명]에서..." 정도의 도입 가능
+- 자료 없으면 일반적으로 수정
 
 [수정 지시]
 ${instruction}
