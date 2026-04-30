@@ -9,6 +9,14 @@ export interface BookChapter {
   images: { placeholder: string; dataUrl?: string; caption?: string; alt?: string }[];
 }
 
+export interface ReferencesSummary {
+  keyPoints: string[];
+  coveredTopics: string[];
+  gaps: string[];
+  generatedAt: number;
+  basedOnChunkCount: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -17,6 +25,7 @@ export interface BookProject {
   targetPages: number;
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
+  referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;
