@@ -9,6 +9,7 @@ import { getModelChain, type Tier } from "@/lib/tiers";
 import { getUser, getProject, deductBalance, logAIUsage, USD_TO_KRW } from "@/lib/server/db";
 import { SYSTEM_WRITER, editPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { ragSearch, hasReferences } from "@/lib/server/rag";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -56,12 +57,27 @@ export async function POST(req: Request) {
       }, { status: 402 });
     }
 
+    // RAG 자동 주입 — 자연어 지시(inst) 자체를 쿼리로 (요청 의도에 가장 가까운 청크)
+    let editChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    try {
+      if (await hasReferences(projectId)) {
+        editChunks = await ragSearch({
+          projectId,
+          query: inst,
+          topN: 3,
+          maxDistance: 0.7,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[chapter-edit] RAG failed:", e?.message);
+    }
+
     let result;
     try {
       result = await callAIServerWithFallback({
         candidates,
         system: SYSTEM_WRITER,
-        user: editPrompt(ch.content, inst),
+        user: editPrompt(ch.content, inst, editChunks),
         maxTokens: 8192,
         temperature: 0.7,
         timeoutMs: 50000,
