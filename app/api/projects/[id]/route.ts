@@ -51,7 +51,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor, marketingMeta } = body ?? {};
+  const { themeColor, marketingMeta, metaAdPackage } = body ?? {};
 
   const projectRow = await getProject(projectId, userId);
   if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -84,6 +84,34 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // 기존 marketingMeta가 있으면 부분 업데이트로 머지
     const existing = (projectRow.data as any)?.marketingMeta ?? {};
     updates.marketingMeta = { ...existing, ...sanitized };
+  }
+
+  if (metaAdPackage !== undefined) {
+    if (typeof metaAdPackage !== "object" || metaAdPackage === null) {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "metaAdPackage는 object여야 합니다" }, { status: 400 });
+    }
+    const sanitized: any = {};
+    if (Array.isArray(metaAdPackage.headlines)) {
+      sanitized.headlines = metaAdPackage.headlines.slice(0, 3).map((s: any) => String(s ?? "").slice(0, 40)).filter(Boolean);
+    }
+    if (Array.isArray(metaAdPackage.primaryTexts)) {
+      sanitized.primaryTexts = metaAdPackage.primaryTexts.slice(0, 3).map((s: any) => String(s ?? "").slice(0, 125)).filter(Boolean);
+    }
+    if (Array.isArray(metaAdPackage.ctaButtons)) {
+      sanitized.ctaButtons = metaAdPackage.ctaButtons.slice(0, 5).map((s: any) => String(s ?? "")).filter(Boolean);
+    }
+    if (typeof metaAdPackage.audienceSuggestion === "object" && metaAdPackage.audienceSuggestion) {
+      const aud = metaAdPackage.audienceSuggestion;
+      sanitized.audienceSuggestion = {
+        ageMin: Math.max(18, Math.min(65, Number(aud.ageMin) || 25)),
+        ageMax: Math.max(18, Math.min(65, Number(aud.ageMax) || 45)),
+        interests: Array.isArray(aud.interests) ? aud.interests.slice(0, 5).map((s: any) => String(s).slice(0, 30)).filter(Boolean) : [],
+        locations: Array.isArray(aud.locations) && aud.locations.length > 0 ? aud.locations.slice(0, 3).map((s: any) => String(s).slice(0, 50)) : ["대한민국"],
+      };
+    }
+    sanitized.generatedAt = Date.now();
+    const existing = (projectRow.data as any)?.metaAdPackage ?? {};
+    updates.metaAdPackage = { ...existing, ...sanitized };
   }
 
   if (Object.keys(updates).length === 0) {
