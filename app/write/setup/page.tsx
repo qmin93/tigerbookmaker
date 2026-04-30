@@ -45,6 +45,12 @@ function Inner() {
     generatedAt: number; basedOnChunkCount: number;
   } | null>(null);
 
+  // 톤·말투 — Phase 4
+  const [toneSetting, setToneSetting] = useState<any>(null);
+  const [toneMode, setToneMode] = useState<"auto" | "preset" | "reference-book">("auto");
+  const [toneExcerpt, setToneExcerpt] = useState("");
+  const [toneBusy, setToneBusy] = useState(false);
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -87,6 +93,32 @@ function Inner() {
   useEffect(() => {
     if (project?.referencesSummary) setReferencesSummary(project.referencesSummary);
   }, [project]);
+
+  // project 로드 시 toneSetting 동기화 — Phase 4
+  useEffect(() => {
+    if (project?.toneSetting) setToneSetting(project.toneSetting);
+  }, [project]);
+
+  const requestTone = async (opts: { mode: string; preset?: string; excerpt?: string }) => {
+    if (!projectId) return;
+    setToneBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/tone-recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ...opts }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `톤 분석 실패 (${res.status})`);
+      setToneSetting(data.toneSetting);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setToneBusy(false);
+    }
+  };
 
   const generateSummary = async () => {
     if (!projectId || references.length === 0) return;
@@ -473,6 +505,93 @@ function Inner() {
             )}
           </div>
         )}
+
+        {/* 톤·말투 설정 — Phase 4 */}
+        <div className="mb-6 p-5 bg-purple-50/50 border border-purple-300 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-ink-900">🎨 톤·말투 설정</h3>
+            {toneSetting && (
+              <button onClick={() => setToneSetting(null)} className="text-[10px] text-gray-400 hover:text-red-600">다시 설정</button>
+            )}
+          </div>
+
+          {!toneSetting && (
+            <>
+              <p className="text-xs text-gray-600 mb-3">
+                선택한 톤이 모든 챕터 본문에 일관되게 적용됩니다.
+              </p>
+              <div className="flex gap-2 mb-3">
+                {(["auto", "preset", "reference-book"] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setToneMode(m)}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded font-bold ${toneMode === m ? 'bg-purple-500 text-white' : 'bg-white border border-purple-300 text-purple-700'}`}
+                  >
+                    {m === "auto" ? "🪄 자동 추천 (₩20)" : m === "preset" ? "📋 6개 중 선택 (무료)" : "📖 좋아하는 책 (₩20)"}
+                  </button>
+                ))}
+              </div>
+
+              {toneMode === "auto" && (
+                <button
+                  onClick={() => requestTone({ mode: "auto" })}
+                  disabled={toneBusy}
+                  className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-purple-600 disabled:opacity-50 text-sm"
+                >
+                  {toneBusy ? "⏳ 분석 중..." : "🪄 AI 자동 추천"}
+                </button>
+              )}
+
+              {toneMode === "preset" && (
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ["friendly", "💬 친근체"],
+                    ["professional", "🎓 전문체"],
+                    ["storytelling", "📚 스토리텔링"],
+                    ["lecture", "🎤 강의체"],
+                    ["essay", "✍️ 에세이체"],
+                    ["self-help", "🚀 자기계발체"],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => requestTone({ mode: "preset", preset: key })}
+                      disabled={toneBusy}
+                      className="text-left p-2 bg-white border border-purple-200 rounded-lg hover:border-purple-500 disabled:opacity-50"
+                    >
+                      <div className="text-xs font-bold text-purple-900">{label}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {toneMode === "reference-book" && (
+                <div>
+                  <textarea
+                    value={toneExcerpt}
+                    onChange={e => setToneExcerpt(e.target.value)}
+                    placeholder="좋아하는 책 발췌 1~3문단 (100자 이상)"
+                    rows={5}
+                    className="w-full text-xs px-3 py-2 border border-purple-300 rounded mb-2 focus:border-purple-500 focus:outline-none resize-y"
+                  />
+                  <button
+                    onClick={() => requestTone({ mode: "reference-book", excerpt: toneExcerpt })}
+                    disabled={toneBusy || toneExcerpt.trim().length < 100}
+                    className="w-full px-3 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-purple-600 disabled:opacity-50 text-sm"
+                  >
+                    {toneBusy ? "⏳ 분석 중..." : `📖 분석 (${toneExcerpt.trim().length}자)`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {toneSetting && (
+            <div className="bg-white rounded-lg p-3">
+              <div className="text-xs font-bold text-ink-900 mb-2">현재 톤 ({toneSetting.mode})</div>
+              <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{toneSetting.finalTone}</div>
+            </div>
+          )}
+        </div>
 
         {history.length > 0 && (
           <details open className="mb-6 text-sm">
