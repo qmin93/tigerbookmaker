@@ -39,6 +39,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     shareLinks: p.data?.shareLinks,
     noImages: p.data?.noImages === true,
     themeColor: p.data?.themeColor ?? "orange",
+    marketingMeta: p.data?.marketingMeta,
+    metaAdPackage: p.data?.metaAdPackage,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });
@@ -98,13 +100,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       sanitized.primaryTexts = metaAdPackage.primaryTexts.slice(0, 3).map((s: any) => String(s ?? "").slice(0, 125)).filter(Boolean);
     }
     if (Array.isArray(metaAdPackage.ctaButtons)) {
-      sanitized.ctaButtons = metaAdPackage.ctaButtons.slice(0, 5).map((s: any) => String(s ?? "")).filter(Boolean);
+      const META_CTAS_PATCH = ["학습하기", "자세히 알아보기", "구독하기", "신청하기", "무료 체험"];
+      const filtered = metaAdPackage.ctaButtons
+        .slice(0, 5)
+        .map((s: any) => String(s ?? ""))
+        .filter((s: string) => META_CTAS_PATCH.includes(s));
+      sanitized.ctaButtons = filtered.length > 0 ? filtered : ["자세히 알아보기"];
     }
     if (typeof metaAdPackage.audienceSuggestion === "object" && metaAdPackage.audienceSuggestion) {
       const aud = metaAdPackage.audienceSuggestion;
+      let ageMin = Math.max(18, Math.min(65, Number(aud.ageMin) || 25));
+      let ageMax = Math.max(18, Math.min(65, Number(aud.ageMax) || 45));
+      if (ageMin > ageMax) [ageMin, ageMax] = [ageMax, ageMin];
       sanitized.audienceSuggestion = {
-        ageMin: Math.max(18, Math.min(65, Number(aud.ageMin) || 25)),
-        ageMax: Math.max(18, Math.min(65, Number(aud.ageMax) || 45)),
+        ageMin,
+        ageMax,
         interests: Array.isArray(aud.interests) ? aud.interests.slice(0, 5).map((s: any) => String(s).slice(0, 30)).filter(Boolean) : [],
         locations: Array.isArray(aud.locations) && aud.locations.length > 0 ? aud.locations.slice(0, 3).map((s: any) => String(s).slice(0, 50)) : ["대한민국"],
       };
