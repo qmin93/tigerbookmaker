@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/db";
 import { SYSTEM_WRITER, continueChapterPrompt, summaryPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { ragSearch, hasReferences } from "@/lib/server/rag";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -70,6 +71,22 @@ export async function POST(req: Request) {
       }, { status: 402 });
     }
 
+    // RAG 자동 주입 — 챕터 제목 + seed 앞 200자 결합 쿼리 (더 구체적인 매칭)
+    let chapterChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    try {
+      if (await hasReferences(projectId)) {
+        const query = `${ch.title}${seed ? "\n" + seed.slice(0, 200) : ""}`;
+        chapterChunks = await ragSearch({
+          projectId,
+          query,
+          topN: 4,
+          maxDistance: 0.7,
+        });
+      }
+    } catch (e: any) {
+      console.warn("[chapter-continue] RAG search failed:", e?.message);
+    }
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -85,7 +102,7 @@ export async function POST(req: Request) {
           const gen = callStreamWithFallback({
             candidates,
             system: SYSTEM_WRITER,
-            user: continueChapterPrompt(project, chapterIdx, ch.title, ch.subtitle, seed),
+            user: continueChapterPrompt(project, chapterIdx, ch.title, ch.subtitle, seed, chapterChunks),
             timeoutMs: 55000,
           });
           for await (const evt of gen) {
