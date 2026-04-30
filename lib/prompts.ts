@@ -126,10 +126,46 @@ export function referencesBlock(chunks: { content: string; referenceFilename: st
   return `\n[작가가 제공한 레퍼런스 — 다음 자료를 정확히 이해하고 질문에 활용]\n${blocks}\n`;
 }
 
+export function referenceSummaryPrompt(
+  project: { topic: string; audience: string; type: string; targetPages: number },
+  chunks: { content: string; referenceFilename: string; chunkIdx: number }[],
+): string {
+  const refsText = chunks.map(c =>
+    `[${c.referenceFilename} 발췌 #${c.chunkIdx + 1}]\n${c.content}`
+  ).join("\n\n---\n\n");
+
+  return `당신은 책 작가가 제공한 레퍼런스를 분석해서 책 작성에 필요한 핵심을 추출하는 분석가입니다.
+
+[책 정보]
+- 주제: ${project.topic}
+- 대상 독자: ${project.audience}
+- 책 유형: ${project.type}
+- 목표 분량: ${project.targetPages}쪽
+
+[작가가 제공한 레퍼런스]
+${refsText}
+
+[작업]
+위 레퍼런스를 모두 읽고 다음 3가지를 한국어 JSON으로 정리하세요.
+
+1. keyPoints (배열, 정확히 5개): 책의 핵심 메시지 5가지. 한 줄씩, 구체적이고 차별화된 내용. 일반적 이야기 X.
+2. coveredTopics (배열, 5~10개): 이 자료가 이미 다룬 주제. 인터뷰에서 다시 묻지 않을 것들.
+3. gaps (배열, 3~7개): 자료에서 빠졌거나 작가 본인 경험·의견이 필요한 부분. 인터뷰에서 물어볼 것.
+
+[출력 형식 — JSON만]
+{
+  "keyPoints": ["...", "...", "...", "...", "..."],
+  "coveredTopics": ["...", "..."],
+  "gaps": ["...", "..."]
+}
+`;
+}
+
 export function interviewerPrompt(
   p: BookProject,
   history: { q: string; a: string }[],
   references: { content: string; referenceFilename: string; chunkIdx: number }[] = [],
+  summary?: { keyPoints: string[]; coveredTopics: string[]; gaps: string[] },
 ): string {
   const historyText = history
     .map((qa, i) => `Q${i + 1}: ${qa.q}\nA${i + 1}: ${qa.a || "(건너뜀)"}`)
@@ -143,6 +179,13 @@ export function interviewerPrompt(
 - 책 유형: ${p.type}
 - 목표 분량: ${p.targetPages}쪽
 ${referencesBlock(references)}
+${summary ? `
+[자료 분석 결과 — 인터뷰 전략]
+- 자료가 이미 다룬 주제 (다시 묻지 마세요): ${summary.coveredTopics.join(", ")}
+- 빈 부분 (작가 경험·의견 필요 — 우선 질문): ${summary.gaps.join(", ")}
+- 핵심 메시지 5가지 (인터뷰 흐름의 기준):
+${summary.keyPoints.map((k, i) => `  ${i+1}. ${k}`).join("\n")}
+` : ""}
 [지금까지 인터뷰 ${history.length}회]
 ${historyText || "(아직 답변 없음)"}
 
@@ -167,6 +210,11 @@ ${historyText || "(아직 답변 없음)"}
 - 위 레퍼런스가 있으면 그 내용을 정확히 이해하고 질문에 구체적으로 활용
 - 일반적 질문 X. "방금 본 [파일명] 발췌 #2에서 X라 하셨는데, 본인 경험으로 풀어주실 수 있나요?" 같이 구체적
 - 레퍼런스 없으면 (위 블록이 비어있으면) 일반 인터뷰 진행
+
+[빈 부분 채우기 모드 — summary 있을 때만]
+- 위 "빈 부분" 항목들 위주로 5~7개 질문에 인터뷰 마무리
+- "이미 자료에 있는 X는..." 처럼 자료를 인지하고 있다는 신호 포함
+- coveredTopics에 있는 주제 다시 묻기 X
 
 [출력 형식 — 순수 JSON만, 마크다운 코드블록 금지]
 
