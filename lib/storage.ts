@@ -44,6 +44,20 @@ export interface MarketingMeta {
   generatedAt?: number;
 }
 
+export interface MetaAdPackage {
+  headlines: string[];          // 3개, 각 ≤40자
+  primaryTexts: string[];       // 3개, 각 ≤125자
+  ctaButtons: string[];         // Meta 미리 정의된 한글 라벨 추천 (3~5개)
+  audienceSuggestion: {
+    ageMin: number;             // 18~65
+    ageMax: number;
+    interests: string[];        // 3~5개 한글 키워드 (예: "재테크", "자기계발")
+    locations: string[];        // 기본 ["대한민국"]
+  };
+  generatedAt: number;
+  basedOnProjectVersion?: string;  // 미래 — 책 변경 시 재생성 트리거
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -54,6 +68,7 @@ export interface BookProject {
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
   marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
+  metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
