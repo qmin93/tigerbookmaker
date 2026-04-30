@@ -28,6 +28,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     chapters: p.data?.chapters ?? [],
     cover: p.data?.kmongPackage?.images?.find((i: any) => i.type === "cover") ?? null,
     shareLinks: p.data?.shareLinks ?? {},
+    themeColor: p.data?.themeColor ?? "orange",
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });

@@ -4,6 +4,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { getTheme } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 interface Chapter {
   title: string;
@@ -25,6 +27,7 @@ interface ShareData {
     kyobo?: string;
     custom?: { label: string; url: string }[];
   };
+  themeColor?: ThemeColorKey;
   createdAt: string;
 }
 
@@ -110,6 +113,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
   const current = pages[idx];
   const pct = total > 1 ? Math.round((idx / (total - 1)) * 100) : 100;
   const writtenChapters = book.chapters.filter(c => c.content);
+  const theme = getTheme(book.themeColor as ThemeColorKey | undefined);
 
   return (
     <main className="min-h-screen bg-ink-900 flex flex-col">
@@ -145,7 +149,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
           style={{ boxShadow: "0 25px 60px -15px rgba(0,0,0,0.6)" }}
           onClick={() => setIdx(i => Math.min(i + 1, total - 1))}
         >
-          <PageContent page={current} book={book} />
+          <PageContent page={current} book={book} theme={theme} />
         </div>
       </div>
 
@@ -159,7 +163,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
             <button
               key={i}
               onClick={() => setIdx(startIdx)}
-              className={`text-[10px] px-2 py-1 rounded whitespace-nowrap ${isActive ? "bg-tiger-orange text-white font-bold" : "text-ink-400 hover:text-white hover:bg-ink-800"}`}
+              className={`text-[10px] px-2 py-1 rounded whitespace-nowrap ${isActive ? `${theme.bgBold} ${theme.textOnBold} font-bold` : "text-ink-400 hover:text-white hover:bg-ink-800"}`}
             >{i + 1}장</button>
           );
         })}
@@ -172,7 +176,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
   );
 }
 
-function PageContent({ page, book }: { page: Page; book: ShareData }) {
+function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme: ReturnType<typeof getTheme> }) {
   if (page.type === "cover") {
     return (
       <div className="w-full h-full flex flex-col">
@@ -215,15 +219,15 @@ function PageContent({ page, book }: { page: Page; book: ShareData }) {
   if (page.type === "chapter-start" && typeof page.chapterIdx === "number") {
     const c = book.chapters[page.chapterIdx];
     return (
-      <div className="w-full h-full bg-stone-50 flex flex-col p-8 md:p-12 relative">
+      <div className={`w-full h-full bg-stone-50 flex flex-col p-8 md:p-12 relative border-l-4 ${theme.accentBorder}`}>
         <div className="absolute top-1/2 right-12 -translate-y-1/2 text-[120px] md:text-[160px] font-black text-tiger-orange/10 leading-none select-none tracking-tighter">
           {String(page.chapterIdx + 1).padStart(2, "0")}
         </div>
         <div className="flex-1 flex flex-col justify-center relative z-10">
-          <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-3">CHAPTER {String(page.chapterIdx + 1).padStart(2, "0")}</div>
+          <div className={`text-[10px] font-mono uppercase tracking-[0.3em] ${theme.accent} mb-3`}>CHAPTER {String(page.chapterIdx + 1).padStart(2, "0")}</div>
           <h2 className="text-3xl md:text-4xl font-black tracking-tight text-ink-900 leading-[1.1]">{c.title}</h2>
           {c.subtitle && <p className="mt-4 text-base md:text-lg text-stone-600 leading-relaxed">{c.subtitle}</p>}
-          <div className="mt-6 h-1 w-16 bg-tiger-orange" />
+          <div className={`mt-6 h-1 w-16 ${theme.bgBold}`} />
         </div>
       </div>
     );
@@ -276,7 +280,7 @@ function PageContent({ page, book }: { page: Page; book: ShareData }) {
         <div className="border-t border-white/20 pt-6 mt-2 max-w-sm w-full">
           <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-2">이 책은</div>
           <div className="text-base font-bold mb-3">🐯 Tigerbookmaker로 30분만에 만들어졌어요</div>
-          <Link href="/" className="inline-block px-6 py-3 bg-tiger-orange text-white rounded-lg font-bold hover:bg-orange-600 transition">
+          <Link href="/" className={`inline-block px-6 py-3 ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} rounded-lg font-bold transition`}>
             나도 책 만들기 →
           </Link>
         </div>
