@@ -38,6 +38,13 @@ function Inner() {
   const [refUrlInput, setRefUrlInput] = useState("");
   const [refTextInput, setRefTextInput] = useState("");
 
+  // AI 자료 분석 — Phase 2
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [referencesSummary, setReferencesSummary] = useState<{
+    keyPoints: string[]; coveredTopics: string[]; gaps: string[];
+    generatedAt: number; basedOnChunkCount: number;
+  } | null>(null);
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -75,6 +82,37 @@ function Inner() {
       .then(d => setReferences(d.references || []))
       .catch(() => {});
   }, [projectId]);
+
+  // project 로드 시 referencesSummary 동기화
+  useEffect(() => {
+    if (project?.referencesSummary) setReferencesSummary(project.referencesSummary);
+  }, [project]);
+
+  const generateSummary = async () => {
+    if (!projectId || references.length === 0) return;
+    setSummaryBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/reference-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `요약 실패 (${res.status})`);
+      setReferencesSummary(data.summary);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSummaryBusy(false);
+    }
+  };
+
+  const clearSummary = () => {
+    if (!confirm("요약을 지우고 다시 만들까요?")) return;
+    setReferencesSummary(null);
+  };
 
   const uploadPdfReference = async (file: File) => {
     if (!projectId) return;
@@ -365,6 +403,75 @@ function Inner() {
             </div>
           )}
         </div>
+
+        {/* AI 자료 분석 — Phase 2 */}
+        {references.length > 0 && (
+          <div className="mb-6 p-5 bg-yellow-50/50 border border-tiger-orange/40 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-ink-900">🤖 AI 자료 분석</h3>
+              {referencesSummary && (
+                <button onClick={clearSummary} className="text-[10px] text-gray-400 hover:text-red-600">다시 분석</button>
+              )}
+            </div>
+
+            {!referencesSummary && !summaryBusy && (
+              <>
+                <p className="text-xs text-gray-600 mb-3">
+                  AI가 모든 자료를 읽고 핵심 5가지 + 빠진 부분을 정리합니다. 그 후 인터뷰는 빈 부분만 짧게 (5~7개) 진행됩니다.
+                  <br/><span className="text-tiger-orange font-bold">예상 비용 ₩20</span>
+                </p>
+                <button
+                  onClick={generateSummary}
+                  disabled={summaryBusy}
+                  className="w-full px-4 py-3 bg-tiger-orange text-white rounded-lg font-bold hover:bg-orange-600 disabled:opacity-50"
+                >
+                  🚀 AI가 자료 정리하기
+                </button>
+              </>
+            )}
+
+            {summaryBusy && (
+              <div className="p-3 bg-white rounded-lg text-xs text-tiger-orange text-center">
+                ⏳ AI가 자료를 읽고 있어요... (10~30초)
+              </div>
+            )}
+
+            {referencesSummary && (
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg p-3">
+                  <div className="text-xs font-bold text-ink-900 mb-2">📌 핵심 5가지</div>
+                  <ol className="text-xs text-gray-700 space-y-1.5 list-decimal list-inside">
+                    {referencesSummary.keyPoints.map((k, i) => (
+                      <li key={i}>{k}</li>
+                    ))}
+                  </ol>
+                </div>
+
+                <div className="bg-white rounded-lg p-3">
+                  <div className="text-xs font-bold text-ink-900 mb-2">✅ 자료가 다룬 주제 ({referencesSummary.coveredTopics.length})</div>
+                  <div className="flex flex-wrap gap-1">
+                    {referencesSummary.coveredTopics.map((t, i) => (
+                      <span key={i} className="text-[10px] bg-green-50 text-green-800 px-2 py-0.5 rounded border border-green-200">{t}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-3">
+                  <div className="text-xs font-bold text-ink-900 mb-2">❓ 인터뷰에서 물어볼 부분 ({referencesSummary.gaps.length})</div>
+                  <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+                    {referencesSummary.gaps.map((g, i) => (
+                      <li key={i}>{g}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="text-[10px] text-gray-500 text-center">
+                  {new Date(referencesSummary.generatedAt).toLocaleString("ko-KR")} · {referencesSummary.basedOnChunkCount} chunks 기반
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {history.length > 0 && (
           <details open className="mb-6 text-sm">
