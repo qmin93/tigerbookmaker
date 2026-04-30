@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (user.balance_krw < 30) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액 부족 (~₩20)",
+        message: "잔액 부족 (~₩30)",
         current: user.balance_krw,
       }, { status: 402 });
     }

@@ -8,6 +8,7 @@ interface BookSummary {
   type: string;
   hasCover?: boolean;
   tagline?: string;
+  marketingDescription?: string;
   kmongDescription?: string;
 }
 
@@ -22,6 +23,7 @@ async function fetchBookSummary(id: string, baseUrl: string): Promise<BookSummar
       type: d.type,
       hasCover: !!d.cover,
       tagline: d.marketingMeta?.tagline,
+      marketingDescription: d.marketingMeta?.description,
       kmongDescription: d.kmongCopy?.kmongDescription,
     };
   } catch {
@@ -45,10 +47,12 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   // OG 이미지: /share/[id]/og endpoint 재사용 (cover image)
   const ogImageUrl = data.hasCover ? `${baseUrl}/api/share/${id}/og` : `${baseUrl}/og-default.png`;
 
-  // description 우선순위: tagline → kmongDescription snippet → fallback
+  // description 우선순위: tagline → marketingDescription snippet → kmongDescription snippet → fallback
   let desc: string;
   if (data.tagline) {
     desc = data.tagline;
+  } else if (data.marketingDescription) {
+    desc = data.marketingDescription.replace(/\s+/g, " ").trim().slice(0, 160);
   } else if (data.kmongDescription) {
     desc = data.kmongDescription.replace(/\s+/g, " ").trim().slice(0, 160);
   } else {

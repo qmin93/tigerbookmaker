@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!p) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
   if (p.data?.shareEnabled !== true) {
-    return NextResponse.json({ error: "PRIVATE", message: "비공개 책입니다." }, { status: 403 });
+    return NextResponse.json({ error: "NOT_SHARED", message: "비공개 책입니다." }, { status: 403 });
   }
 
   // 챕터: 제목·소제목만 (content 제외 — 마케팅 페이지는 읽기 X)
