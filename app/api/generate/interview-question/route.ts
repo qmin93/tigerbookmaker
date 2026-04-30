@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     const projectRow = await getProject(projectId, userId);
     if (!projectRow) return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
     const project = projectRow.data;
+    const summary = (project as any).referencesSummary ?? undefined;
 
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
         result = await callAIServer({
           model: candidate,
           system: "당신은 책 작가 인터뷰어입니다. 한국어로 JSON만 출력합니다.",
-          user: interviewerPrompt(project, history, ragChunks),
+          user: interviewerPrompt(project, history, ragChunks, summary),
           maxTokens: 1024,
           temperature: 0.8,
           timeoutMs: 15000,
