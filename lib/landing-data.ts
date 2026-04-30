@@ -76,10 +76,10 @@ export const TIER_CARDS = [
 export const HERO_STATS = [
   { value: "30분", label: "권당 집필" },
   { value: "₩263", label: "권당 평균 비용" },
-  { value: "13장", label: "자동 일관성" },
-  { value: "12pt", label: "본문 표준" },
+  { value: "RAG", label: "내 자료 학습" },
+  { value: "8가지", label: "내장 기능" },
   { value: "100%", label: "환불 보장" },
-  { value: "₩1,000", label: "신규 보너스" },
+  { value: "₩3,000", label: "신규 크레딧" },
 ];
 
 export const TRUST_ITEMS = [

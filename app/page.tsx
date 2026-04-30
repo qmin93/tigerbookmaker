@@ -22,12 +22,12 @@ export default function Home() {
             <span className="text-tiger-orange">주제만</span> 던지세요.
           </h1>
           <p className="opacity-0 animate-fade-up mt-8 max-w-2xl text-lg md:text-xl text-gray-600 leading-relaxed" style={{ animationDelay: "300ms" }}>
-            목차부터 12챕터 본문까지 자동 집필. PDF·DOCX 즉시 다운로드.
-            크몽·리디북스·교보문고 그대로 등록 가능합니다.
+            <span className="text-ink-900 font-bold">내 자료(PDF·URL·텍스트)를 정확히 이해</span>하고 목차부터 12챕터 본문까지 자동 집필.
+            톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 한 번에.
           </p>
           <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
             <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
-              베타 무료 — 책 3권 받기
+              무료로 시작 — ₩3,000 크레딧 받기
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </Link>
             <Link href="#samples" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-gray-300 hover:border-ink-900 hover:bg-white text-ink-900 font-bold transition">
@@ -92,7 +92,12 @@ export default function Home() {
             { n: "01", title: "목차도 본문도 AI", body: "주제 한 줄 → 목차 자동, 12챕터 본문 자동. 30분이면 권당 평균 ₩263." },
             { n: "02", title: "한국어 문체 특화", body: "해요체 통일, 번역투 차단, AI 특유 표현 금지. 책방에서 통하는 문장만." },
             { n: "03", title: "챕터 일관성 보장", body: "앞 챕터 요약을 자동 주입 — 인물·용어·예시가 책 끝까지 일관." },
-            { n: "04", title: "선결제 · 환불 보장", body: "사용 안 한 잔액 7일 내 100% 환불. 카드 등록·정기결제 없음." },
+            { n: "04", title: "내 자료 학습 (RAG)", body: "PDF · URL · 텍스트 업로드 → AI가 모두 읽고 인터뷰·목차·본문에 자동 인용. 내 지식이 그대로 책이 됩니다." },
+            { n: "05", title: "자료 자동 분석", body: "업로드한 자료에서 5 핵심 + 빠진 부분을 자동 정리. 인터뷰는 빈 부분만 5~7개 — 시간 낭비 없음." },
+            { n: "06", title: "톤 · 말투 매칭", body: "6 preset(따뜻 · 전문 · 캐주얼 · 시적 · 직설 · 유머) 또는 좋아하는 책 한 단락만 붙여넣으면 그 톤으로 집필." },
+            { n: "07", title: "책별 색상 + 마케팅 페이지", body: "책마다 6가지 테마 색상 자동 매칭. /book/[id] SNS 공유용 랜딩 + AI 카피 + OG 미리보기 자동 생성." },
+            { n: "08", title: "작가 프로필 + Meta 광고", body: "/u/[handle] 인스타 bio용 link-in-bio 한 URL · Meta Ads 헤드라인·본문·타겟팅 한 번에 받기." },
+            { n: "09", title: "선결제 · 환불 보장", body: "사용 안 한 잔액 7일 내 100% 환불. 카드 등록·정기결제 없음." },
           ].map(c => (
             <div key={c.n} className="grid md:grid-cols-12 gap-6 py-8 md:py-12 group">
               <div className="md:col-span-2 font-mono text-xs text-tiger-orange uppercase tracking-wider">{c.n}</div>
@@ -151,14 +156,80 @@ export default function Home() {
 
       <div className="border-t border-gray-200" />
 
+      {/* 출판 후가 진짜 시작 — 마케팅·프로필·광고 */}
+      <section className="py-24 md:py-32 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <Eyebrow>출판 후가 진짜 시작</Eyebrow>
+          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
+            책을 만든 다음<br />어떻게 <span className="text-tiger-orange">팔까?</span>
+          </h2>
+          <p className="mt-4 text-gray-600 max-w-xl">집필만으로는 부족합니다. 책 한 권마다 마케팅 페이지, 작가 프로필, Meta 광고 카피까지 자동 생성.</p>
+        </div>
+
+        <div className="mt-16 max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-6">
+          {/* 1. 책 마케팅 페이지 */}
+          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
+            <div className="text-3xl mb-4">📖</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">/book/[id]</div>
+            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">책 마케팅 페이지</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5">한 URL로 카톡·인스타·DM 공유. AI가 책 카피·후킹 자동 생성, OG 미리보기까지.</p>
+            {/* 미니 mock */}
+            <div className="rounded-lg border border-gray-200 bg-white p-3 font-mono text-[10px]">
+              <div className="text-gray-400 mb-1.5">tigerbookmaker.com</div>
+              <div className="h-16 rounded bg-gradient-to-br from-orange-100 via-amber-50 to-orange-200 mb-2 relative overflow-hidden">
+                <div className="absolute bottom-1.5 left-2 text-ink-900 text-[9px] font-black leading-tight">아침 루틴<br/>30일</div>
+              </div>
+              <div className="text-tiger-orange font-bold">→ 지금 읽기</div>
+            </div>
+          </div>
+
+          {/* 2. 작가 link-in-bio */}
+          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
+            <div className="text-3xl mb-4">🔗</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">/u/[handle]</div>
+            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">작가 link-in-bio</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5">인스타 bio에 1줄, 모든 책 자동 정리. Litt.ly 안 써도 됨 — 프로필 편집까지 내장.</p>
+            {/* 미니 mock */}
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-tiger-orange to-amber-400" />
+                <div>
+                  <div className="text-[10px] font-bold text-ink-900 leading-tight">@author</div>
+                  <div className="text-[9px] text-gray-500 leading-tight">3 books</div>
+                </div>
+              </div>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-5 rounded bg-gray-100 mb-1 flex items-center px-2 text-[9px] font-mono text-gray-600">📘 Book {i}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. Meta 광고 패키지 */}
+          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
+            <div className="text-3xl mb-4">🎯</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">Meta Ads</div>
+            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">광고 패키지 자동 생성</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5">헤드라인 · 본문 · CTA · 타겟팅(연령·관심사)까지 책 한 권당 한 번에 받기.</p>
+            {/* 미니 mock */}
+            <div className="rounded-lg border border-gray-200 bg-white p-3 font-mono text-[10px] space-y-1.5">
+              <div><span className="text-gray-400">headline</span> <span className="text-ink-900 font-bold">"30일이면 인생이 바뀝니다"</span></div>
+              <div><span className="text-gray-400">cta</span> <span className="text-tiger-orange font-bold">지금 읽기</span></div>
+              <div><span className="text-gray-400">target</span> <span className="text-ink-900">30대 직장인 · 자기계발</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="border-t border-gray-200" />
+
       {/* Pricing — 베타 기간 무료 안내 */}
       <section id="pricing" className="py-24 md:py-32">
         <div className="max-w-6xl mx-auto px-6">
           <Eyebrow>베타 기간</Eyebrow>
           <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            지금 가입하면<br /><span className="text-tiger-orange">책 3권 무료.</span>
+            지금 가입하면<br /><span className="text-tiger-orange">₩3,000 무료 크레딧.</span>
           </h2>
-          <p className="mt-4 text-gray-600 max-w-xl">베타 기간 — 회원가입 + 이메일 인증 시 ₩3,000 크레딧 자동 지급. 카드 등록 불필요.</p>
+          <p className="mt-4 text-gray-600 max-w-xl">회원가입 + 이메일 인증 시 자동 지급. 모든 신기능 포함 (RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고). 카드 등록 · 정기결제 없음.</p>
         </div>
         <div className="mt-12 max-w-3xl mx-auto px-6">
           <div className="rounded-2xl p-8 md:p-10 border-2 border-tiger-orange shadow-glow-orange-sm bg-white">
@@ -166,7 +237,7 @@ export default function Home() {
             <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tight">
               ₩3,000<span className="text-base text-gray-500 font-normal"> 무료</span>
             </div>
-            <div className="mt-4 text-base text-gray-700">한국어 12챕터, 30분 자동 집필. PDF·DOCX·EPUB 즉시 다운로드. 크몽 패키지 포함.</div>
+            <div className="mt-4 text-base text-gray-700">집필 + RAG 자료 학습 + 톤 매칭 + 마케팅 페이지 + 작가 프로필 + Meta 광고 카피 — 전부 포함.</div>
             <div className="mt-2 text-sm text-gray-500">정식 결제는 사업자등록 완료 후 시작 — 그동안 부담 없이 써보세요.</div>
           </div>
         </div>
@@ -174,8 +245,8 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div className="rounded-2xl p-5 md:p-6 border border-gray-200 bg-white">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">기본 혜택</div>
-              <div className="font-bold text-ink-900 mb-1">책 3권 자동 충전</div>
-              <div className="text-xs text-gray-500">이메일 인증 시 ₩3,000 크레딧</div>
+              <div className="font-bold text-ink-900 mb-1">₩3,000 무료 크레딧</div>
+              <div className="text-xs text-gray-500">이메일 인증 시 자동 지급 · 신기능 전부 사용 가능</div>
             </div>
             <div className="rounded-2xl p-5 md:p-6 border border-tiger-orange/40 bg-orange-50">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">★ 추가 혜택</div>
@@ -196,11 +267,11 @@ export default function Home() {
             오늘부터<br /><span className="text-tiger-orange">책을 쓰세요.</span>
           </h2>
           <p className="mt-6 text-ink-300 text-lg max-w-xl mx-auto">
-            베타 기간 — 가입 + 이메일 인증 시 ₩3,000 자동 충전. 책 3권 무료. 카드 등록 불필요.
+            가입 + 이메일 인증 시 ₩3,000 무료 크레딧 자동 지급. RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 전부 포함. 카드 등록 불필요.
           </p>
           <div className="mt-10">
             <Link href="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-tiger-orange text-white text-lg font-bold shadow-glow-orange hover:bg-orange-600 transition">
-              베타 무료 — 책 3권 받기 →
+              무료로 시작 — ₩3,000 크레딧 받기 →
             </Link>
           </div>
         </div>
