@@ -88,7 +88,26 @@ export default function NewProjectPage() {
       <Link href="/projects" className="text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책 목록</Link>
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">새 프로젝트</p>
       <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">새 책 시작.</h1>
-      <p className="text-gray-600 mb-10">기본 정보를 입력하면 AI가 목차를 제안합니다.</p>
+      <p className="text-gray-600 mb-6">기본 정보 입력 → 다음 단계에서 자료 업로드 + AI 인터뷰.</p>
+
+      {/* 3-step process indicator — /new는 1단계, 자료 업로드는 2단계임을 명확히 */}
+      <div className="grid grid-cols-3 gap-2 mb-10">
+        <div className="p-3 rounded-xl bg-tiger-orange text-white">
+          <div className="text-[10px] font-mono uppercase tracking-[0.15em] opacity-80 mb-0.5">STEP 1 · 현재</div>
+          <div className="text-sm font-bold">기본 정보</div>
+          <div className="text-[10px] opacity-80 mt-0.5">주제 · 독자 · 유형</div>
+        </div>
+        <div className="p-3 rounded-xl bg-white border border-gray-200">
+          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 mb-0.5">STEP 2 · 다음</div>
+          <div className="text-sm font-bold text-ink-900">📚 자료 업로드</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">PDF · URL · 텍스트</div>
+        </div>
+        <div className="p-3 rounded-xl bg-white border border-gray-200">
+          <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500 mb-0.5">STEP 3</div>
+          <div className="text-sm font-bold text-ink-900">🎤 AI 인터뷰</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">자료 기반 질문</div>
+        </div>
+      </div>
 
       {/* AI 주제 추천 — 키워드 → 5개 구체적 주제 카드 */}
       <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-tiger-orange/30 p-5 md:p-6 rounded-2xl mb-6">
@@ -235,8 +254,11 @@ export default function NewProjectPage() {
           disabled={!topic || !audience || busy}
           className="w-full bg-tiger-orange text-white py-3.5 rounded-xl font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-40 disabled:shadow-none"
         >
-          {busy ? "생성 중..." : "프로젝트 생성 → 집필 시작 →"}
+          {busy ? "생성 중..." : "다음 → 📚 자료 업로드 + AI 인터뷰 →"}
         </button>
+        <p className="text-[11px] text-gray-500 text-center mt-2">
+          다음 화면에서 PDF · URL · 텍스트 자료 업로드 (선택). AI가 자료를 학습해 인터뷰·목차·본문에 활용합니다.
+        </p>
       </div>
     </div>
     </main>
