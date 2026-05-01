@@ -1,8 +1,10 @@
-// Gemini text-embedding-004 — 768 dim, 한국어 OK
-// 무료 tier: 분당 1500 RPM (paid Tier 1), 무료 분당 30
+// Gemini gemini-embedding-001 — 한국어 OK
+// 기본 출력 3072 dim → outputDimensionality: 768로 잘라서 DB vector(768)에 맞춤
+// (Matryoshka representation — 차원 잘라도 품질 유지)
+// 이전 text-embedding-004는 v1beta에서 deprecated (404 NOT_FOUND)
 // rate limit hit 시 자동 retry 1회 + 1초 백오프
 
-const EMBEDDING_MODEL = "text-embedding-004";
+const EMBEDDING_MODEL = "gemini-embedding-001";
 const EMBEDDING_DIM = 768;
 
 export async function embed(text: string): Promise<number[]> {
@@ -21,6 +23,7 @@ export async function embed(text: string): Promise<number[]> {
         body: JSON.stringify({
           model: `models/${EMBEDDING_MODEL}`,
           content: { parts: [{ text }] },
+          outputDimensionality: EMBEDDING_DIM,
         }),
         signal: ctrl.signal,
       });
