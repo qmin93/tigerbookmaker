@@ -110,6 +110,7 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
                     </div>
                     <Link href="/projects" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>내 책</Link>
                     <Link href="/profile" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>내 프로필</Link>
+                    <Link href="/kmong-listing-helper" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>📦 크몽 등록 도우미</Link>
                     <Link href="/billing" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>잔액 / 베타 안내</Link>
                     <Link href="/usage" className={dark ? "block px-4 py-2 hover:bg-ink-800" : "block px-4 py-2 hover:bg-gray-50"}>사용 내역</Link>
                     <button
