@@ -387,6 +387,112 @@ function generateCourseSlideSvg(opts: CourseSlideOptions & { width: number; heig
 </svg>`;
 }
 
+// ─────────────────────────────────────────────────────────
+// Wave B6: 미리보기 영상 frame — 1080x1920 (9:16) PNG.
+// 인스타 릴스/유튜브 쇼츠 비율. 5장이 한 세트 (cover/excerpt/excerpt/excerpt/cta).
+// FFmpeg 없이 PNG 5장만 생성 — 사용자가 본인 영상 편집기에서 1분 영상 조립.
+// ─────────────────────────────────────────────────────────
+
+export interface VideoFrameOptions {
+  frameIdx: number;            // 0..N-1
+  totalFrames: number;         // 5
+  text: string;                // 표시할 텍스트
+  template: "cover" | "excerpt" | "cta";
+  bookTitle: string;
+  brandText?: string;
+}
+
+export async function generateVideoFrame(opts: VideoFrameOptions): Promise<string> {
+  const W = 1080;
+  const H = 1920;
+  const svg = generateVideoFrameSvg({ ...opts, width: W, height: H });
+  const result = await sharp({
+    create: {
+      width: W, height: H, channels: 4,
+      background: { r: 10, g: 10, b: 10, alpha: 1 },
+    },
+  })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .png()
+    .toBuffer();
+  return result.toString("base64");
+}
+
+function generateVideoFrameSvg(opts: VideoFrameOptions & { width: number; height: number }): string {
+  const { width: W, height: H, frameIdx, totalFrames, text, template, bookTitle, brandText = "🐯 Tigerbookmaker" } = opts;
+
+  const fontFace = PRETENDARD_BOLD_BASE64
+    ? `
+    @font-face {
+      font-family: 'Pretendard';
+      src: url(data:font/woff2;base64,${PRETENDARD_BOLD_BASE64}) format('woff2');
+      font-weight: 700;
+    }
+  ` : "";
+
+  // 템플릿별 색상 — cover=다크, excerpt=라이트(읽기 친화), cta=강한 오렌지
+  const palette = template === "cover"
+    ? { bgFrom: "#0a0a0a", bgTo: "#1f1f1f", text: "#ffffff", sub: "#fed7aa", accent: "#f97316" }
+    : template === "cta"
+    ? { bgFrom: "#f97316", bgTo: "#ea580c", text: "#ffffff", sub: "#fef3c7", accent: "#ffffff" }
+    : { bgFrom: "#fafafa", bgTo: "#ffffff", text: "#0a0a0a", sub: "#525252", accent: "#f97316" };
+
+  // 9:16 좁은 폭 → 한 줄에 ~12자
+  const wrapped = wrapText(text, template === "cover" ? 10 : 12);
+  const lineHeight = template === "cover" ? 110 : 90;
+  const fontSize = template === "cover" ? 96 : 80;
+  const startY = H * 0.5 - ((wrapped.length - 1) * lineHeight) / 2;
+
+  // 진행 바 — 5장 중 어느 frame인지 시각화 (상단)
+  const progressW = W * 0.84;
+  const progressX = W * 0.08;
+  const segGap = 8;
+  const segW = (progressW - segGap * (totalFrames - 1)) / totalFrames;
+
+  return `
+<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+  <style>${fontFace}</style>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="${palette.bgFrom}"/>
+      <stop offset="100%" stop-color="${palette.bgTo}"/>
+    </linearGradient>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+
+  <!-- 상단 진행 바 (frame 위치 표시) -->
+  ${Array.from({ length: totalFrames }).map((_, i) => `
+  <rect x="${progressX + i * (segW + segGap)}" y="${H * 0.05}"
+        width="${segW}" height="6"
+        fill="${i <= frameIdx ? palette.accent : "#525252"}"
+        opacity="${i <= frameIdx ? 0.95 : 0.3}"
+        rx="3"/>`).join("")}
+
+  <!-- 메인 텍스트 (가운데, word-wrap) -->
+  ${wrapped.map((line, i) => `
+  <text
+    x="${W * 0.5}" y="${startY + i * lineHeight}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="${fontSize}"
+    fill="${palette.text}" text-anchor="middle" dominant-baseline="middle"
+  >${escapeXml(line)}</text>`).join("\n")}
+
+  <!-- 책 제목 (footer 위) -->
+  <text
+    x="${W * 0.5}" y="${H * 0.88}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="36" fill="${palette.sub}" text-anchor="middle"
+  >📖 ${escapeXml(truncate(bookTitle, 22))}</text>
+
+  <!-- 브랜드 워터마크 (footer) -->
+  <text
+    x="${W * 0.5}" y="${H * 0.95}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="32" fill="${palette.accent}" text-anchor="middle"
+  >${escapeXml(brandText)}</text>
+</svg>`;
+}
+
 // 한국어 친화 word-wrap — 공백·구두점 기준 + maxChars 강제
 function wrapText(text: string, maxCharsPerLine: number): string[] {
   const cleaned = text.replace(/\s+/g, " ").trim();
