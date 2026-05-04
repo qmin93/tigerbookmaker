@@ -275,6 +275,118 @@ function generateInfographicSvg(opts: InfographicCardOptions & { width: number; 
 </svg>`;
 }
 
+// ─────────────────────────────────────────────────────────
+// 강의 슬라이드 — 1920x1080 Full HD PNG (강사·코치용 zoom/오프라인 강의 즉시 사용)
+// 3 templates: minimal (밝음), bold (어두운 강조), academic (출판물 톤)
+// ─────────────────────────────────────────────────────────
+
+export type CourseSlideTemplate = "minimal" | "bold" | "academic";
+
+export interface CourseSlideOptions {
+  slideNum: number;
+  totalSlides: number;
+  title: string;
+  bullets: string[];
+  bookTitle: string;
+  template?: CourseSlideTemplate;
+}
+
+export async function generateCourseSlide(opts: CourseSlideOptions): Promise<string> {
+  const W = 1920;
+  const H = 1080;
+  const template = opts.template ?? "minimal";
+  const svg = generateCourseSlideSvg({ ...opts, width: W, height: H, template });
+  const result = await sharp({
+    create: {
+      width: W,
+      height: H,
+      channels: 3,
+      background: getCourseSlideBg(template),
+    },
+  })
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .png()
+    .toBuffer();
+  return result.toString("base64");
+}
+
+function getCourseSlideBg(template: CourseSlideTemplate): { r: number; g: number; b: number } {
+  if (template === "bold") return { r: 10, g: 10, b: 10 };
+  if (template === "academic") return { r: 250, g: 250, b: 248 };
+  return { r: 255, g: 255, b: 255 }; // minimal
+}
+
+function generateCourseSlideSvg(opts: CourseSlideOptions & { width: number; height: number; template: CourseSlideTemplate }): string {
+  const { width, height, slideNum, totalSlides, title, bullets, bookTitle, template } = opts;
+
+  const fontFace = PRETENDARD_BOLD_BASE64
+    ? `
+    @font-face {
+      font-family: 'Pretendard';
+      src: url(data:font/woff2;base64,${PRETENDARD_BOLD_BASE64}) format('woff2');
+      font-weight: 700;
+    }
+  ` : "";
+
+  const colors = template === "bold"
+    ? { titleColor: "#ffffff", bulletColor: "#fed7aa", footerColor: "#71717a", bg: "#0a0a0a", bullet: "#f97316" }
+    : template === "academic"
+    ? { titleColor: "#0a0a0a", bulletColor: "#374151", footerColor: "#9ca3af", bg: "#fafaf8", bullet: "#1e40af" }
+    : { titleColor: "#0a0a0a", bulletColor: "#374151", footerColor: "#9ca3af", bg: "#ffffff", bullet: "#f97316" };
+
+  const titleFontSize = Math.min(72, Math.max(48, Math.floor(width * 0.04)));
+  const bulletFontSize = Math.floor(width * 0.022);
+
+  const safeBullets = (bullets ?? []).slice(0, 5);
+
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <style>${fontFace}</style>
+  <rect width="${width}" height="${height}" fill="${colors.bg}"/>
+  <!-- 좌측 accent bar -->
+  <rect x="0" y="0" width="20" height="${height}" fill="${colors.bullet}"/>
+
+  <!-- 슬라이드 번호 (우상단) -->
+  <text
+    x="${width - 80}" y="80"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="24" fill="${colors.footerColor}"
+    text-anchor="end"
+  >${slideNum} / ${totalSlides}</text>
+
+  <!-- 제목 -->
+  <text
+    x="120" y="${Math.floor(height * 0.25)}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="${titleFontSize}" fill="${colors.titleColor}"
+  >${escapeXml(truncate(title, 40))}</text>
+
+  <!-- 제목 아래 구분선 -->
+  <line
+    x1="120" y1="${Math.floor(height * 0.25) + 24}"
+    x2="${Math.floor(width * 0.4)}" y2="${Math.floor(height * 0.25) + 24}"
+    stroke="${colors.bullet}" stroke-width="6"
+  />
+
+  <!-- bullets -->
+  ${safeBullets.map((b, i) => {
+    const cy = Math.floor(height * 0.4) + i * 80;
+    return `  <circle cx="140" cy="${cy}" r="8" fill="${colors.bullet}"/>
+  <text
+    x="170" y="${cy + 10}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="${bulletFontSize}" fill="${colors.bulletColor}"
+  >${escapeXml(truncate(b ?? "", 50))}</text>`;
+  }).join("\n")}
+
+  <!-- footer: 책 제목 + 브랜드 -->
+  <text
+    x="120" y="${height - 50}"
+    font-family="Pretendard, sans-serif" font-weight="700"
+    font-size="20" fill="${colors.footerColor}"
+  >${escapeXml(truncate(bookTitle, 50))} · 🐯 Tigerbookmaker</text>
+</svg>`;
+}
+
 // 한국어 친화 word-wrap — 공백·구두점 기준 + maxChars 강제
 function wrapText(text: string, maxCharsPerLine: number): string[] {
   const cleaned = text.replace(/\s+/g, " ").trim();
