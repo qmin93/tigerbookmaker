@@ -169,6 +169,37 @@ function Inner() {
   const [infographicBusy, setInfographicBusy] = useState(false);
   const [infographicTemplate, setInfographicTemplate] = useState<"minimal" | "bold" | "dark">("bold");
 
+  // ─── 챕터별 사용된 chunks (투명성) ───
+  // 챕터 본문 생성 시 사용된 chunks를 저장하지 않으므로, 챕터 title을 query로 ragSearch 다시 실행 → 근사치.
+  type ChapterChunk = { filename: string; chunkIdx: number; content: string; distance: number };
+  const [chunkUsageOpen, setChunkUsageOpen] = useState<number | null>(null);
+  const [chunkUsageData, setChunkUsageData] = useState<Record<number, ChapterChunk[]>>({});
+  const [chunkUsageBusy, setChunkUsageBusy] = useState<number | null>(null);
+
+  const loadChunkUsage = async (chapterIdx: number) => {
+    if (chunkUsageOpen === chapterIdx) {
+      setChunkUsageOpen(null);
+      return;
+    }
+    if (chunkUsageData[chapterIdx]) {
+      setChunkUsageOpen(chapterIdx);
+      return;
+    }
+    setChunkUsageBusy(chapterIdx);
+    try {
+      const res = await fetch(`/api/chapter/${chapterIdx}/chunks?projectId=${projectId}`);
+      if (res.ok) {
+        const d = await res.json();
+        setChunkUsageData(prev => ({ ...prev, [chapterIdx]: d.chunks || [] }));
+        setChunkUsageOpen(chapterIdx);
+      }
+    } catch (e) {
+      console.error("loadChunkUsage failed", e);
+    } finally {
+      setChunkUsageBusy(null);
+    }
+  };
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -2130,8 +2161,72 @@ function Inner() {
                   <button onClick={() => moveChapter(i, -1)} disabled={i === 0} className="hover:underline disabled:opacity-30">↑</button>
                   <button onClick={() => moveChapter(i, 1)} disabled={i === project.chapters.length - 1} className="hover:underline disabled:opacity-30">↓</button>
                   <button onClick={() => startEditTitle(i)} className="hover:underline">수정</button>
+                  {/* 챕터별 사용된 chunks 표시 — references 있을 때만 */}
+                  {!!((project as any).referencesSummary?.keyPoints?.length) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); loadChunkUsage(i); }}
+                      className={`hover:underline ${i === activeIdx ? "text-white" : "hover:text-tiger-orange"}`}
+                      title="이 챕터 주제와 의미적으로 가까운 자료 chunks (근사)"
+                      disabled={chunkUsageBusy === i}
+                    >
+                      {chunkUsageBusy === i ? "⏳" : `📚${chunkUsageData[i] ? ` ${chunkUsageData[i].length}` : ""}`}
+                    </button>
+                  )}
                   <button onClick={() => deleteChapter(i)} className="hover:underline ml-auto">삭제</button>
                 </div>
+                {/* 사용된 chunks inline expand */}
+                {chunkUsageOpen === i && chunkUsageData[i] && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className={`px-2 pb-2 ${i === activeIdx ? "text-white/90" : "text-ink-900"}`}
+                  >
+                    <div className={`rounded-lg border p-2 text-[11px] space-y-1.5 ${
+                      i === activeIdx ? "bg-white/10 border-white/20" : "bg-gray-50 border-gray-200"
+                    }`}>
+                      <div className={`text-[10px] italic ${i === activeIdx ? "text-white/70" : "text-gray-500"}`}>
+                        ❓ 챕터 주제와 의미적으로 가까운 chunk입니다 (실제 본문 인용 여부는 별도 검증 필요)
+                      </div>
+                      {chunkUsageData[i].length === 0 ? (
+                        <div className={i === activeIdx ? "text-white/80" : "text-gray-500"}>
+                          관련 자료를 찾지 못했습니다 (거리 임계값 0.7 초과).
+                        </div>
+                      ) : (
+                        chunkUsageData[i].map((cu, ci) => {
+                          // distance 0(완벽 일치) ~ 0.7(임계). similarity bar 0~1로 변환.
+                          const sim = Math.max(0, Math.min(1, 1 - cu.distance));
+                          const snippet = cu.content.length > 200 ? cu.content.slice(0, 200) + "…" : cu.content;
+                          return (
+                            <div key={ci} className={`rounded p-1.5 ${i === activeIdx ? "bg-white/10" : "bg-white border border-gray-100"}`}>
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className={`font-mono text-[10px] truncate ${i === activeIdx ? "text-white/90" : "text-gray-700"}`} title={`${cu.filename} #${cu.chunkIdx + 1}`}>
+                                  {cu.filename} #{cu.chunkIdx + 1}
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0" title={`유사도 ${(sim * 100).toFixed(0)}% (distance ${cu.distance.toFixed(3)})`}>
+                                  <div className={`w-12 h-1 rounded-full overflow-hidden ${i === activeIdx ? "bg-white/20" : "bg-gray-200"}`}>
+                                    <div
+                                      className={`h-full ${i === activeIdx ? "bg-white" : "bg-tiger-orange"}`}
+                                      style={{ width: `${(sim * 100).toFixed(0)}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-[9px] font-mono ${i === activeIdx ? "text-white/80" : "text-gray-500"}`}>{(sim * 100).toFixed(0)}%</span>
+                                </div>
+                              </div>
+                              <div className={`text-[10px] leading-snug whitespace-pre-wrap break-keep ${i === activeIdx ? "text-white/85" : "text-gray-700"}`}>
+                                {snippet}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setChunkUsageOpen(null); }}
+                        className={`text-[10px] underline ${i === activeIdx ? "text-white/70 hover:text-white" : "text-gray-500 hover:text-tiger-orange"}`}
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {/* hover tooltip — 챕터 요약 */}
                 {(c.subtitle || (c as any).summary) && (
                   <div className="absolute left-full ml-3 top-0 w-72 p-3.5 bg-ink-900 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[60] hidden lg:block">
