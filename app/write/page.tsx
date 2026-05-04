@@ -169,6 +169,19 @@ function Inner() {
   const [infographicBusy, setInfographicBusy] = useState(false);
   const [infographicTemplate, setInfographicTemplate] = useState<"minimal" | "bold" | "dark">("bold");
 
+  // ─── 책별 매출 입력 ("이정도 번다") ───
+  // 사용자가 채널별 누적 매출 직접 입력 → /profile에서 비용 vs 매출 ROI 계산.
+  type RevenueChannelInput = { channel: string; label?: string; grossKRW: number; feeRate: number };
+  const [revenueChannels, setRevenueChannels] = useState<RevenueChannelInput[]>([
+    { channel: "kmong", grossKRW: 0, feeRate: 0.20 },
+    { channel: "ridi", grossKRW: 0, feeRate: 0.30 },
+    { channel: "kyobo", grossKRW: 0, feeRate: 0.30 },
+    { channel: "aladdin", grossKRW: 0, feeRate: 0.30 },
+    { channel: "direct", grossKRW: 0, feeRate: 0 },
+  ]);
+  const [revenueBusy, setRevenueBusy] = useState(false);
+  const [revenueSavedFlash, setRevenueSavedFlash] = useState(false);
+
   // ─── 챕터별 사용된 chunks (투명성) ───
   // 챕터 본문 생성 시 사용된 chunks를 저장하지 않으므로, 챕터 title을 query로 ragSearch 다시 실행 → 근사치.
   type ChapterChunk = { filename: string; chunkIdx: number; content: string; distance: number };
@@ -247,6 +260,26 @@ function Inner() {
   // infographic sync (Wave B3)
   useEffect(() => {
     if ((project as any)?.infographic) setInfographic((project as any).infographic);
+  }, [project]);
+
+  // revenue sync — project.revenue가 있으면 입력 폼에 반영. 없는 채널은 0으로 보존.
+  useEffect(() => {
+    const rev = (project as any)?.revenue;
+    if (!rev || !Array.isArray(rev.channels)) return;
+    setRevenueChannels(prev => {
+      const byChannel = new Map<string, RevenueChannelInput>();
+      for (const c of prev) byChannel.set(`${c.channel}::${c.label ?? ""}`, c);
+      for (const c of rev.channels) {
+        const key = `${c.channel}::${c.label ?? ""}`;
+        byChannel.set(key, {
+          channel: c.channel,
+          label: c.label,
+          grossKRW: Number(c.grossKRW) || 0,
+          feeRate: typeof c.feeRate === "number" ? c.feeRate : 0,
+        });
+      }
+      return Array.from(byChannel.values());
+    });
   }, [project]);
 
   if (unauthorized) {
@@ -1217,6 +1250,41 @@ function Inner() {
     a.click();
   };
 
+  // ─── 책별 매출 저장 ("이정도 번다") ───
+  const updateRevenueChannel = (idx: number, patch: Partial<RevenueChannelInput>) => {
+    setRevenueChannels(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+  };
+  const saveRevenue = async () => {
+    if (!projectId) return;
+    setRevenueBusy(true); setError(null);
+    try {
+      const payload = revenueChannels.map(c => ({
+        channel: c.channel,
+        ...(c.label ? { label: c.label } : {}),
+        grossKRW: Math.max(0, Math.floor(Number(c.grossKRW) || 0)),
+        feeRate: Math.max(0, Math.min(1, Number(c.feeRate) || 0)),
+      }));
+      const res = await fetch(`/api/projects/${projectId}/revenue`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels: payload }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.message || `매출 저장 실패 (${res.status})`);
+      }
+      // refresh project
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+      setRevenueSavedFlash(true);
+      setTimeout(() => setRevenueSavedFlash(false), 2000);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRevenueBusy(false);
+    }
+  };
+
   // ─── Wave B1: 1-click bundle (publish/growth/full) ───
   // 순차적으로 필요한 endpoint를 호출. 이미 생성된 항목은 스킵 가능.
   const runBundle = async (level: BundleLevel) => {
@@ -2124,6 +2192,76 @@ function Inner() {
                 </div>
               </div>
             </div>
+
+            {/* 💰 매출 입력 ("이정도 번다") — 사용자가 채널별 매출 직접 입력 → /profile에서 ROI 계산 */}
+            <div className="mb-3 p-3 bg-green-50/60 border border-green-300/50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-ink-900">💰 매출 입력</h3>
+                {(() => {
+                  const net = revenueChannels.reduce(
+                    (sum, c) => sum + Math.floor((Number(c.grossKRW) || 0) * (1 - (Number(c.feeRate) || 0))),
+                    0,
+                  );
+                  return (
+                    <span className="text-[11px] font-mono text-green-700 font-bold">
+                      순매출 ₩{net.toLocaleString()}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="space-y-1.5">
+                {revenueChannels.map((row, i) => {
+                  const labelMap: Record<string, string> = {
+                    kmong: "크몽", ridi: "리디", kyobo: "교보", aladdin: "알라딘",
+                    direct: "직접", other: "기타",
+                  };
+                  return (
+                    <div key={`${row.channel}-${i}`} className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-gray-700 w-10 shrink-0">
+                        {labelMap[row.channel] ?? row.channel}
+                      </span>
+                      <div className="flex items-center gap-0.5 flex-1 min-w-0">
+                        <span className="text-[10px] text-gray-400">₩</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100_000_000}
+                          step={1000}
+                          value={row.grossKRW || ""}
+                          onChange={e => updateRevenueChannel(i, { grossKRW: Number(e.target.value) || 0 })}
+                          placeholder="0"
+                          className="flex-1 min-w-0 text-[11px] px-1.5 py-1 border border-gray-200 rounded font-mono focus:border-tiger-orange focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={Math.round((Number(row.feeRate) || 0) * 100)}
+                          onChange={e => updateRevenueChannel(i, { feeRate: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })}
+                          className="w-10 text-[11px] px-1 py-1 border border-gray-200 rounded font-mono text-right focus:border-tiger-orange focus:outline-none"
+                          title="채널 수수료 %"
+                        />
+                        <span className="text-[10px] text-gray-400">%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={saveRevenue}
+                disabled={revenueBusy}
+                className="w-full mt-2 px-2 py-1.5 bg-green-600 text-white rounded text-[11px] font-bold hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {revenueBusy ? "저장 중..." : revenueSavedFlash ? "✓ 저장됨" : "💾 저장"}
+              </button>
+              <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed">
+                직접 입력. 자동 추적은 추후 추가 예정.
+              </p>
+            </div>
+
             <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
               <span>목차 ({project.chapters.length})</span>
               <span className="lg:hidden text-[10px] font-mono text-gray-400">↕ 스크롤</span>

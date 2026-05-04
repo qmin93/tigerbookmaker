@@ -42,6 +42,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     marketingMeta: p.data?.marketingMeta,
     metaAdPackage: p.data?.metaAdPackage,
     repurposedContent: p.data?.repurposedContent,
+    revenue: p.data?.revenue,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });

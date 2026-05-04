@@ -147,6 +147,23 @@ export interface ChatThread {
   messages: ChatThreadMessage[];
 }
 
+// Revenue tracking — 책별 채널별 매출 (사용자 직접 입력).
+// /profile에서 비용 vs 매출 합산 ROI 계산.
+export type RevenueChannel = "kmong" | "ridi" | "kyobo" | "aladdin" | "direct" | "other";
+
+export interface BookRevenueChannel {
+  channel: RevenueChannel;
+  label?: string;          // for "other" or custom channel name
+  grossKRW: number;        // 누적 매출
+  feeRate?: number;        // 채널 수수료 비율 (0~1, default per channel)
+}
+
+export interface BookRevenue {
+  channels: BookRevenueChannel[];
+  netTotalKRW: number;     // 합산 순매출 (수수료 차감 후)
+  updatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -164,6 +181,7 @@ export interface BookProject {
   seriesMembership?: SeriesMembership;   // Wave C1: 같은 seriesId 가진 책들이 한 시리즈
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
+  revenue?: BookRevenue;   // 책별 매출 (사용자 직접 입력) — /profile에서 ROI 계산
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;

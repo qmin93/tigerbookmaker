@@ -33,6 +33,7 @@ interface OwnStats {
   totalCharged: number;
   totalSpent: number;
   totalPageViews: number;
+  totalRevenueKRW?: number;
 }
 
 type HandleStatus = "idle" | "checking" | "available" | "taken" | "invalid";
@@ -380,7 +381,30 @@ export default function ProfileEditPage() {
                     <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📧 구독자</div>
                     <div className="text-base font-bold text-ink-900 mt-1">{subscriberCount.toLocaleString()}<span className="text-xs font-normal text-gray-500 ml-1">명</span></div>
                   </div>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">💰 누적 매출</div>
+                    <div className="text-base font-bold text-green-700 mt-1">₩{(ownStats.totalRevenueKRW ?? 0).toLocaleString()}</div>
+                  </div>
+                  {(() => {
+                    const rev = ownStats.totalRevenueKRW ?? 0;
+                    const spent = ownStats.totalSpent || 0;
+                    const ratio = spent > 0 ? rev / spent : null;
+                    const positive = ratio !== null && ratio >= 1;
+                    return (
+                      <div className={`p-3 rounded-lg ${positive ? "bg-green-50" : "bg-gray-50"}`}>
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📈 ROI (매출/비용)</div>
+                        <div className={`text-base font-bold mt-1 ${positive ? "text-green-700" : "text-ink-900"}`}>
+                          {ratio === null ? "—" : `${(ratio * 100).toFixed(0)}%`}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
+                {(ownStats.totalRevenueKRW ?? 0) === 0 && (
+                  <div className="mt-3 text-[11px] text-gray-500 leading-relaxed">
+                    💡 책별 매출을 입력하면 ROI가 계산됩니다 (각 책 작성 페이지 사이드바에서).
+                  </div>
+                )}
               </div>
             )}
 
