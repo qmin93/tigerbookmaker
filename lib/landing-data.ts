@@ -59,12 +59,13 @@ export const SAMPLE_BOOKS = [
   },
 ];
 
+// 충전 패키지 — bonus 값은 /api/payment/prepare calcBonus()와 일치해야 함
+// (서버: 30K → 5%, 50K → 10%; 그 외 0)
 export const PRICING = [
-  { amount: 1_000,  bonus: 0,     label: "최소" },
-  { amount: 5_000,  bonus: 0,     label: "책 1.5권" },
-  { amount: 10_000, bonus: 0,     label: "책 3권" },
-  { amount: 30_000, bonus: 1_500, label: "책 10권", featured: true as const },
-  { amount: 50_000, bonus: 5_000, label: "책 18권" },
+  { amount: 5_000,  bonus: 0,     label: "스타터",   desc: "책 약 8권 — 처음 써보는 분",       featured: false as const },
+  { amount: 10_000, bonus: 0,     label: "베이직",   desc: "책 약 17권 — 본격 시작",           featured: false as const },
+  { amount: 30_000, bonus: 1_500, label: "그로스",   desc: "책 약 55권 + 5% 보너스 — 꾸준히 출간", featured: true  as const },
+  { amount: 50_000, bonus: 5_000, label: "프리미엄", desc: "책 약 95권 + 10% 보너스 — 시리즈·콘텐츠 풍부", featured: false as const },
 ];
 
 export const TIER_CARDS = [

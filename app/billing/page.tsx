@@ -2,14 +2,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
-
-const PRICING = [
-  { amount: 1_000, bonus: 0, label: "최소" },
-  { amount: 5_000, bonus: 0, label: "책 1.5권" },
-  { amount: 10_000, bonus: 0, label: "책 3권" },
-  { amount: 30_000, bonus: 1_500, label: "책 10권", featured: true },
-  { amount: 50_000, bonus: 5_000, label: "책 18권" },
-];
+import { PRICING } from "@/lib/landing-data";
 
 export default function BillingPage() {
   const [user, setUser] = useState<{ id?: string; balance_krw?: number; total_spent?: number; email?: string } | null>(null);
@@ -123,32 +116,40 @@ export default function BillingPage() {
           )}
         </div>
 
-        {/* 충전 단위 */}
-        <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">01 / 충전 금액</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-10">
-          {PRICING.map((p) => (
-            <button
-              key={p.amount}
-              onClick={() => setSelected(p.amount)}
-              disabled={busy}
-              className={`p-4 rounded-xl border-2 transition text-center bg-white ${
-                selected === p.amount
-                  ? "border-tiger-orange shadow-glow-orange-sm"
-                  : p.featured
-                  ? "border-tiger-orange/60"
-                  : "border-gray-200 hover:border-gray-400"
-              } disabled:opacity-50`}
-            >
-              {p.featured && (
-                <div className="text-[10px] font-mono text-tiger-orange uppercase tracking-[0.2em] mb-1">★ 인기</div>
-              )}
-              <div className="font-mono text-lg font-bold text-ink-900">₩{p.amount.toLocaleString()}</div>
-              {p.bonus > 0 ? (
-                <div className="text-xs font-mono text-tiger-orange mt-1">+₩{p.bonus.toLocaleString()}</div>
-              ) : <div className="text-xs font-mono text-gray-400 mt-1">—</div>}
-              <div className="text-[10px] text-gray-500 mt-1">{p.label}</div>
-            </button>
-          ))}
+        {/* 충전 패키지 */}
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">01 / 충전 패키지</p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {PRICING.map((p) => {
+            const isSelected = selected === p.amount;
+            return (
+              <button
+                key={p.amount}
+                onClick={() => setSelected(p.amount)}
+                disabled={busy}
+                className={`text-left p-5 rounded-2xl border-2 transition disabled:opacity-50 ${
+                  isSelected
+                    ? "border-tiger-orange bg-orange-50 shadow-glow-orange-sm"
+                    : p.featured
+                    ? "border-tiger-orange/60 bg-orange-50/30 hover:border-tiger-orange"
+                    : "border-gray-200 hover:border-tiger-orange bg-white"
+                }`}
+              >
+                {p.featured && (
+                  <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">
+                    ★ 추천
+                  </div>
+                )}
+                <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-1">{p.label}</div>
+                <div className="font-mono text-2xl font-black text-ink-900">₩{p.amount.toLocaleString()}</div>
+                {p.bonus > 0 && (
+                  <div className="text-xs text-tiger-orange font-bold mt-1">
+                    + ₩{p.bonus.toLocaleString()} 보너스
+                  </div>
+                )}
+                <div className="text-xs text-gray-600 mt-2 leading-relaxed">{p.desc}</div>
+              </button>
+            );
+          })}
         </div>
 
         {/* 환산 */}
