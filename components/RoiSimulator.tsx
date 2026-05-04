@@ -34,13 +34,13 @@ export function RoiSimulator() {
       <div className="max-w-6xl mx-auto px-6">
         <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange">
           <span className="w-6 h-px bg-tiger-orange" />
-          ROI 시뮬레이터
+          부수익 ROI 시뮬레이터
         </div>
         <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-          내가 책 한 권 만들면 <span className="text-tiger-orange">얼마 벌까?</span>
+          크몽에서 <span className="text-tiger-orange">부수익 얼마나</span> 벌까?
         </h2>
         <p className="mt-4 text-gray-700 max-w-xl">
-          슬라이더를 움직여서 내 시나리오를 직접 확인. 모든 수치는 실측 비용 기반.
+          크몽 셀러 · 강사 · 코치 — 본인 시나리오 슬라이더로 직접 계산. 모든 수치는 실측 비용 기반.
         </p>
 
         <div className="mt-12 grid lg:grid-cols-2 gap-8 lg:gap-10">

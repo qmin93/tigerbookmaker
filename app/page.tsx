@@ -18,13 +18,14 @@ export default function Home() {
               AI 한국어 전자책 자동 집필 — Beta
             </span>
           </div>
-          <h1 className="opacity-0 animate-fade-up mt-8 font-black tracking-tighter2 leading-[0.95] text-[44px] sm:text-6xl md:text-7xl lg:text-[88px] text-ink-900" style={{ animationDelay: "180ms" }}>
-            30분이면 한 권.<br />
-            <span className="text-tiger-orange">주제만</span> 던지세요.
+          <div className="opacity-0 animate-fade-up mt-8 text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-4" style={{ animationDelay: "120ms" }}>크몽 셀러 · 강사 · 코치 · 부수익러</div>
+          <h1 className="opacity-0 animate-fade-up font-black tracking-tighter2 leading-[0.95] text-[44px] sm:text-6xl md:text-7xl lg:text-[88px] text-ink-900" style={{ animationDelay: "180ms" }}>
+            크몽에서 부수익,<br />
+            <span className="text-tiger-orange">30분</span>에 한 권.
           </h1>
           <p className="opacity-0 animate-fade-up mt-8 max-w-2xl text-lg md:text-xl text-gray-600 leading-relaxed" style={{ animationDelay: "300ms" }}>
-            <span className="text-ink-900 font-bold">내 자료(PDF·URL·텍스트)를 정확히 이해</span>하고 목차부터 12챕터 본문까지 자동 집필.
-            톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 한 번에.
+            <span className="text-ink-900 font-bold">주제 한 줄 + 본인 자료 1개 → AI가 12챕터 + 표지 + 마케팅 자료까지 자동.</span>
+            <br />₩600 만들어 ₩5,000~₩10,000에 크몽 판매.
           </p>
           <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
             <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
