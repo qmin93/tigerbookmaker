@@ -755,3 +755,51 @@ ${repurposeBookContext(p)}
 
 JSON만 출력. 마크다운 코드블록 금지. 다른 설명 X.`;
 }
+
+// ============================================================================
+// 강의 슬라이드 outline — 책 본문 → 10~20장 강의 슬라이드 (강사·코치 페르소나용)
+// 실시간 줌/오프라인 강의 즉시 사용. 표지 + 본문 + 마무리 구조.
+// ============================================================================
+export function courseSlidesPrompt(project: BookProject, slideCount: number = 12): string {
+  const safeCount = Math.max(8, Math.min(20, slideCount));
+  const chapterTitles = (project.chapters ?? [])
+    .map((c, i) => `${i + 1}. ${c.title}${c.subtitle ? ` — ${c.subtitle}` : ""}`)
+    .join("\n");
+
+  // 챕터 본문 발췌 (각 챕터 첫 300자) — 강의 흐름 추출용
+  const chapterExcerpts = (project.chapters ?? [])
+    .map((c, i) => `[챕터 ${i + 1}] ${c.title}\n${(c.content ?? "").slice(0, 300)}`)
+    .join("\n\n");
+
+  return `당신은 책 작가의 책을 바탕으로 한국어 강의 슬라이드 ${safeCount}장 outline을 만드는 강의 디자이너입니다.
+
+[책 정보]
+- 주제: ${project.topic}
+- 대상: ${project.audience}
+- 유형: ${project.type}
+
+[챕터 구성]
+${chapterTitles || "(챕터 없음)"}
+
+[챕터 발췌]
+${chapterExcerpts || "(본문 없음)"}
+
+[작업]
+강의 슬라이드 ${safeCount}장 outline을 한국어 JSON으로 생성하세요.
+- 슬라이드 1: 표지 (책 제목 + 부제 + "by 작가" 톤)
+- 슬라이드 2: 강의 개요 / 목차
+- 슬라이드 3 ~ ${safeCount - 1}: 본문 (각 챕터 핵심 1-2장씩 분배)
+- 슬라이드 ${safeCount}: 마무리 + CTA ("책 자세히는 →" 같은)
+
+각 슬라이드:
+- title: 한 줄 (40자 이내, 큰 글자로 표시)
+- bullets: 3-5개 (각 30자 이내, 핵심 포인트만)
+- notes: 강사 발표 스크립트 (200-400자) — 강사가 슬라이드 설명할 내용
+
+[출력 — 순수 JSON만, 마크다운 코드블록 금지]
+{
+  "slides": [
+    { "slideNum": 1, "title": "...", "bullets": ["...", "..."], "notes": "..." }
+  ]
+}`;
+}
