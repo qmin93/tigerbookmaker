@@ -7,11 +7,23 @@ import { sql } from "@vercel/postgres";
 
 export const runtime = "nodejs";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const { rows } = await sql`
-    SELECT id, topic, audience, type, data, created_at
-    FROM book_projects WHERE id = ${params.id}
-  `;
+  if (!params.id || !UUID_RE.test(params.id)) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  let rows: any[] = [];
+  try {
+    const r = await sql`
+      SELECT id, topic, audience, type, data, created_at
+      FROM book_projects WHERE id = ${params.id}
+    `;
+    rows = r.rows;
+  } catch (e: any) {
+    console.error("[/api/book/[id]] db error:", e?.message);
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
   const p = rows[0];
   if (!p) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
