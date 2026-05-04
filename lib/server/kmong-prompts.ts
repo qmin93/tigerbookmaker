@@ -25,33 +25,74 @@ export interface KmongCopy {
 const NO_TEXT = `WORDLESS, no letters, no numbers, no characters, no glyphs, no symbols, no readable text of any language anywhere in the image. Pure visual artwork only.`;
 const NO_BOOK_OBJECT = `flat 2D artwork only, NO 3D book mockup, NO physical book, NO bound pages.`;
 
-// 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기 분기. topic은 prompt에 직접 사용 X.
-function coverPromptByGenre(p: BookProject): string {
+// 책별 themeColor → hex / 영문 색이름 매핑 (prompt 안에서 색 설명용)
+const themeHexByKey: Record<string, string> = {
+  orange: "#f97316",
+  blue: "#3b82f6",
+  green: "#10b981",
+  purple: "#a855f7",
+  red: "#ef4444",
+  gray: "#6b7280",
+};
+const themeNameByKey: Record<string, string> = {
+  orange: "warm orange",
+  blue: "deep blue",
+  green: "fresh emerald",
+  purple: "rich violet",
+  red: "vibrant red",
+  gray: "neutral gray",
+};
+
+function resolveThemeColor(p: BookProject): { hex: string; name: string } {
+  const key = (p as any).themeColor ?? "orange";
+  const hex = themeHexByKey[key] || "#f97316";
+  const name = themeNameByKey[key] || "warm orange";
+  return { hex, name };
+}
+
+// 책 topic을 시각 컨셉 힌트로만 사용 — 글자로 그리지 않도록 강하게 안내.
+function topicHint(p: BookProject, extra?: string): string {
+  const t = (p.topic ?? "").toString().slice(0, 200);
+  if (!t) return extra ? `[STYLE NOTE]\n${extra}` : "";
+  return `[KEY CONCEPT for visual inspiration — do NOT render any text]
+The book is about: ${t}
+The visual should evoke this theme without showing any letters.${extra ? `\n${extra}` : ""}`;
+}
+
+// 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기 분기. 색상은 themeColor에서.
+// topic은 시각 컨셉 힌트로만 (글자로 그리지 X).
+function coverPromptByGenre(p: BookProject, styleVariant?: string): string {
   const base = `Square 1:1 abstract editorial graphic composition, premium publishing aesthetic. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
+  const { hex, name } = resolveThemeColor(p);
+  const topic = topicHint(p, styleVariant);
 
   switch (p.type) {
     case "자기계발서":
-      return `${base} Powerful upward arrow, mountain peak, or rising line graph as central abstract element. Warm orange (#f97316) on cream/white background. Bold geometric shapes. Confident motivational mood.`;
+      return `${base} Powerful upward arrow, mountain peak, or rising line graph as central abstract element. ${name} (${hex}) on cream/white background. Bold geometric shapes. Confident motivational mood.\n\n${topic}`;
 
     case "재테크":
-      return `${base} Abstract financial chart pattern — upward trending line graph, geometric coin silhouette, or vault icon. Deep navy + gold OR white + emerald palette. Banking professional aesthetic. Geometric and serious.`;
+      return `${base} Abstract financial chart pattern — upward trending line graph, geometric coin silhouette, or vault icon. Sophisticated palette built around ${name} (${hex}) with deep neutrals. Banking professional aesthetic. Geometric and serious.\n\n${topic}`;
 
     case "에세이":
-      return `${base} Soft watercolor wash, single botanical element (leaf, branch, single flower silhouette), or atmospheric landscape silhouette. Muted earthy palette (sage, terracotta, cream). Quiet contemplative mood. Hand-drawn illustration style.`;
+      return `${base} Soft watercolor wash, single botanical element (leaf, branch, single flower silhouette), or atmospheric landscape silhouette. Muted earthy palette accented with ${name} (${hex}). Quiet contemplative mood. Hand-drawn illustration style.\n\n${topic}`;
 
     case "웹소설":
-      return `${base} Single dramatic character silhouette OR evocative cinematic scene, mood lighting, vivid color contrast. Webtoon-influenced painterly illustration. Story-rich dramatic atmosphere.`;
+      return `${base} Single dramatic character silhouette OR evocative cinematic scene, mood lighting, vivid color contrast led by ${name} (${hex}). Webtoon-influenced painterly illustration. Story-rich dramatic atmosphere.\n\n${topic}`;
 
     case "전문서":
-      return `${base} Geometric grid composition, single conceptual diagram or symbolic icon (network, atom, abstract graph). Cool palette: deep blue, charcoal, white. Authoritative academic mood. Minimalist structured layout.`;
+      return `${base} Geometric grid composition, single conceptual diagram or symbolic icon (network, atom, abstract graph). Cool authoritative palette built around ${name} (${hex}) with charcoal and white. Authoritative academic mood. Minimalist structured layout.\n\n${topic}`;
 
     case "매뉴얼":
-      return `${base} Schematic exploded-view diagram of generic tool, blueprint aesthetic, fine line work. Monochrome with single safety-orange (#f97316) accent. Functional clear technical drawing.`;
+      return `${base} Schematic exploded-view diagram of generic tool, blueprint aesthetic, fine line work. Monochrome with single ${name} (${hex}) accent. Functional clear technical drawing.\n\n${topic}`;
 
     case "실용서":
     default:
-      return `${base} Modern minimalist composition, single bold geometric or symbolic icon centered. Clean white background, single accent color (orange #f97316). Editorial design.`;
+      return `${base} Modern minimalist composition, single bold geometric or symbolic icon centered. Clean white background, single accent color ${name} (${hex}). Editorial design.\n\n${topic}`;
   }
+}
+
+export function coverPrompt(p: BookProject, styleVariant?: string): string {
+  return coverPromptByGenre(p, styleVariant);
 }
 
 export function imagePrompt(type: KmongImageType, p: BookProject): string {
