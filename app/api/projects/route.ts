@@ -28,6 +28,8 @@ export async function GET() {
       writtenCount: (r.data?.chapters ?? []).filter((c: any) => c.content).length,
       favorite: r.data?.favorite === true,
       archived: r.data?.archived === true,
+      themeColor: r.data?.themeColor ?? "orange",
+      hasCover: ((r.data?.kmongPackage?.images ?? []).find((i: any) => i.type === "cover")?.base64) ? true : false,
       updatedAt: r.updated_at,
     })),
   });

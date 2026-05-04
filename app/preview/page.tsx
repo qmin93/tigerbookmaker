@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getTheme } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 // 북 미리보기 — PDF 다운로드 전 책 결과물을 페이지 단위로 보기.
 // 챕터 본문을 ~700자 단위로 페이지 분할. 좌우 화살표 / 키보드 navigation.
@@ -20,6 +22,7 @@ interface Project {
   type: string;
   chapters: Chapter[];
   kmongPackage?: { images?: { type: string; base64: string }[] };
+  themeColor?: ThemeColorKey;
 }
 
 interface Page {
@@ -103,6 +106,7 @@ function Inner() {
   const cover = project.kmongPackage?.images?.find(i => i.type === "cover");
   const writtenChapters = project.chapters.filter(c => c.content);
   const pct = total > 1 ? Math.round((idx / (total - 1)) * 100) : 100;
+  const theme = getTheme(project.themeColor as ThemeColorKey | undefined);
 
   return (
     <main className="min-h-screen bg-ink-900 flex flex-col">
@@ -144,7 +148,7 @@ function Inner() {
           style={{ boxShadow: "0 25px 60px -15px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)" }}
           onClick={() => setIdx(i => Math.min(i + 1, total - 1))}
         >
-          <PageContent page={current} project={project} cover={cover} />
+          <PageContent page={current} project={project} cover={cover} theme={theme} />
         </div>
       </div>
 
@@ -176,7 +180,7 @@ function Inner() {
   );
 }
 
-function PageContent({ page, project, cover }: { page: Page; project: Project; cover?: { base64: string } }) {
+function PageContent({ page, project, cover, theme }: { page: Page; project: Project; cover?: { base64: string }; theme: ReturnType<typeof getTheme> }) {
   if (page.type === "cover") {
     return (
       <div className="w-full h-full flex flex-col">
@@ -184,9 +188,12 @@ function PageContent({ page, project, cover }: { page: Page; project: Project; c
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={`data:image/png;base64,${cover.base64}`} alt="표지" className="w-full flex-1 object-cover" />
         ) : (
-          <div className="flex-1 bg-gradient-to-br from-ink-900 via-ink-800 to-tiger-orange flex items-center justify-center p-12">
+          <div
+            className="flex-1 flex items-center justify-center p-12"
+            style={{ background: `linear-gradient(to bottom right, #0a0a0a, #1a1a1a, ${theme.hex})` }}
+          >
             <div className="text-center text-white">
-              <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-4">TIGERBOOKMAKER</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.3em] mb-4" style={{ color: theme.hex }}>TIGERBOOKMAKER</div>
               <div className="text-3xl md:text-4xl font-black leading-tight">{project.topic}</div>
               <div className="mt-4 text-sm text-white/70">대상: {project.audience}</div>
             </div>

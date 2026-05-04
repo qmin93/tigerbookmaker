@@ -184,9 +184,12 @@ function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={`data:image/png;base64,${book.cover.base64}`} alt="표지" className="w-full flex-1 object-cover" />
         ) : (
-          <div className="flex-1 bg-gradient-to-br from-ink-900 via-ink-800 to-tiger-orange flex items-center justify-center p-12">
+          <div
+            className="flex-1 flex items-center justify-center p-12"
+            style={{ background: `linear-gradient(to bottom right, #0a0a0a, #1a1a1a, ${theme.hex})` }}
+          >
             <div className="text-center text-white">
-              <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-4">TIGERBOOKMAKER</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.3em] mb-4" style={{ color: theme.hex }}>TIGERBOOKMAKER</div>
               <div className="text-3xl md:text-4xl font-black leading-tight">{book.topic}</div>
               <div className="mt-4 text-sm text-white/70">대상: {book.audience}</div>
             </div>
@@ -260,14 +263,17 @@ function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme
     const customLinks = sl.custom ?? [];
     const hasLinks = sl.kmong || sl.ridi || sl.kyobo || customLinks.length > 0;
     return (
-      <div className="w-full h-full bg-gradient-to-br from-ink-900 via-ink-800 to-tiger-orange flex flex-col items-center justify-center text-white p-8 md:p-12 text-center">
+      <div
+        className="w-full h-full flex flex-col items-center justify-center text-white p-8 md:p-12 text-center"
+        style={{ background: `linear-gradient(to bottom right, #0a0a0a, #1a1a1a, ${theme.hex})` }}
+      >
         <div className="text-5xl mb-4">🎉</div>
         <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-2">끝까지 읽어주셔서 감사해요</h2>
         <p className="text-white/70 text-sm mb-8">「{book.topic}」</p>
 
         {hasLinks && (
           <div className="w-full max-w-sm space-y-2 mb-8">
-            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-3">📚 책 구매·다운로드</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] mb-3" style={{ color: theme.hex }}>📚 책 구매·다운로드</div>
             {sl.kmong && <a href={sl.kmong} target="_blank" rel="noopener noreferrer" className="block py-3 bg-white/10 hover:bg-white/20 rounded-lg font-bold transition">크몽에서 보기 →</a>}
             {sl.ridi && <a href={sl.ridi} target="_blank" rel="noopener noreferrer" className="block py-3 bg-white/10 hover:bg-white/20 rounded-lg font-bold transition">리디북스에서 보기 →</a>}
             {sl.kyobo && <a href={sl.kyobo} target="_blank" rel="noopener noreferrer" className="block py-3 bg-white/10 hover:bg-white/20 rounded-lg font-bold transition">교보문고에서 보기 →</a>}
@@ -278,7 +284,7 @@ function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme
         )}
 
         <div className="border-t border-white/20 pt-6 mt-2 max-w-sm w-full">
-          <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-tiger-orange mb-2">이 책은</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.3em] mb-2" style={{ color: theme.hex }}>이 책은</div>
           <div className="text-base font-bold mb-3">🐯 Tigerbookmaker로 30분만에 만들어졌어요</div>
           <Link href="/" className={`inline-block px-6 py-3 ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} rounded-lg font-bold transition`}>
             나도 책 만들기 →

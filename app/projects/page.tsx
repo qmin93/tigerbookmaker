@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
+import { getTheme } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 interface Project {
   id: string;
@@ -12,6 +14,8 @@ interface Project {
   writtenCount: number;
   favorite: boolean;
   archived: boolean;
+  themeColor?: ThemeColorKey;
+  hasCover?: boolean;
   updatedAt: string;
 }
 
@@ -118,6 +122,7 @@ export default function ProjectsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {visible.map(p => {
               const pct = Math.round((p.writtenCount / Math.max(p.chapterCount, 1)) * 100);
+              const theme = getTheme(p.themeColor as ThemeColorKey | undefined);
               return (
                 <article key={p.id} className={`group bg-white rounded-2xl p-5 border transition relative ${
                   p.favorite ? "border-tiger-orange/60 ring-1 ring-tiger-orange/30" : "border-gray-200"
@@ -141,7 +146,10 @@ export default function ProjectsPage() {
                       {p.archived ? "📤" : "🗄️"}
                     </button>
                   </div>
-                  <div className="aspect-[3/4] bg-gradient-to-br from-ink-900 via-ink-800 to-tiger-orange rounded-xl mb-4 flex items-center justify-center text-white p-6 ring-1 ring-ink-700/40 overflow-hidden relative">
+                  <div
+                    className="aspect-[3/4] rounded-xl mb-4 flex items-center justify-center text-white p-6 ring-1 ring-ink-700/40 overflow-hidden relative"
+                    style={{ background: `linear-gradient(to bottom right, #0a0a0a, #1a1a1a, ${theme.hex})` }}
+                  >
                     <div className="absolute inset-0 bg-grid-faint bg-grid-32 opacity-20" />
                     <div className="relative text-center">
                       <div className="text-[10px] font-mono uppercase tracking-[0.2em] opacity-70 mb-2">TIGERBOOKMAKER</div>
