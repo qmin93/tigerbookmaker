@@ -41,6 +41,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     themeColor: p.data?.themeColor ?? "orange",
     marketingMeta: p.data?.marketingMeta,
     metaAdPackage: p.data?.metaAdPackage,
+    repurposedContent: p.data?.repurposedContent,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });
@@ -53,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor, marketingMeta, metaAdPackage } = body ?? {};
+  const { themeColor, marketingMeta, metaAdPackage, repurposedContent } = body ?? {};
 
   const projectRow = await getProject(projectId, userId);
   if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -122,6 +123,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     sanitized.generatedAt = Date.now();
     const existing = (projectRow.data as any)?.metaAdPackage ?? {};
     updates.metaAdPackage = { ...existing, ...sanitized };
+  }
+
+  if (repurposedContent !== undefined) {
+    if (typeof repurposedContent !== "object" || repurposedContent === null) {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "repurposedContent는 object여야 합니다" }, { status: 400 });
+    }
+    // 5 채널 (instagram, youtube, blog, email, kakao) — 기존과 머지
+    const ALLOWED_CHANNELS = ["instagram", "youtube", "blog", "email", "kakao"] as const;
+    const sanitized: any = { ...((projectRow.data as any)?.repurposedContent ?? {}) };
+    for (const ch of ALLOWED_CHANNELS) {
+      const ch_value = (repurposedContent as any)[ch];
+      if (ch_value !== undefined) {
+        if (typeof ch_value === "object" && ch_value !== null) {
+          sanitized[ch] = { ...ch_value, generatedAt: Date.now() };
+        }
+      }
+    }
+    updates.repurposedContent = sanitized;
   }
 
   if (Object.keys(updates).length === 0) {
