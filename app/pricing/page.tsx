@@ -144,6 +144,75 @@ export default function PricingPage() {
             </div>
           </div>
 
+          {/* 기능별 가격 상세 표 */}
+          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 md:p-8">
+            <h3 className="text-lg md:text-xl font-black tracking-tight text-ink-900 mb-1">
+              📋 기능별 가격 상세 (충전식)
+            </h3>
+            <p className="text-sm text-gray-600 mb-5">
+              사용한 기능만큼만 잔액에서 차감. 안 쓰면 비용 0원. 필요할 때 ₩10,000 / ₩30,000 / ₩50,000 단위로 충전.
+            </p>
+
+            <div className="space-y-6">
+              {/* 필수 기능 */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">📝 책 본문 (필수)</div>
+                <PriceRow label="본문 1챕터 자동 집필" cost="₩300" note="12챕터 → ₩3,600" />
+                <PriceRow label="표지 이미지 1장" cost="₩400" note="Imagen 4 Fast (한국어 정확)" />
+              </div>
+
+              {/* RAG / 인터뷰 */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">📚 자료 + 인터뷰 (선택)</div>
+                <PriceRow label="자료 분석 (5 핵심 + gaps)" cost="₩200" note="PDF/URL/텍스트/DOCX 자료 활용" />
+                <PriceRow label="톤·말투 매칭" cost="₩200" note="자동 추천 또는 좋아하는 책 분석" />
+                <PriceRow label="이미지 OCR 1장" cost="₩200" note="Gemini Vision" />
+                <PriceRow label="자료 업로드 (PDF/URL/텍스트/DOCX/YouTube)" cost="무료" note="인터뷰 1질문도 무료" />
+              </div>
+
+              {/* 마케팅 */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">🎯 마케팅 (선택)</div>
+                <PriceRow label="마케팅 카피 (tagline + 설명)" cost="₩500" note="외주 ₩50,000+ 대비 1/100" />
+                <PriceRow label="Meta 광고 카피 5종" cost="₩500" note="헤드라인 + 본문 + CTA + 타겟팅" />
+                <PriceRow label="Meta 광고 이미지 3 비율" cost="₩1,500" note="피드/스토리/링크 (5 템플릿 선택)" />
+                <PriceRow label="카드뉴스 인포그래픽 5장" cost="₩1,000" note="외주 ₩50,000+ 대비 1/50" />
+                <PriceRow label="표지 다양화 5종" cost="₩1,500" note="다른 스타일로 5장 → 베스트 선택" />
+              </div>
+
+              {/* 콘텐츠 재가공 */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">📱 콘텐츠 재가공 (선택)</div>
+                <PriceRow label="인스타 카드뉴스 텍스트 (10장)" cost="₩500" />
+                <PriceRow label="유튜브 영상 대본 (1-3분)" cost="₩500" />
+                <PriceRow label="블로그 시리즈 5-10편" cost="₩1,500" note="외주 ₩100,000+ 대비 1/65" />
+                <PriceRow label="이메일 시퀀스 4편" cost="₩1,000" />
+                <PriceRow label="카톡 발행 메시지 5편" cost="₩300" />
+              </div>
+
+              {/* 프리미엄 */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">💎 프리미엄 (선택)</div>
+                <PriceRow label="오디오북 1챕터 (TTS)" cost="₩300" note="12챕터 → ₩3,600. 외주 ₩100,000+/책 대비 1/30" />
+                <PriceRow label="강의 슬라이드 12장" cost="₩2,000" note="외주 ₩200,000+ 대비 1/100. 강사·코치 추천" />
+                <PriceRow label="책 번역 (영/일) 1언어" cost="₩2,000" note="외주 ₩200,000+ 대비 1/100" />
+                <PriceRow label="미리보기 영상 frames 5장" cost="₩500" note="릴스/쇼츠용 9:16" />
+                <PriceRow label="이미지 재생성 (대화형)" cost="₩300" note='"더 어둡게" 같은 자연어 피드백' />
+              </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-200 grid sm:grid-cols-2 gap-3">
+              <div className="rounded-lg bg-orange-50/60 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-tiger-orange font-bold mb-1">💡 외주 비교</div>
+                <div className="text-sm text-ink-900">표준 패키지 ₩7,400 = 외주 ₩100,000+ 대비 <span className="font-bold">1/13</span></div>
+              </div>
+              <div className="rounded-lg bg-orange-50/60 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-tiger-orange font-bold mb-1">📈 ROI</div>
+                <div className="text-sm text-ink-900">크몽 1권 ₩5,000 판매 × 5권 = <span className="font-bold">표준 패키지 본전 + ₩4,200 흑자</span></div>
+              </div>
+            </div>
+          </div>
+
           {/* 베타 사용자 혜택 박스 */}
           <div className="mt-8 rounded-2xl border border-tiger-orange/30 bg-orange-50/60 p-6 md:p-8">
             <div className="flex items-start gap-4">
@@ -261,6 +330,21 @@ function Feature({ children }: { children: React.ReactNode }) {
       <span className="mt-0.5 text-tiger-orange font-bold">✓</span>
       <span>{children}</span>
     </li>
+  );
+}
+
+function PriceRow({ label, cost, note }: { label: string; cost: string; note?: string }) {
+  const isFree = cost === "무료";
+  return (
+    <div className="flex items-baseline gap-3 py-2 border-b border-gray-100 last:border-b-0">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-ink-900">{label}</div>
+        {note && <div className="text-[11px] text-gray-500 mt-0.5">{note}</div>}
+      </div>
+      <div className={`font-mono text-sm font-bold ${isFree ? "text-emerald-600" : "text-ink-900"} whitespace-nowrap`}>
+        {cost}
+      </div>
+    </div>
   );
 }
 

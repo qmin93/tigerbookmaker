@@ -27,6 +27,33 @@ export default function Home() {
             <span className="text-ink-900 font-bold">주제 한 줄 + 본인 자료 1개 → AI가 12챕터 + 표지 + 마케팅 자료까지 자동.</span>
             <br />₩4,000~₩12,000 만들어 ₩30,000~₩100,000에 크몽 판매.
           </p>
+
+          {/* 권당 비용 빠른 안내 */}
+          <div className="opacity-0 animate-fade-up mt-8 max-w-2xl rounded-xl border border-gray-200 bg-white/70 backdrop-blur p-4 md:p-5" style={{ animationDelay: "360ms" }}>
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-3">📊 권당 비용 (충전식 — 사용한 만큼만 차감)</div>
+            <div className="grid sm:grid-cols-2 gap-2 text-sm">
+              <div className="flex items-baseline justify-between gap-3 py-1">
+                <span className="text-gray-700">🌱 라이트 (본문+표지)</span>
+                <span className="font-mono font-bold text-ink-900">₩4,000</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 py-1">
+                <span className="text-gray-700">⭐ 표준 (+ 마케팅)</span>
+                <span className="font-mono font-bold text-ink-900">₩7,400</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 py-1">
+                <span className="text-gray-700">🚀 풀 (+ 광고 이미지)</span>
+                <span className="font-mono font-bold text-ink-900">₩12,200</span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 py-1">
+                <span className="text-gray-700">💎 프리미엄 (+ 오디오북·슬라이드)</span>
+                <span className="font-mono font-bold text-ink-900">₩21,300</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
+              ₩5,000 무료 크레딧 = 라이트 1권 시도. 자세한 기능별 가격은 <Link href="/pricing" className="text-tiger-orange font-bold hover:underline">/pricing</Link>에서.
+            </div>
+          </div>
+
           <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
             <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
               무료로 시작 — ₩5,000 크레딧 받기
