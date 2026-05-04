@@ -270,6 +270,12 @@ function Inner() {
     }
   };
 
+  // ─── Wave B2: 레퍼런스 chunk 시각화 + 개별 삭제 ───
+  // chunk 데이터는 reference 클릭 시 lazy-load
+  const onChunkDeleted = (refId: string, newCount: number) => {
+    setReferences(prev => prev.map(r => r.id === refId ? { ...r, chunkCount: newCount } : r));
+  };
+
   const askNextQuestion = async (newHistory: QA[]) => {
     setBusy("loading-next");
     setError(null);
@@ -519,21 +525,13 @@ function Inner() {
           {references.length > 0 && (
             <div className="space-y-1.5">
               {references.map(r => (
-                <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200 text-xs">
-                  <span className="text-base">
-                    {r.sourceType === "pdf" ? "📄"
-                      : r.sourceType === "url" ? "🌐"
-                      : r.sourceType === "docx" ? "📘"
-                      : r.sourceType === "youtube" ? "🎬"
-                      : r.sourceType === "image" ? "🖼️"
-                      : "📝"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-ink-900 truncate">{r.filename}</div>
-                    <div className="text-[10px] text-gray-500">{r.totalChars.toLocaleString()}자 · {r.chunkCount} chunks</div>
-                  </div>
-                  <button onClick={() => deleteReference(r.id)} className="text-[10px] text-gray-400 hover:text-red-600">삭제</button>
-                </div>
+                <ReferenceRow
+                  key={r.id}
+                  reference={r}
+                  onDelete={() => deleteReference(r.id)}
+                  onChunkDeleted={(newCount) => onChunkDeleted(r.id, newCount)}
+                  setError={setError}
+                />
               ))}
             </div>
           )}
@@ -816,5 +814,142 @@ export default function SetupPage() {
     <Suspense fallback={<main className="min-h-screen bg-[#fafafa] flex items-center justify-center text-gray-500">로딩...</main>}>
       <Inner />
     </Suspense>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Wave B2: ReferenceRow — chunk 단위 시각화 + 개별 삭제
+// ─────────────────────────────────────────────────────────
+
+interface ReferenceItem {
+  id: string;
+  filename: string;
+  sourceType: string;
+  chunkCount: number;
+  totalChars: number;
+}
+
+function ReferenceRow({
+  reference,
+  onDelete,
+  onChunkDeleted,
+  setError,
+}: {
+  reference: ReferenceItem;
+  onDelete: () => void;
+  onChunkDeleted: (newChunkCount: number) => void;
+  setError: (msg: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [chunks, setChunks] = useState<{ id: string; idx: number; content: string }[] | null>(null);
+  const [chunksBusy, setChunksBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const emoji =
+    reference.sourceType === "pdf" ? "📄"
+    : reference.sourceType === "url" ? "🌐"
+    : reference.sourceType === "docx" ? "📘"
+    : reference.sourceType === "youtube" ? "🎬"
+    : reference.sourceType === "image" ? "🖼️"
+    : "📝";
+
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (chunks === null) {
+      setChunksBusy(true);
+      try {
+        const res = await fetch(`/api/reference/${reference.id}/chunks`);
+        if (!res.ok) throw new Error("chunk 로드 실패");
+        const data = await res.json();
+        setChunks(data.chunks ?? []);
+      } catch (e: any) {
+        setError(e.message);
+        setOpen(false);
+      } finally {
+        setChunksBusy(false);
+      }
+    }
+  };
+
+  const deleteChunk = async (chunkId: string) => {
+    if (!confirm("이 chunk만 삭제할까요? (참고 자료 본체는 유지됩니다.)")) return;
+    setDeletingId(chunkId);
+    try {
+      const res = await fetch(`/api/reference/chunk/${chunkId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("chunk 삭제 실패");
+      const data = await res.json();
+      setChunks(prev => prev ? prev.filter(c => c.id !== chunkId) : prev);
+      if (typeof data.newChunkCount === "number") onChunkDeleted(data.newChunkCount);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded border border-gray-200 text-xs">
+      <div className="flex items-center gap-2 p-2">
+        <button
+          type="button"
+          onClick={toggle}
+          className="text-gray-400 hover:text-tiger-orange transition w-4 shrink-0"
+          title={open ? "접기" : "chunks 보기"}
+        >
+          {open ? "▼" : "▶"}
+        </button>
+        <span className="text-base">{emoji}</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-ink-900 truncate">{reference.filename}</div>
+          <div className="text-[10px] text-gray-500">{reference.totalChars.toLocaleString()}자 · {reference.chunkCount} chunks</div>
+        </div>
+        <button
+          onClick={toggle}
+          className="text-[10px] text-gray-500 hover:text-tiger-orange whitespace-nowrap"
+          title="AI가 자료를 어떻게 chunk로 나눴는지 보기"
+        >
+          👁️ chunks
+        </button>
+        <button onClick={onDelete} className="text-[10px] text-gray-400 hover:text-red-600">삭제</button>
+      </div>
+
+      {open && (
+        <div className="border-t border-gray-100 px-2 py-2 bg-[#fafafa]">
+          {chunksBusy && <div className="text-[11px] text-gray-500 text-center py-2">⏳ chunks 불러오는 중...</div>}
+          {!chunksBusy && chunks !== null && chunks.length === 0 && (
+            <div className="text-[11px] text-gray-500 text-center py-2">남은 chunk가 없습니다. (자료 본체를 삭제하세요)</div>
+          )}
+          {!chunksBusy && chunks !== null && chunks.length > 0 && (
+            <>
+              <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                AI가 자료를 {chunks.length}개 chunk로 나눠서 검색·인용에 사용합니다. 잘못 분리됐거나 불필요한 chunk는 개별 삭제 가능.
+              </p>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                {chunks.map(c => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 bg-white rounded border border-gray-200">
+                    <span className="text-[10px] font-mono text-gray-400 shrink-0 mt-0.5 w-8">#{c.idx}</span>
+                    <div className="flex-1 min-w-0 text-[11px] text-ink-900 break-words leading-relaxed line-clamp-4">
+                      {c.content}
+                    </div>
+                    <button
+                      onClick={() => deleteChunk(c.id)}
+                      disabled={deletingId === c.id}
+                      className="text-[10px] text-gray-400 hover:text-red-600 shrink-0 disabled:opacity-50"
+                      title="이 chunk만 삭제 (자료 본체는 유지)"
+                    >
+                      {deletingId === c.id ? "…" : "✗"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
