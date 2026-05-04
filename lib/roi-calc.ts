@@ -28,13 +28,14 @@ export interface RoiOutputs {
   marginRate: number;          // 수익률 (0~1)
 }
 
-const COST_PER_CHAPTER = 37;        // 본문 1장
-const COST_COVER = 28;              // 표지
-const COST_REFERENCE_SUMMARY = 20;  // 자료 분석
-const COST_TONE = 20;               // 톤 분석
-const COST_MARKETING_META = 30;     // 마케팅 카피
-const COST_META_AD_COPY = 40;       // Meta 광고 카피
-const COST_META_AD_IMAGES = 90;     // Meta 광고 이미지 3장 (Imagen)
+// 가격 정책 (Sang-nim 10x 인상, 2026-05) — API route 차감액과 일치해야 함
+const COST_PER_CHAPTER = 300;        // 본문 1장 (was 37)
+const COST_COVER = 400;              // 표지 (was 28) — kmong-package 이미지 1장
+const COST_REFERENCE_SUMMARY = 200;  // 자료 분석 (was 20)
+const COST_TONE = 200;               // 톤 분석 (was 20)
+const COST_MARKETING_META = 500;     // 마케팅 카피 (was 30)
+const COST_META_AD_COPY = 500;       // Meta 광고 카피 (was 40)
+const COST_META_AD_IMAGES = 1500;    // Meta 광고 이미지 3장 (was 90, 3 × ₩500)
 
 export function calculateRoi(inputs: RoiInputs): RoiOutputs {
   // 권당 비용: 본문 + 표지 + 부가기능 모두 = "최대 활용" 시나리오

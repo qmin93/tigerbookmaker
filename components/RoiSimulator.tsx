@@ -141,7 +141,7 @@ export function RoiSimulator() {
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </Link>
             <p className="text-xs text-gray-500 text-center">
-              ₩3,000 무료 크레딧 = 책 약 5~10권 분량
+              ₩5,000 무료 크레딧 = 라이트 1권 시도 (권당 ₩4,000~₩12,000, 사용 기능별)
             </p>
           </div>
         </div>

@@ -61,11 +61,12 @@ export const SAMPLE_BOOKS = [
 
 // 충전 패키지 — bonus 값은 /api/payment/prepare calcBonus()와 일치해야 함
 // (서버: 30K → 5%, 50K → 10%; 그 외 0)
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 권당 비용이 ₩4K~₩12K로 인상되어 desc 재계산
 export const PRICING = [
-  { amount: 5_000,  bonus: 0,     label: "스타터",   desc: "책 약 8권 — 처음 써보는 분",       featured: false as const },
-  { amount: 10_000, bonus: 0,     label: "베이직",   desc: "책 약 17권 — 본격 시작",           featured: false as const },
-  { amount: 30_000, bonus: 1_500, label: "그로스",   desc: "책 약 55권 + 5% 보너스 — 꾸준히 출간", featured: true  as const },
-  { amount: 50_000, bonus: 5_000, label: "프리미엄", desc: "책 약 95권 + 10% 보너스 — 시리즈·콘텐츠 풍부", featured: false as const },
+  { amount: 5_000,  bonus: 0,     label: "스타터",   desc: "라이트 1권 또는 부가기능 시도",       featured: false as const },
+  { amount: 10_000, bonus: 0,     label: "베이직",   desc: "라이트 2권 또는 표준 1권",           featured: false as const },
+  { amount: 30_000, bonus: 1_500, label: "그로스",   desc: "표준 4권 또는 풀 2권 + 5% 보너스",   featured: true  as const },
+  { amount: 50_000, bonus: 5_000, label: "프리미엄", desc: "표준 6-7권 또는 풀 4권 + 10% 보너스", featured: false as const },
 ];
 
 export const TIER_CARDS = [
@@ -76,11 +77,11 @@ export const TIER_CARDS = [
 
 export const HERO_STATS = [
   { value: "30분", label: "권당 집필" },
-  { value: "₩263", label: "권당 평균 비용" },
+  { value: "₩4,000~", label: "권당 평균 비용" },
   { value: "RAG", label: "내 자료 학습" },
   { value: "8가지", label: "내장 기능" },
   { value: "100%", label: "환불 보장" },
-  { value: "₩3,000", label: "신규 크레딧" },
+  { value: "₩5,000", label: "신규 크레딧" },
 ];
 
 export const TRUST_ITEMS = [
@@ -91,7 +92,7 @@ export const TRUST_ITEMS = [
 ];
 
 export const PERFORMANCE_METRICS = [
-  { value: "₩263", label: "권당 평균 원가", note: "Gemini Flash 기준" },
+  { value: "₩4,000~", label: "권당 평균 원가", note: "라이트 시나리오" },
   { value: "30s", label: "챕터당 평균 시간", note: "본문 + 요약 동시" },
   { value: "13ch", label: "권당 챕터 수", note: "목차 자동 생성" },
   { value: "100%", label: "성공률", note: "실패 시 자동 재시도" },
