@@ -225,6 +225,21 @@ function Inner() {
   const [courseSlideTemplate, setCourseSlideTemplate] = useState<"minimal" | "bold" | "academic">("minimal");
   const [courseSlideRender, setCourseSlideRender] = useState(false);
 
+  // ─── 🌐 책 번역 (Wave C2) — 한국어 → 영어/일본어 ───
+  type TranslationLang = "en" | "ja";
+  type TranslationData = {
+    language: TranslationLang;
+    topic: string;
+    audience: string;
+    chapters: Array<{ title: string; subtitle?: string; content: string }>;
+    generatedAt: number;
+  };
+  const [translations, setTranslations] = useState<TranslationData[]>([]);
+  const [translateLang, setTranslateLang] = useState<TranslationLang>("en");
+  const [translateBusy, setTranslateBusy] = useState(false);
+  const [translateMsg, setTranslateMsg] = useState<string | null>(null);
+  const [translatePreviewLang, setTranslatePreviewLang] = useState<TranslationLang | null>(null);
+
   // ─── 책별 매출 입력 ("이정도 번다") ───
   // 사용자가 채널별 누적 매출 직접 입력 → /profile에서 비용 vs 매출 ROI 계산.
   type RevenueChannelInput = { channel: string; label?: string; grossKRW: number; feeRate: number };
@@ -346,6 +361,53 @@ function Inner() {
   useEffect(() => {
     if ((project as any)?.courseSlides) setCourseSlides((project as any).courseSlides);
   }, [project]);
+
+  // translations sync — Wave C2
+  useEffect(() => {
+    const tr = (project as any)?.translations;
+    if (Array.isArray(tr)) setTranslations(tr);
+  }, [project]);
+
+  // 책 번역 호출 — 챕터 8장 정도 처리 후 progress.isComplete=false면 자동 retry
+  const handleTranslate = async (language: TranslationLang) => {
+    if (translateBusy) return;
+    setTranslateBusy(true);
+    setTranslateMsg("⏳ 번역 중... (책 분량에 따라 1~3분)");
+    try {
+      let attempts = 0;
+      while (attempts < 4) {
+        attempts++;
+        const res = await fetch("/api/generate/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, language }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setTranslateMsg(`❌ ${data?.message ?? data?.error ?? "실패"}`);
+          break;
+        }
+        if (typeof data?.newBalance === "number") setBalance(data.newBalance);
+        if (data?.translation) {
+          setTranslations(prev => {
+            const filtered = prev.filter(t => t.language !== language);
+            return [...filtered, data.translation];
+          });
+        }
+        const prog = data?.progress;
+        if (prog?.isComplete) {
+          setTranslateMsg(`✅ 완료! ${prog.completed}/${prog.total} 챕터 번역됨`);
+          break;
+        }
+        setTranslateMsg(`⏳ ${prog?.completed ?? "?"}/${prog?.total ?? "?"} 챕터 완료. 계속 진행 중...`);
+      }
+    } catch (e: any) {
+      setTranslateMsg(`❌ ${e?.message ?? "네트워크 오류"}`);
+    } finally {
+      setTranslateBusy(false);
+      setTimeout(() => setTranslateMsg(null), 6000);
+    }
+  };
 
   // revenue sync — project.revenue가 있으면 입력 폼에 반영. 없는 채널은 0으로 보존.
   useEffect(() => {
@@ -2468,6 +2530,96 @@ function Inner() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* 🌐 책 번역 — Wave C2 (영어/일본어 KDP 진출용) */}
+            <div className="mb-3 p-3 bg-indigo-50/60 border border-indigo-300/50 rounded-lg">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <h3 className="text-sm font-bold text-ink-900">🌐 책 번역</h3>
+                <span className="text-[10px] text-indigo-700">~₩200/책 (Gemini Flash)</span>
+              </div>
+              <p className="text-[10px] text-gray-600 mb-2">한국어 책 → 영어 또는 일본어 한 번에 번역. KDP/Amazon 글로벌 진출용.</p>
+
+              <div className="flex gap-1.5 mb-2">
+                {(["en", "ja"] as TranslationLang[]).map(lang => {
+                  const label = lang === "en" ? "🇺🇸 영어" : "🇯🇵 일본어";
+                  const active = translateLang === lang;
+                  return (
+                    <button
+                      key={lang}
+                      onClick={() => setTranslateLang(lang)}
+                      disabled={translateBusy}
+                      className={`flex-1 px-2 py-1 text-[11px] rounded font-bold border ${
+                        active
+                          ? "bg-indigo-500 text-white border-indigo-500"
+                          : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400"
+                      } disabled:opacity-50`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => handleTranslate(translateLang)}
+                disabled={translateBusy || !project?.chapters?.length}
+                className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded disabled:opacity-50"
+              >
+                {translateBusy ? "⏳ 번역 중..." : `🌐 책 전체 번역 (~₩200)`}
+              </button>
+
+              {translateMsg && (
+                <div className="mt-2 text-[11px] text-indigo-800 bg-white border border-indigo-200 rounded p-2">
+                  {translateMsg}
+                </div>
+              )}
+
+              {translations.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-[10px] font-bold text-indigo-900">완료된 번역</div>
+                  {translations.map(t => {
+                    const flag = t.language === "en" ? "🇺🇸" : "🇯🇵";
+                    const langLabel = t.language === "en" ? "영어" : "일본어";
+                    const completed = t.chapters?.filter((c: any) => c?.content).length ?? 0;
+                    const total = project?.chapters?.length ?? 0;
+                    const isOpen = translatePreviewLang === t.language;
+                    return (
+                      <div key={t.language} className="bg-white border border-indigo-200 rounded p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[11px] font-bold text-indigo-900">
+                            {flag} {langLabel} — {completed}/{total} 챕터
+                          </div>
+                          <button
+                            onClick={() => setTranslatePreviewLang(isOpen ? null : t.language)}
+                            className="text-[10px] text-indigo-600 hover:underline"
+                          >
+                            {isOpen ? "접기" : "미리보기"}
+                          </button>
+                        </div>
+                        {isOpen && (
+                          <div className="mt-2 max-h-60 overflow-y-auto text-[11px] text-gray-800 space-y-2 border-t border-indigo-100 pt-2">
+                            <div><b>Title:</b> {t.topic}</div>
+                            <div><b>Audience:</b> {t.audience}</div>
+                            {(t.chapters ?? []).slice(0, 3).map((c: any, i: number) => (
+                              c?.title ? (
+                                <div key={i} className="border-t border-gray-100 pt-1">
+                                  <div className="font-bold">Ch{i + 1}: {c.title}</div>
+                                  {c.content && <div className="whitespace-pre-wrap line-clamp-4 text-gray-600">{c.content.slice(0, 400)}...</div>}
+                                </div>
+                              ) : null
+                            ))}
+                            {(t.chapters?.length ?? 0) > 3 && (
+                              <div className="text-[10px] text-gray-500">… ({(t.chapters?.length ?? 0) - 3}개 챕터 더)</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <p className="text-[10px] text-gray-500">PDF/EPUB 다운로드는 추후 추가 예정.</p>
+                </div>
+              )}
             </div>
 
             {/* 💰 매출 입력 ("이정도 번다") — 사용자가 채널별 매출 직접 입력 → /profile에서 ROI 계산 */}

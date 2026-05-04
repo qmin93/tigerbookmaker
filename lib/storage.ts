@@ -223,12 +223,23 @@ export interface PreviewVideo {
   generatedAt: number;
 }
 
+// Wave C2: 책 번역 — 한국어 책 → 영어/일본어 (KDP 글로벌 진출용).
+// AI 비용 ~₩200/책 (Gemini Flash, topic+audience 번역 ₩20 + 챕터 본문 12 × ~₩15).
+export interface BookTranslation {
+  language: "en" | "ja";
+  topic: string;
+  audience: string;
+  chapters: Array<{ title: string; subtitle?: string; content: string }>;
+  generatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
   audience: string;
   type: "자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서";
   targetPages: number;
+  translations?: BookTranslation[];   // Wave C2 — 책 번역 (영어/일본어)
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
