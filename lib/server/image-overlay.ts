@@ -2,6 +2,7 @@
 // Replaces unreliable Korean text rendering by Imagen with precise SVG composition.
 
 import sharp from "sharp";
+import { PRETENDARD_BOLD_BASE64 } from "@/lib/fonts/pretendard-base64";
 
 export type OverlayTemplate = "minimal" | "bold" | "story" | "quote" | "cta";
 
@@ -42,14 +43,16 @@ function generateOverlaySvg(opts: {
 }): string {
   const { width, height, headline, subhead, template, brandText = "🐯 Tigerbookmaker" } = opts;
 
-  // Korean 폰트 — Pretendard (Google Fonts에 없으니 CDN 사용)
-  const fontFace = `
+  // Korean 폰트 — Pretendard Bold base64 임베드 (librsvg가 외부 URL 못 가져옴 → 한글 깨짐 방지)
+  const fontFace = PRETENDARD_BOLD_BASE64
+    ? `
     @font-face {
       font-family: 'Pretendard';
-      src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2') format('woff2');
+      src: url(data:font/woff2;base64,${PRETENDARD_BOLD_BASE64}) format('woff2');
       font-weight: 700;
     }
-  `;
+  `
+    : "";
 
   // template별 layout 분기
   switch (template) {
