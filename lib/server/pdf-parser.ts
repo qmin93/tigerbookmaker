@@ -1,20 +1,15 @@
 // PDF binary → 추출된 plain text
-// pdf-parse 사용 (Node.js 친화, worker 설정 불필요)
-// 이전 pdfjs-dist는 GlobalWorkerOptions.workerSrc 문제로 Vercel serverless에서 깨짐
+// unpdf 사용 — serverless 전용, pure JS, native binary 의존 없음
+// 이전 시도:
+//   - pdfjs-dist: GlobalWorkerOptions.workerSrc 에러 (Vercel serverless 비호환)
+//   - pdf-parse 2.x: @napi-rs/canvas 네이티브 바이너리 의존 (cold start 느림 + 빌드 위험)
+
+import { extractText, getDocumentProxy } from "unpdf";
 
 export async function extractPdfText(buffer: Uint8Array): Promise<string> {
-  // dynamic import — bundle size 줄임 + Vercel cold start 최적화
-  const mod = (await import("pdf-parse")) as any;
-  // pdf-parse는 default 또는 module 자체가 함수
-  const pdfParse: any = mod.default ?? mod;
-
-  // pdf-parse는 Buffer를 받음 — Uint8Array를 Buffer로 변환
-  const buf = Buffer.from(buffer);
-
-  const data = await pdfParse(buf, {
-    // version은 자동 감지. max 0 = 모든 페이지 처리.
-    max: 0,
-  });
-
-  return (data?.text ?? "").trim();
+  const pdf = await getDocumentProxy(buffer);
+  const result = await extractText(pdf, { mergePages: true });
+  // result.text는 string[] 또는 string. mergePages: true면 string.
+  const text = Array.isArray(result.text) ? result.text.join("\n\n") : result.text;
+  return (text ?? "").trim();
 }
