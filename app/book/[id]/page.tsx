@@ -20,6 +20,14 @@ interface KmongCopy {
   [k: string]: unknown;
 }
 
+interface ABTestPublic {
+  enabled: boolean;
+  taglineA?: string | null;
+  taglineB?: string | null;
+  descriptionA?: string | null;
+  descriptionB?: string | null;
+}
+
 interface BookData {
   id: string;
   topic: string;
@@ -30,7 +38,26 @@ interface BookData {
   themeColor?: ThemeColorKey;
   marketingMeta?: MarketingMeta | null;
   kmongCopy?: KmongCopy | null;
+  abTest?: ABTestPublic | null;
   createdAt: string;
+}
+
+// Wave B5: A/B 테스트 variant cookie helpers — 같은 visitor는 sticky.
+function getOrAssignVariant(bookId: string): "A" | "B" {
+  if (typeof document === "undefined") return "A";
+  const cookieName = `tigerbookmaker:ab:${bookId}`;
+  const match = document.cookie
+    .split("; ")
+    .find(row => row.startsWith(`${cookieName}=`));
+  if (match) {
+    const v = match.slice(cookieName.length + 1);
+    if (v === "A" || v === "B") return v;
+  }
+  const assigned: "A" | "B" = Math.random() < 0.5 ? "A" : "B";
+  // 30일 sticky
+  const maxAge = 60 * 60 * 24 * 30;
+  document.cookie = `${cookieName}=${assigned}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  return assigned;
 }
 
 export default function BookPage({ params }: { params: { id: string } }) {
@@ -38,6 +65,8 @@ export default function BookPage({ params }: { params: { id: string } }) {
   const [data, setData] = useState<BookData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Wave B5: A/B variant — data 도착 후 abTest.enabled 확인 후 cookie 할당.
+  const [variantId, setVariantId] = useState<"A" | "B" | null>(null);
 
   useEffect(() => {
     fetch(`/api/book/${id}`)
@@ -47,15 +76,23 @@ export default function BookPage({ params }: { params: { id: string } }) {
         if (!r.ok) throw new Error("책 정보를 불러올 수 없습니다.");
         return r.json();
       })
-      .then((d: BookData) => setData(d))
-      .catch(e => setError(e.message));
+      .then((d: BookData) => {
+        setData(d);
 
-    // 페이지 방문 추적 (silent, 실패 무시)
-    fetch("/api/analytics/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageType: "book", pageId: id }),
-    }).catch(() => {});
+        // Wave B5: A/B 활성된 책 — cookie 기반 variant 할당, track에 같이 보냄.
+        const ab = d.abTest;
+        const abActive = !!(ab && ab.enabled && (ab.taglineA || ab.taglineB || ab.descriptionA || ab.descriptionB));
+        const v = abActive ? getOrAssignVariant(id) : null;
+        setVariantId(v);
+
+        // 페이지 방문 추적 (silent, 실패 무시)
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageType: "book", pageId: id, variantId: v }),
+        }).catch(() => {});
+      })
+      .catch(e => setError(e.message));
   }, [id]);
 
   if (error) {
@@ -82,8 +119,17 @@ export default function BookPage({ params }: { params: { id: string } }) {
   }
 
   const theme = getTheme(data.themeColor);
-  const tagline = data.marketingMeta?.tagline;
-  const description = data.marketingMeta?.description || data.kmongCopy?.kmongDescription;
+  // Wave B5: A/B variant override — variantId 있으면 해당 variant의 tagline/description 우선.
+  const ab = data.abTest;
+  const abVariantTagline =
+    variantId === "A" ? ab?.taglineA :
+    variantId === "B" ? ab?.taglineB : null;
+  const abVariantDescription =
+    variantId === "A" ? ab?.descriptionA :
+    variantId === "B" ? ab?.descriptionB : null;
+
+  const tagline = (abVariantTagline && abVariantTagline.trim()) || data.marketingMeta?.tagline;
+  const description = (abVariantDescription && abVariantDescription.trim()) || data.marketingMeta?.description || data.kmongCopy?.kmongDescription;
   const authorName = data.marketingMeta?.authorName;
   const authorBio = data.marketingMeta?.authorBio;
   const shareUrl = typeof window !== "undefined" ? window.location.href : `https://tigerbookmaker.vercel.app/book/${id}`;

@@ -52,6 +52,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     themeColor: p.data?.themeColor ?? "orange",
     marketingMeta: p.data?.marketingMeta ?? null,
     kmongCopy: p.data?.kmongPackage?.copy ?? null,
+    // Wave B5: A/B 테스트 variants — 활성 시 클라이언트가 variant에 따라 tagline/description 분기.
+    // enabled=false거나 두 variant 다 비어있으면 클라이언트는 무시.
+    abTest: p.data?.abTest
+      ? {
+          enabled: p.data.abTest.enabled === true,
+          taglineA: p.data.abTest.taglineA ?? null,
+          taglineB: p.data.abTest.taglineB ?? null,
+          descriptionA: p.data.abTest.descriptionA ?? null,
+          descriptionB: p.data.abTest.descriptionB ?? null,
+        }
+      : null,
     createdAt: p.created_at,
   });
 }
