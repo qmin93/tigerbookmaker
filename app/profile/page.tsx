@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
+import { AnalyticsChart } from "@/components/AnalyticsChart";
 import QRCode from "qrcode";
 
 interface SocialLink {
@@ -75,6 +76,11 @@ export default function ProfileEditPage() {
 
   // 개인 종합 통계
   const [ownStats, setOwnStats] = useState<OwnStats | null>(null);
+
+  // 📊 방문 추이 그래프
+  const [analyticsDays, setAnalyticsDays] = useState<number>(30);
+  const [analyticsData, setAnalyticsData] = useState<Array<{ date: string; bookViews: number; profileViews: number }> | null>(null);
+  const [analyticsBusy, setAnalyticsBusy] = useState(false);
 
   // 📧 구독자 알림 발송 modal
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -231,6 +237,24 @@ export default function ProfileEditPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // 📊 방문 추이 (기간 토글 시 재로드)
+  useEffect(() => {
+    let cancelled = false;
+    setAnalyticsBusy(true);
+    fetch(`/api/analytics/timeseries?days=${analyticsDays}`)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((d) => {
+        if (!cancelled) setAnalyticsData(Array.isArray(d?.data) ? d.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalyticsData([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAnalyticsBusy(false);
+      });
+    return () => { cancelled = true; };
+  }, [analyticsDays]);
 
   // 본인 프로필 방문 통계 (originalHandle 확정 후)
   useEffect(() => {
@@ -587,6 +611,38 @@ export default function ProfileEditPage() {
                 )}
               </div>
             )}
+
+            {/* 📊 방문 추이 그래프 */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 mb-6">
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <h3 className="text-lg font-black tracking-tight text-ink-900">📊 방문 추이</h3>
+                <div className="flex gap-1">
+                  {[7, 30, 90].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setAnalyticsDays(d)}
+                      className={`text-xs px-2 py-1 rounded font-mono ${
+                        analyticsDays === d
+                          ? "bg-ink-900 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {d}일
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {analyticsBusy ? (
+                <div className="h-48 bg-gray-50 animate-pulse rounded" />
+              ) : analyticsData && analyticsData.length > 0 ? (
+                <AnalyticsChart data={analyticsData} />
+              ) : (
+                <div className="h-48 flex items-center justify-center text-sm text-gray-400">
+                  데이터 없음
+                </div>
+              )}
+            </div>
 
             {/* 🎁 친구 초대 (Referral) */}
             <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl border border-orange-200 p-5 mb-6">
