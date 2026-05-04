@@ -127,6 +127,26 @@ export interface MetaAdPackage {
   basedOnProjectVersion?: string;  // 미래 — 책 변경 시 재생성 트리거
 }
 
+// Wave C1: 책 시리즈 — book_projects.data.seriesMembership 에 JSON으로 저장
+// 같은 seriesId를 공유하는 책들이 한 시리즈를 이룬다. 별도 테이블 없음.
+export interface SeriesMembership {
+  seriesId: string;
+  seriesTitle: string;
+  orderInSeries: number;  // 1, 2, 3...
+}
+
+// Wave C2: 책 챗봇 thread (transient — DB 저장 안 함, 단순 메모리/응답용 타입)
+export interface ChatThreadMessage {
+  role: "user" | "assistant";
+  text: string;
+  ts: number;
+}
+
+export interface ChatThread {
+  bookId: string;
+  messages: ChatThreadMessage[];
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -141,6 +161,7 @@ export interface BookProject {
   metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)
   repurposedContent?: RepurposedContent;  // Wave 1: 5채널 콘텐츠 재가공 (인스타/유튜브/블로그/이메일/카톡)
   infographic?: Infographic;             // Wave B3: 카드뉴스 인포그래픽 5장 (Sharp 기반, AI 호출 X)
+  seriesMembership?: SeriesMembership;   // Wave C1: 같은 seriesId 가진 책들이 한 시리즈
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
