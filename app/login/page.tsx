@@ -43,7 +43,7 @@ export default function LoginPage() {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.message || `가입 실패 (${res.status})`);
         }
-        // 가입 성공 → 매직링크 발송 → 사용자가 클릭해야 verify + 보너스 ₩3,000 지급
+        // 가입 성공 → 매직링크 발송 → 사용자가 클릭해야 verify + 보너스 ₩5,000 지급
         const r = await signIn("nodemailer", { email, redirect: false, callbackUrl: "/projects" });
         if (r?.error) throw new Error(r.error);
         setSent(true);
@@ -76,7 +76,7 @@ export default function LoginPage() {
           {mode === "register" ? (
             <div className="bg-orange-50 border border-tiger-orange/30 rounded-xl p-4 mb-6 text-sm">
               <div className="font-bold text-ink-900 mb-1">🎁 인증 링크 클릭 시</div>
-              <p className="text-gray-700 leading-relaxed">책 <strong className="text-tiger-orange">3권 무료 크레딧 (₩3,000)</strong>이 자동 지급됩니다.</p>
+              <p className="text-gray-700 leading-relaxed"><strong className="text-tiger-orange">₩5,000 무료 크레딧</strong>이 자동 지급됩니다 (라이트 1권 시도).</p>
             </div>
           ) : (
             <p className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-6">로그인 링크 발송 완료</p>
@@ -120,7 +120,7 @@ export default function LoginPage() {
         </h1>
         <p className="text-sm text-gray-500 mb-5">
           {mode === "register"
-            ? "이메일과 비밀번호로 가입합니다. 이메일 인증 후 책 3권 무료 크레딧 지급."
+            ? "이메일과 비밀번호로 가입합니다. 이메일 인증 후 ₩5,000 무료 크레딧 지급."
             : mode === "magiclink"
             ? "이메일로 로그인 링크를 보내드립니다."
             : "이메일과 비밀번호를 입력하세요."}

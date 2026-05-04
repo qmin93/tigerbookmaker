@@ -65,6 +65,6 @@ export async function POST(req: Request) {
     ok: true,
     mode: "registered",
     verifyRequired: true,
-    message: "이메일 인증 후 책 3권 무료 크레딧이 지급됩니다.",
+    message: "이메일 인증 후 ₩5,000 무료 크레딧이 지급됩니다.",
   });
 }
