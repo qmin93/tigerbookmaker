@@ -8,6 +8,7 @@
 //  - link:  16:9
 
 import { NextResponse } from "next/server";
+import { sql } from "@vercel/postgres";
 import { auth } from "@/auth";
 import { callImageGeneration, type AspectRatio } from "@/lib/server/ai-server";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/lib/server/db";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { overlayTextOnImage, type OverlayTemplate } from "@/lib/server/image-overlay";
+import { generateImagePromptAI, type ImagePurpose } from "@/lib/server/image-prompt-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -86,6 +88,71 @@ function buildHeadline(project: any): string {
   return topic.length > 30 ? topic.slice(0, 28) + "…" : topic;
 }
 
+const THEME_MAP: Record<string, { hex: string; name: string }> = {
+  orange: { hex: "#f97316", name: "warm orange" },
+  blue: { hex: "#3b82f6", name: "deep blue" },
+  green: { hex: "#10b981", name: "fresh emerald" },
+  purple: { hex: "#a855f7", name: "rich violet" },
+  red: { hex: "#ef4444", name: "vibrant red" },
+  gray: { hex: "#6b7280", name: "neutral gray" },
+};
+
+const TYPE_TO_PURPOSE: Record<MetaImageType, ImagePurpose> = {
+  feed: "meta-feed",
+  story: "meta-story",
+  link: "meta-link",
+};
+
+// AI Meta-prompting + RAG context. 실패 시 기존 template으로 fallback.
+async function getSmartPromptForType(
+  project: any,
+  type: MetaImageType,
+  projectId: string,
+  headline: string,
+): Promise<string> {
+  // chapter 1 발췌 (300자)
+  const ch1 = project?.chapters?.[0];
+  const chapterExcerpt = ch1?.content ? String(ch1.content).slice(0, 300) : undefined;
+
+  // top 2 reference chunks (있으면)
+  let referenceChunks: { content: string; filename: string }[] = [];
+  try {
+    const { rows } = await sql<{ content: string; filename: string }>`
+      SELECT rc.content, br.filename
+      FROM reference_chunks rc
+      JOIN book_references br ON br.id = rc.reference_id
+      WHERE br.project_id = ${projectId}
+      LIMIT 2
+    `;
+    referenceChunks = rows.map(r => ({ content: r.content, filename: r.filename }));
+  } catch {
+    // RAG context는 optional — 실패해도 진행
+  }
+
+  const themeKey = (project?.themeColor as string | undefined) ?? "orange";
+  const theme = THEME_MAP[themeKey] ?? THEME_MAP.orange;
+  const ar = TYPE_TO_AR[type];
+
+  try {
+    const r = await generateImagePromptAI({
+      bookTopic: String(project?.topic ?? ""),
+      bookAudience: String(project?.audience ?? ""),
+      bookType: String(project?.type ?? ""),
+      themeColorHex: theme.hex,
+      themeColorName: theme.name,
+      purpose: TYPE_TO_PURPOSE[type],
+      aspectRatio: ar,
+      chapterExcerpt,
+      referenceChunks,
+      headline,
+    });
+    return r.prompt;
+  } catch (e: any) {
+    console.warn("[meta-images] AI meta-prompting failed, falling back to template:", e?.message);
+    return metaImagePrompt(project, type);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -150,8 +217,9 @@ export async function POST(req: Request) {
     for (const type of targets) {
       const ar = TYPE_TO_AR[type];
       try {
+        const smartPrompt = await getSmartPromptForType(project, type, projectId, headline);
         const img = await callImageGeneration({
-          prompt: metaImagePrompt(project, type),
+          prompt: smartPrompt,
           timeoutMs: 30000,
           preferPaid: true,    // 한국어 글자 가독성 — Imagen 4 Fast 우선
           aspectRatio: ar,
