@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
+import { ImageRefineButton } from "@/components/ImageRefineButton";
 import type { MetaAdImage } from "@/lib/storage";
 
 type BatchState =
@@ -2185,8 +2186,10 @@ function Inner() {
                     <div className="grid grid-cols-3 gap-2">
                       {(["feed", "story", "link"] as const).map((type) => {
                         const img = metaAdImages.find((i) => i.type === type);
+                        const refineImageType = type === "feed" ? "meta-feed" : type === "story" ? "meta-story" : "meta-link";
+                        const refineAr = type === "feed" ? "1:1" : type === "story" ? "9:16" : "16:9";
                         return (
-                          <div key={type} className="bg-white rounded border border-blue-200 p-1.5 flex flex-col">
+                          <div key={type} className="bg-white rounded border border-blue-200 p-1.5 flex flex-col relative">
                             <div className="text-[10px] font-bold text-ink-900 mb-1 text-center">
                               {metaImageLabel(type)}{" "}
                               <span className="font-normal text-gray-500">
@@ -2200,7 +2203,7 @@ function Inner() {
                                   alt={`Meta ${type}`}
                                   className="w-full max-h-[150px] object-contain bg-gray-50 rounded"
                                 />
-                                <div className="flex gap-1 mt-1">
+                                <div className="flex gap-1 mt-1 items-center">
                                   <button
                                     onClick={() => downloadMetaImage(img)}
                                     className="flex-1 text-[10px] px-1 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
@@ -2214,6 +2217,19 @@ function Inner() {
                                   >
                                     🔄 다시
                                   </button>
+                                  {projectId && (
+                                    <ImageRefineButton
+                                      projectId={projectId}
+                                      imageType={refineImageType}
+                                      aspectRatio={refineAr}
+                                      onRefined={(b64) => {
+                                        setMetaAdImages(prev => prev.map(p =>
+                                          p.type === type ? { ...p, base64: b64, generatedAt: Date.now() } : p
+                                        ));
+                                      }}
+                                      onBalanceChange={setBalance}
+                                    />
+                                  )}
                                 </div>
                               </>
                             ) : (
@@ -3284,19 +3300,37 @@ function Inner() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {infographic.slides.map(slide => (
-                  <div key={slide.slideNum} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200">
+                  <div key={slide.slideNum} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`data:image/png;base64,${slide.base64}`}
                       alt={`infographic ${slide.slideNum}`}
                       className="w-full aspect-square object-cover rounded mb-2"
                     />
-                    <button
-                      onClick={() => downloadInfographicSlide(slide)}
-                      className="w-full px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
-                    >
-                      ⬇ {slide.slideNum}/{infographic.slides.length} 다운로드
-                    </button>
+                    <div className="flex gap-1 items-center">
+                      <button
+                        onClick={() => downloadInfographicSlide(slide)}
+                        className="flex-1 px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
+                      >
+                        ⬇ {slide.slideNum}/{infographic.slides.length}
+                      </button>
+                      {projectId && (
+                        <ImageRefineButton
+                          projectId={projectId}
+                          imageType="infographic"
+                          aspectRatio="1:1"
+                          onRefined={(b64) => {
+                            setInfographic(prev => prev ? {
+                              ...prev,
+                              slides: prev.slides.map(s =>
+                                s.slideNum === slide.slideNum ? { ...s, base64: b64 } : s
+                              ),
+                            } : prev);
+                          }}
+                          onBalanceChange={setBalance}
+                        />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3425,19 +3459,37 @@ function Inner() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {previewVideo.frames.map(frame => (
-                  <div key={frame.idx} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200">
+                  <div key={frame.idx} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`data:image/png;base64,${frame.base64}`}
                       alt={`preview frame ${frame.idx + 1}`}
                       className="w-full aspect-[9/16] object-cover rounded mb-2 bg-white"
                     />
-                    <button
-                      onClick={() => downloadPreviewFrame(frame)}
-                      className="w-full px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
-                    >
-                      ⬇ {frame.idx + 1}/{previewVideo.frames.length} 다운로드
-                    </button>
+                    <div className="flex gap-1 items-center">
+                      <button
+                        onClick={() => downloadPreviewFrame(frame)}
+                        className="flex-1 px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
+                      >
+                        ⬇ {frame.idx + 1}/{previewVideo.frames.length}
+                      </button>
+                      {projectId && (
+                        <ImageRefineButton
+                          projectId={projectId}
+                          imageType="video-frame"
+                          aspectRatio="9:16"
+                          onRefined={(b64) => {
+                            setPreviewVideo(prev => prev ? {
+                              ...prev,
+                              frames: prev.frames.map(f =>
+                                f.idx === frame.idx ? { ...f, base64: b64 } : f
+                              ),
+                            } : prev);
+                          }}
+                          onBalanceChange={setBalance}
+                        />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -3772,21 +3824,37 @@ function Inner() {
             {!coverVariationsBusy && coverVariations.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                 {coverVariations.map(v => (
-                  <button
-                    key={v.idx}
-                    onClick={() => selectCoverVariation(v.idx)}
-                    className="aspect-[3/4] rounded-md overflow-hidden border-2 border-transparent hover:border-blue-600 transition relative group bg-gray-100"
-                    title={`${v.style} — 이걸로 선택`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`data:image/png;base64,${v.base64}`} alt={v.style} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
-                      <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
-                    </div>
-                    <div className="absolute top-1 left-1 text-[9px] font-mono px-1 py-0.5 bg-white/90 text-blue-700 rounded font-bold">
-                      {v.style}
-                    </div>
-                  </button>
+                  <div key={v.idx} className="relative">
+                    <button
+                      onClick={() => selectCoverVariation(v.idx)}
+                      className="aspect-[3/4] w-full rounded-md overflow-hidden border-2 border-transparent hover:border-blue-600 transition relative group bg-gray-100"
+                      title={`${v.style} — 이걸로 선택`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`data:image/png;base64,${v.base64}`} alt={v.style} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                        <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
+                      </div>
+                      <div className="absolute top-1 left-1 text-[9px] font-mono px-1 py-0.5 bg-white/90 text-blue-700 rounded font-bold">
+                        {v.style}
+                      </div>
+                    </button>
+                    {projectId && (
+                      <div className="absolute top-1 right-1 bg-white/90 rounded px-1 py-0.5 z-20">
+                        <ImageRefineButton
+                          projectId={projectId}
+                          imageType="cover"
+                          aspectRatio="1:1"
+                          onRefined={(b64) => {
+                            setCoverVariations(prev => prev.map(p =>
+                              p.idx === v.idx ? { ...p, base64: b64 } : p
+                            ));
+                          }}
+                          onBalanceChange={setBalance}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
