@@ -180,6 +180,22 @@ export interface Audiobook {
   generatedAt: number;
 }
 
+// Course slides — 책 본문을 강사·코치용 슬라이드 outline + (옵션) PNG 렌더로 변환.
+// outline만 (~₩40 AI cost) 또는 +Sharp PNG 렌더 (~+₩10/slide).
+export interface CourseSlide {
+  slideNum: number;
+  title: string;
+  bullets: string[];
+  notes?: string;            // 스피커 노트 (강사 발표 스크립트)
+  pngBase64?: string;        // optional — 1920x1080 PNG (없으면 outline만)
+}
+
+export interface CourseSlides {
+  template: "minimal" | "bold" | "academic";
+  slides: CourseSlide[];
+  generatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -199,6 +215,7 @@ export interface BookProject {
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   revenue?: BookRevenue;   // 책별 매출 (사용자 직접 입력) — /profile에서 ROI 계산
   audiobook?: Audiobook;   // 오디오북 — 챕터별 TTS WAV (Gemini TTS, 한국어)
+  courseSlides?: CourseSlides;  // 강의 슬라이드 — 책 → 10-20장 outline (+선택적 PNG)
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;
