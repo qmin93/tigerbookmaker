@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
+import QRCode from "qrcode";
 
 interface SocialLink {
   label: string;
@@ -56,6 +57,9 @@ export default function ProfileEditPage() {
 
   // 프로필 방문 통계
   const [visitStats, setVisitStats] = useState<VisitStats | null>(null);
+
+  // QR 코드
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   // 추천 통계 로드
   useEffect(() => {
@@ -143,6 +147,29 @@ export default function ProfileEditPage() {
     })();
     return () => { cancelled = true; };
   }, [originalHandle]);
+
+  // QR 코드 생성 (프로필 URL → data URL)
+  useEffect(() => {
+    if (!originalHandle || typeof window === "undefined") return;
+    const url = `${window.location.origin}/u/${originalHandle}`;
+    QRCode.toDataURL(url, {
+      width: 200,
+      margin: 1,
+      color: { dark: "#0a0a0a", light: "#ffffff" },
+    })
+      .then(setQrDataUrl)
+      .catch(() => {});
+  }, [originalHandle]);
+
+  const downloadQr = () => {
+    if (!qrDataUrl || !originalHandle) return;
+    const a = document.createElement("a");
+    a.href = qrDataUrl;
+    a.download = `tigerbookmaker-${originalHandle}-qr.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   // handle 실시간 체크 (debounce 500ms)
   useEffect(() => {
@@ -254,6 +281,40 @@ export default function ProfileEditPage() {
                 </div>
               )}
             </div>
+
+            {/* QR 코드 */}
+            {originalHandle && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+                <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-3">QR 코드</div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {qrDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={qrDataUrl}
+                      alt={`@${originalHandle} QR code`}
+                      className="w-[140px] h-[140px] border border-gray-200 rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-[140px] h-[140px] bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center text-xs text-gray-400 animate-pulse">
+                      생성 중…
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                      오프라인 행사·명함·전단지에 인쇄해 사용하세요. 스캔하면 내 작가 프로필로 이동합니다.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={downloadQr}
+                      disabled={!qrDataUrl}
+                      className="px-4 py-2 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition disabled:opacity-40"
+                    >
+                      💾 다운로드
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 🎁 친구 초대 (Referral) */}
             <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl border border-orange-200 p-5 mb-6">
