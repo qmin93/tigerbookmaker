@@ -140,6 +140,8 @@ function Inner() {
   // ─── Meta 광고 이미지 (Part A — 3 비율) ───
   const [metaAdImages, setMetaAdImages] = useState<MetaAdImage[]>([]);
   const [metaImgBusy, setMetaImgBusy] = useState(false);
+  // Wave 3: Sharp overlay 템플릿
+  const [imageTemplate, setImageTemplate] = useState<"minimal" | "bold" | "story" | "quote" | "cta">("bold");
 
   // ─── 콘텐츠 재가공 (Wave 1: 5채널) ───
   const [repurposed, setRepurposed] = useState<any>(null);
@@ -977,7 +979,7 @@ function Inner() {
       const res = await fetch("/api/generate/meta-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, ...(regenerateOnly ? { regenerateOnly } : {}) }),
+        body: JSON.stringify({ projectId, template: imageTemplate, ...(regenerateOnly ? { regenerateOnly } : {}) }),
       });
       const data = await res.json();
       if (res.status === 402) {
@@ -1395,6 +1397,28 @@ function Inner() {
                         🔄 전체 다시
                       </button>
                     )}
+                  </div>
+
+                  {/* Wave 3: 디자인 템플릿 picker */}
+                  <div className="mb-2">
+                    <div className="text-[10px] font-bold text-ink-900 mb-1">디자인 템플릿</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {[
+                        { key: "minimal", label: "🤍 미니멀" },
+                        { key: "bold", label: "🔥 강조" },
+                        { key: "story", label: "📱 스토리" },
+                        { key: "quote", label: "💬 인용" },
+                        { key: "cta", label: "🎯 CTA" },
+                      ].map(t => (
+                        <button
+                          key={t.key}
+                          onClick={() => setImageTemplate(t.key as any)}
+                          className={`text-[10px] px-2 py-1 rounded font-bold ${imageTemplate === t.key ? "bg-blue-500 text-white" : "bg-white border border-blue-200 text-blue-700 hover:border-blue-400"}`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {metaAdImages.length === 0 && !metaImgBusy && (
