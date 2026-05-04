@@ -37,6 +37,7 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
         </Link>
 
         <nav className="flex items-center gap-2 sm:gap-4 text-sm">
+          <Link href="/pricing" className={`hidden sm:inline ${linkCls}`}>가격</Link>
           {loggedIn ? (
             <>
               <Link href="/projects" className={`hidden sm:inline font-bold ${linkCls}`}>
@@ -85,10 +86,7 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
           ) : (
             <>
               {(variant === "default" || dark) && (
-                <>
-                  <Link href="/#pricing" className={`hidden sm:inline ${linkCls}`}>가격</Link>
-                  <Link href="/#samples" className={`hidden sm:inline ${linkCls}`}>샘플</Link>
-                </>
+                <Link href="/#samples" className={`hidden sm:inline ${linkCls}`}>샘플</Link>
               )}
               <Link href="/login" className={`font-bold ${linkCls}`}>로그인</Link>
               <Link href="/login" className={ctaCls}>
