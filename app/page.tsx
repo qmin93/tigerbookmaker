@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { RoiSimulator } from "@/components/RoiSimulator";
 import { SAMPLE_BOOKS, HERO_STATS, TRUST_ITEMS, PERFORMANCE_METRICS } from "@/lib/landing-data";
 
 export default function Home() {
@@ -219,6 +220,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <div className="border-t border-gray-200" />
+
+      {/* ROI 시뮬레이터 — A 부수익러 페르소나 */}
+      <RoiSimulator />
 
       <div className="border-t border-gray-200" />
 
