@@ -50,6 +50,7 @@ export interface MetaAdImage {
   base64: string;
   vendor: string;
   generatedAt: number;
+  template?: string;          // Wave 3: SVG overlay template (minimal/bold/story/quote/cta)
 }
 
 export interface RepurposedContent {

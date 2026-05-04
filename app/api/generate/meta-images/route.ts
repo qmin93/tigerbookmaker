@@ -15,6 +15,7 @@ import {
   deductBalance, logAIUsage, USD_TO_KRW,
 } from "@/lib/server/db";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { overlayTextOnImage, type OverlayTemplate } from "@/lib/server/image-overlay";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -27,25 +28,30 @@ const TYPE_TO_AR: Record<MetaImageType, AspectRatio> = {
   link: "16:9",
 };
 
-const ALL_TYPES: MetaImageType[] = ["feed", "story", "link"];
+// Wave 3: target 픽셀 dimension (Sharp resize + overlay)
+const TYPE_TO_DIMS: Record<MetaImageType, { w: number; h: number }> = {
+  feed: { w: 1080, h: 1080 },
+  story: { w: 1080, h: 1920 },
+  link: { w: 1200, h: 628 },
+};
 
-function metaImagePrompt(project: any, headline: string, type: MetaImageType): string {
+const ALL_TYPES: MetaImageType[] = ["feed", "story", "link"];
+const VALID_TEMPLATES: OverlayTemplate[] = ["minimal", "bold", "story", "quote", "cta"];
+
+function metaImagePrompt(project: any, type: MetaImageType): string {
   const layout = type === "story" ? "세로 (9:16)" : type === "link" ? "가로 (16:9)" : "정사각 (1:1)";
-  return `한국어 책 광고 이미지. ${layout} 배경. 책 표지 컨셉.
+  return `한국어 책 광고 배경 이미지. ${layout} 비율.
 
 [책 정보]
 - 주제: ${project.topic}
 - 대상: ${project.audience}
 - 유형: ${project.type}
 
-[강조 텍스트 — 가독성 높게 큰 글자로]
-"${headline}"
-
-[디자인 가이드]
-- 깔끔한 모던 디자인
-- 한국어 글자 정확하게 표시
-- 책 광고임을 즉시 알 수 있게
-- 색상: 따뜻한 톤 또는 책 표지 색상`;
+[디자인]
+- 책 표지 컨셉의 시각적 분위기 (배경)
+- 텍스트 영역 (하단 30%)은 비워둘 것 — 별도로 텍스트 합성됨
+- 색상: 따뜻하고 깔끔한 톤
+- 한국어 글자 합성하지 마세요 — 분위기와 색상만`;
 }
 
 function buildHeadline(project: any): string {
@@ -66,11 +72,17 @@ export async function POST(req: Request) {
     if (!rl.ok) return NextResponse.json({ error: "RATE_LIMITED", resetIn: rl.resetIn }, { status: 429 });
 
     const body = await req.json().catch(() => ({}));
-    const { projectId, regenerateOnly } = body as {
+    const { projectId, regenerateOnly, template: templateRaw } = body as {
       projectId?: string;
       regenerateOnly?: MetaImageType[];
+      template?: string;
     };
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
+
+    // Wave 3: SVG overlay template (default "bold")
+    const template: OverlayTemplate = VALID_TEMPLATES.includes(templateRaw as OverlayTemplate)
+      ? (templateRaw as OverlayTemplate)
+      : "bold";
 
     const projectRow = await getProject(projectId, userId);
     if (!projectRow) return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
@@ -98,6 +110,7 @@ export async function POST(req: Request) {
     }
 
     const headline = buildHeadline(project);
+    const subhead = String(project?.audience ?? "").trim() || undefined;
 
     let totalCostKRW = 0;
     const newImages: Array<{
@@ -106,6 +119,7 @@ export async function POST(req: Request) {
       base64: string;
       vendor: string;
       generatedAt: number;
+      template?: string;
     }> = [];
 
     // 순차 생성 (Vercel 60s — 3장 × ~10s = ~30s)
@@ -113,7 +127,7 @@ export async function POST(req: Request) {
       const ar = TYPE_TO_AR[type];
       try {
         const img = await callImageGeneration({
-          prompt: metaImagePrompt(project, headline, type),
+          prompt: metaImagePrompt(project, type),
           timeoutMs: 30000,
           preferPaid: true,    // 한국어 글자 가독성 — Imagen 4 Fast 우선
           aspectRatio: ar,
@@ -139,9 +153,24 @@ export async function POST(req: Request) {
             reason: `Meta 광고 ${type} ${ar} (${img.vendor})`,
           });
         }
+
+        // Wave 3: Sharp으로 한국어 헤드라인 overlay (실패 시 raw로 fallback)
+        const dims = TYPE_TO_DIMS[type];
+        const overlaid = await overlayTextOnImage({
+          imageBase64: img.base64,
+          width: dims.w,
+          height: dims.h,
+          headline,
+          subhead,
+          template,
+        }).catch((err: any) => {
+          console.warn("[meta-images] overlay failed for", type, err?.message);
+          return img.base64;  // fallback to raw if overlay fails
+        });
+
         newImages.push({
-          type, aspectRatio: ar, base64: img.base64, vendor: img.vendor,
-          generatedAt: Date.now(),
+          type, aspectRatio: ar, base64: overlaid, vendor: img.vendor,
+          generatedAt: Date.now(), template,
         });
       } catch (e: any) {
         await logAIUsage({
