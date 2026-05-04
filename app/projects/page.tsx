@@ -20,7 +20,6 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
   const [view, setView] = useState<"active" | "archived">("active");
-  const [referralFlash, setReferralFlash] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/projects")
@@ -32,36 +31,7 @@ export default function ProjectsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 추천 코드 자동 apply (가입/로그인 후 첫 진입 시)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const code = typeof window !== "undefined" ? localStorage.getItem("tigerbookmaker_ref_code") : null;
-        if (!code) return;
-        // 시도 후 무조건 정리 — 1회만 시도
-        try {
-          const res = await fetch("/api/referral/apply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code }),
-          });
-          if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            if (!cancelled && data?.awarded) {
-              setReferralFlash("🎁 추천 코드 적용! ₩2,000 크레딧이 추가됐어요.");
-              setTimeout(() => setReferralFlash(null), 5000);
-            }
-          }
-        } catch {}
-        try {
-          localStorage.removeItem("tigerbookmaker_ref_code");
-          document.cookie = "tigerbookmaker_ref_code=; path=/; max-age=0; SameSite=Lax";
-        } catch {}
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // 추천 코드 apply 로직은 components/Header.tsx로 이동 (모든 페이지에서 발동)
 
   // 정렬: favorite 먼저, 그 다음 updatedAt 내림차순
   const visible = useMemo(() => {
@@ -101,11 +71,6 @@ export default function ProjectsPage() {
     <main className="min-h-screen bg-[#fafafa]">
       <Header />
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
-        {referralFlash && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 font-medium">
-            {referralFlash}
-          </div>
-        )}
         <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
           <div>
             <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">내 책</p>

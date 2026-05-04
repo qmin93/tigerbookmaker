@@ -16,6 +16,47 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
       .catch(() => {});
   }, [status]);
 
+  // 추천 코드 자동 apply — 모든 페이지에서 발동 (기존엔 /projects만)
+  // sessionStorage 가드로 세션당 1회만 시도
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const code = (() => {
+      try { return localStorage.getItem("tigerbookmaker_ref_code"); }
+      catch { return null; }
+    })();
+    if (!code) return;
+
+    const attempted = (() => {
+      try { return sessionStorage.getItem("tigerbookmaker_ref_attempted"); }
+      catch { return null; }
+    })();
+    if (attempted) return;
+    try { sessionStorage.setItem("tigerbookmaker_ref_attempted", "1"); } catch {}
+
+    fetch("/api/referral/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        // 한 번 시도했으면 localStorage/cookie 정리
+        try { localStorage.removeItem("tigerbookmaker_ref_code"); } catch {}
+        try { document.cookie = "tigerbookmaker_ref_code=; path=/; max-age=0; SameSite=Lax"; } catch {}
+        // 성공 시 잔액 새로고침
+        if (data?.awarded) {
+          fetch("/api/me")
+            .then(r => r.ok ? r.json() : null)
+            .then(d => d && setBalance(d.balance_krw))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {
+        // 무음 실패 — Header 렌더 깨지면 안 됨
+        try { localStorage.removeItem("tigerbookmaker_ref_code"); } catch {}
+      });
+  }, [status]);
+
   const loggedIn = status === "authenticated";
   const dark = variant === "dark";
 
