@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
+import type { MetaAdImage } from "@/lib/storage";
 
 type BatchState =
   | { status: "idle" }
@@ -123,6 +124,10 @@ function Inner() {
   const [metaAdBusy, setMetaAdBusy] = useState(false);
   const [metaCopiedIdx, setMetaCopiedIdx] = useState<string | null>(null);
 
+  // ─── Meta 광고 이미지 (Part A — 3 비율) ───
+  const [metaAdImages, setMetaAdImages] = useState<MetaAdImage[]>([]);
+  const [metaImgBusy, setMetaImgBusy] = useState(false);
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -154,6 +159,12 @@ function Inner() {
   // metaAdPackage sync (Sub-project 5)
   useEffect(() => {
     if ((project as any)?.metaAdPackage) setMetaAdPackage((project as any).metaAdPackage);
+  }, [project]);
+
+  // metaAdImages sync (Part A)
+  useEffect(() => {
+    const imgs = (project as any)?.metaAdImages;
+    if (Array.isArray(imgs)) setMetaAdImages(imgs);
   }, [project]);
 
   if (unauthorized) {
@@ -905,6 +916,50 @@ function Inner() {
     setTimeout(() => setMetaCopiedIdx(null), 1500);
   };
 
+  // ─── Meta 광고 이미지 (Part A) — 3 비율 자동 생성 ───
+  const generateMetaImages = async (regenerateOnly?: ("feed" | "story" | "link")[]) => {
+    if (!projectId) return;
+    setMetaImgBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/generate/meta-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ...(regenerateOnly ? { regenerateOnly } : {}) }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `이미지 생성 실패 (${res.status})`);
+      // 부분 재생성 → 기존 + new 병합. 전체 재생성 → new로 교체.
+      if (regenerateOnly && regenerateOnly.length > 0) {
+        const replaced = new Set<string>(regenerateOnly);
+        setMetaAdImages(prev => [
+          ...prev.filter(i => !replaced.has(i.type)),
+          ...(data.images ?? []),
+        ]);
+      } else {
+        setMetaAdImages(data.images ?? []);
+      }
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setMetaImgBusy(false);
+    }
+  };
+
+  const downloadMetaImage = (img: MetaAdImage) => {
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${img.base64}`;
+    a.download = `meta-${img.type}-${img.aspectRatio.replace(":", "x")}.png`;
+    a.click();
+  };
+
+  const metaImageLabel = (type: MetaAdImage["type"]) =>
+    type === "feed" ? "피드" : type === "story" ? "스토리" : "링크";
+
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
     setDragIdx(i);
@@ -1274,6 +1329,91 @@ function Inner() {
                     </div>
                   </div>
                 )}
+
+                {/* Meta 광고 이미지 (Part A) — 3 비율 자동 생성 */}
+                <div className="mt-3 pt-3 border-t border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-bold text-ink-900">🖼️ 광고 이미지 (3 비율)</div>
+                    {metaAdImages.length > 0 && !metaImgBusy && (
+                      <button
+                        onClick={() => generateMetaImages()}
+                        className="text-[10px] text-blue-600 hover:underline"
+                      >
+                        🔄 전체 다시
+                      </button>
+                    )}
+                  </div>
+
+                  {metaAdImages.length === 0 && !metaImgBusy && (
+                    <button
+                      onClick={() => generateMetaImages()}
+                      disabled={metaImgBusy}
+                      className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
+                    >
+                      🎨 광고 이미지 3장 생성 (~₩90)
+                    </button>
+                  )}
+
+                  {metaImgBusy && (
+                    <div className="text-xs text-blue-700 text-center py-3">
+                      ⏳ 이미지 생성 중... (약 30초)
+                      <span className="inline-block ml-1 animate-pulse">···</span>
+                    </div>
+                  )}
+
+                  {metaAdImages.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["feed", "story", "link"] as const).map((type) => {
+                        const img = metaAdImages.find((i) => i.type === type);
+                        return (
+                          <div key={type} className="bg-white rounded border border-blue-200 p-1.5 flex flex-col">
+                            <div className="text-[10px] font-bold text-ink-900 mb-1 text-center">
+                              {metaImageLabel(type)}{" "}
+                              <span className="font-normal text-gray-500">
+                                {type === "feed" ? "1:1" : type === "story" ? "9:16" : "16:9"}
+                              </span>
+                            </div>
+                            {img ? (
+                              <>
+                                <img
+                                  src={`data:image/png;base64,${img.base64}`}
+                                  alt={`Meta ${type}`}
+                                  className="w-full max-h-[150px] object-contain bg-gray-50 rounded"
+                                />
+                                <div className="flex gap-1 mt-1">
+                                  <button
+                                    onClick={() => downloadMetaImage(img)}
+                                    className="flex-1 text-[10px] px-1 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                                  >
+                                    💾 다운로드
+                                  </button>
+                                  <button
+                                    onClick={() => generateMetaImages([type])}
+                                    disabled={metaImgBusy}
+                                    className="flex-1 text-[10px] px-1 py-0.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+                                  >
+                                    🔄 다시
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-3 text-[10px] text-gray-400">
+                                <span>없음</span>
+                                <button
+                                  onClick={() => generateMetaImages([type])}
+                                  disabled={metaImgBusy}
+                                  className="mt-1 text-blue-600 hover:underline"
+                                >
+                                  생성
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
