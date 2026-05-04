@@ -73,6 +73,13 @@ export default function UserProfilePage({ params }: { params: { handle: string }
       })
       .then((d: ProfileData) => setData(d))
       .catch(e => setError(e.message));
+
+    // 페이지 방문 추적 (silent, 실패 무시)
+    fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageType: "profile", pageId: handle }),
+    }).catch(() => {});
   }, [handle]);
 
   // NOT_FOUND 상태 — 깔끔한 404 카드

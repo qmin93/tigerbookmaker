@@ -49,6 +49,13 @@ export default function BookPage({ params }: { params: { id: string } }) {
       })
       .then((d: BookData) => setData(d))
       .catch(e => setError(e.message));
+
+    // 페이지 방문 추적 (silent, 실패 무시)
+    fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageType: "book", pageId: id }),
+    }).catch(() => {});
   }, [id]);
 
   if (error) {

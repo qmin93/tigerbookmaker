@@ -20,6 +20,12 @@ interface ReferralStats {
   recentSignups: Array<{ awarded_at: string | null; created_at: string }>;
 }
 
+interface VisitStats {
+  totalViews: number;
+  last7days: number;
+  last30days: number;
+}
+
 type HandleStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 const MAX_LINKS = 8;
@@ -47,6 +53,9 @@ export default function ProfileEditPage() {
   // 추천 시스템 상태
   const [referral, setReferral] = useState<ReferralStats | null>(null);
   const [refCopied, setRefCopied] = useState(false);
+
+  // 프로필 방문 통계
+  const [visitStats, setVisitStats] = useState<VisitStats | null>(null);
 
   // 추천 통계 로드
   useEffect(() => {
@@ -119,6 +128,21 @@ export default function ProfileEditPage() {
     })();
     return () => { cancelled = true; };
   }, [router]);
+
+  // 본인 프로필 방문 통계 (originalHandle 확정 후)
+  useEffect(() => {
+    if (!originalHandle) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/analytics/stats?pageType=profile&pageId=${encodeURIComponent(originalHandle)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setVisitStats(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [originalHandle]);
 
   // handle 실시간 체크 (debounce 500ms)
   useEffect(() => {
@@ -222,6 +246,13 @@ export default function ProfileEditPage() {
                   </a>
                 )}
               </div>
+              {visitStats && (
+                <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                  <span>👀 총 방문 <strong className="text-ink-900">{visitStats.totalViews.toLocaleString()}</strong>회</span>
+                  <span>최근 7일 <strong className="text-ink-900">{visitStats.last7days.toLocaleString()}</strong>회</span>
+                  <span>최근 30일 <strong className="text-ink-900">{visitStats.last30days.toLocaleString()}</strong>회</span>
+                </div>
+              )}
             </div>
 
             {/* 🎁 친구 초대 (Referral) */}
