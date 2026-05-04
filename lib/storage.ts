@@ -177,6 +177,16 @@ export interface BookProject {
     skipped: boolean;
     aiDriven?: boolean;
   };
+  // Wave: 표지 다양화 — 한 번 클릭으로 3~5종 다른 스타일 표지 생성, 사용자 선택 후 메인 cover로 복사.
+  // 사용자가 [이걸로 선택] 누르기 전까진 메인 cover에 들어가지 X.
+  coverVariations?: {
+    idx: number;          // 0,1,2 ... (style preset index)
+    base64: string;       // PNG base64 (no data: prefix)
+    vendor: string;       // "gemini" / "cloudflare" / "openai" / "pollinations"
+    style: string;        // 사람이 읽는 라벨 (예: "Minimalist", "Bold", "Photorealistic")
+    prompt?: string;      // 디버깅용
+    generatedAt: number;
+  }[];
   kmongPackage?: {
     images: { type: "cover" | "thumb" | "toc" | "spec" | "audience" | "preview"; base64: string; vendor: string; generatedAt: number }[];
     copy: {
