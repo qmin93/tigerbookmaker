@@ -25,11 +25,11 @@ export default function Home() {
           </h1>
           <p className="opacity-0 animate-fade-up mt-8 max-w-2xl text-lg md:text-xl text-gray-600 leading-relaxed" style={{ animationDelay: "300ms" }}>
             <span className="text-ink-900 font-bold">주제 한 줄 + 본인 자료 1개 → AI가 12챕터 + 표지 + 마케팅 자료까지 자동.</span>
-            <br />₩600 만들어 ₩5,000~₩10,000에 크몽 판매.
+            <br />₩4,000~₩12,000 만들어 ₩30,000~₩100,000에 크몽 판매.
           </p>
           <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
             <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
-              무료로 시작 — ₩3,000 크레딧 받기
+              무료로 시작 — ₩5,000 크레딧 받기
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </Link>
             <Link href="#samples" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-gray-300 hover:border-ink-900 hover:bg-white text-ink-900 font-bold transition">
@@ -91,7 +91,7 @@ export default function Home() {
         </div>
         <div className="mt-16 max-w-6xl mx-auto px-6 divide-y divide-gray-200 border-t border-b border-gray-200">
           {[
-            { n: "01", title: "목차도 본문도 AI", body: "주제 한 줄 → 목차 자동, 12챕터 본문 자동. 30분이면 권당 평균 ₩263." },
+            { n: "01", title: "목차도 본문도 AI", body: "주제 한 줄 → 목차 자동, 12챕터 본문 자동. 30분이면 권당 ₩4,000부터." },
             { n: "02", title: "한국어 문체 특화", body: "해요체 통일, 번역투 차단, AI 특유 표현 금지. 책방에서 통하는 문장만." },
             { n: "03", title: "챕터 일관성 보장", body: "앞 챕터 요약을 자동 주입 — 인물·용어·예시가 책 끝까지 일관." },
             { n: "04", title: "내 자료 학습 (RAG)", body: "PDF · URL · 텍스트 업로드 → AI가 모두 읽고 인터뷰·목차·본문에 자동 인용. 내 지식이 그대로 책이 됩니다." },
@@ -234,7 +234,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6">
           <Eyebrow>베타 기간</Eyebrow>
           <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            지금 가입하면<br /><span className="text-tiger-orange">₩3,000 무료 크레딧.</span>
+            지금 가입하면<br /><span className="text-tiger-orange">₩5,000 무료 크레딧.</span>
           </h2>
           <p className="mt-4 text-gray-600 max-w-xl">회원가입 + 이메일 인증 시 자동 지급. 모든 신기능 포함 (RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고). 카드 등록 · 정기결제 없음.</p>
         </div>
@@ -242,7 +242,7 @@ export default function Home() {
           <div className="rounded-2xl p-8 md:p-10 border-2 border-tiger-orange shadow-glow-orange-sm bg-white">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">베타 환영 크레딧</div>
             <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tight">
-              ₩3,000<span className="text-base text-gray-500 font-normal"> 무료</span>
+              ₩5,000<span className="text-base text-gray-500 font-normal"> 무료</span>
             </div>
             <div className="mt-4 text-base text-gray-700">집필 + RAG 자료 학습 + 톤 매칭 + 마케팅 페이지 + 작가 프로필 + Meta 광고 카피 — 전부 포함.</div>
             <div className="mt-2 text-sm text-gray-500">정식 결제는 사업자등록 완료 후 시작 — 그동안 부담 없이 써보세요.</div>
@@ -252,7 +252,7 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div className="rounded-2xl p-5 md:p-6 border border-gray-200 bg-white">
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">기본 혜택</div>
-              <div className="font-bold text-ink-900 mb-1">₩3,000 무료 크레딧</div>
+              <div className="font-bold text-ink-900 mb-1">₩5,000 무료 크레딧</div>
               <div className="text-xs text-gray-500">이메일 인증 시 자동 지급 · 신기능 전부 사용 가능</div>
             </div>
             <div className="rounded-2xl p-5 md:p-6 border border-tiger-orange/40 bg-orange-50">
@@ -274,11 +274,11 @@ export default function Home() {
             오늘부터<br /><span className="text-tiger-orange">책을 쓰세요.</span>
           </h2>
           <p className="mt-6 text-ink-300 text-lg max-w-xl mx-auto">
-            가입 + 이메일 인증 시 ₩3,000 무료 크레딧 자동 지급. RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 전부 포함. 카드 등록 불필요.
+            가입 + 이메일 인증 시 ₩5,000 무료 크레딧 자동 지급. RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 전부 포함. 카드 등록 불필요.
           </p>
           <div className="mt-10">
             <Link href="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-tiger-orange text-white text-lg font-bold shadow-glow-orange hover:bg-orange-600 transition">
-              무료로 시작 — ₩3,000 크레딧 받기 →
+              무료로 시작 — ₩5,000 크레딧 받기 →
             </Link>
           </div>
         </div>

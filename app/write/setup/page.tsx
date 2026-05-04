@@ -470,7 +470,7 @@ function Inner() {
             )}
           </div>
           <p className="text-xs text-gray-600 mb-3">
-            PDF·DOCX·블로그 URL·YouTube 자막·이미지(OCR ₩30)·메모 — 모두 AI가 읽고 인터뷰·목차·본문에 활용합니다. (PDF/DOCX 10MB, 이미지 8MB, 50~50만자 텍스트)
+            PDF·DOCX·블로그 URL·YouTube 자막·이미지(OCR ₩200)·메모 — 모두 AI가 읽고 인터뷰·목차·본문에 활용합니다. (PDF/DOCX 10MB, 이미지 8MB, 50~50만자 텍스트)
           </p>
 
           {refUploadBusy && (
@@ -557,7 +557,7 @@ function Inner() {
               <>
                 <p className="text-xs text-gray-600 mb-3">
                   AI가 모든 자료를 읽고 핵심 5가지 + 빠진 부분을 정리합니다. 그 후 인터뷰는 빈 부분만 짧게 (5~7개) 진행됩니다.
-                  <br/><span className="text-tiger-orange font-bold">예상 비용 ₩20</span>
+                  <br/><span className="text-tiger-orange font-bold">예상 비용 ₩200</span>
                 </p>
                 <button
                   onClick={generateSummary}
@@ -633,7 +633,7 @@ function Inner() {
                     onClick={() => setToneMode(m)}
                     className={`flex-1 px-2 py-1.5 text-xs rounded font-bold ${toneMode === m ? 'bg-purple-500 text-white' : 'bg-white border border-purple-300 text-purple-700'}`}
                   >
-                    {m === "auto" ? "🪄 자동 추천 (₩20)" : m === "preset" ? "📋 6개 중 선택 (무료)" : "📖 좋아하는 책 (₩20)"}
+                    {m === "auto" ? "🪄 자동 추천 (₩200)" : m === "preset" ? "📋 6개 중 선택 (무료)" : "📖 좋아하는 책 (₩200)"}
                   </button>
                 ))}
               </div>

@@ -40,7 +40,7 @@ interface UsageStat {
 }
 
 const MODELS = [
-  { id: "gemini-flash-latest", label: "Flash · 책 1권 ~₩200 (권장, 안정)" },
+  { id: "gemini-flash-latest", label: "Flash · 책 1권 ~₩4,000 (권장, 안정)" },
   { id: "gemini-2.5-flash", label: "Flash 2.5 · 503 빈발 (현재 비추)" },
   { id: "gemini-2.5-pro", label: "Pro · 결제 활성화 필요" },
   { id: "claude-sonnet-4-6", label: "Sonnet · API 키 필요 (현재 비활성)" },
@@ -62,7 +62,7 @@ const REPURPOSE_LABEL: Record<RepurposeChannel, string> = {
   instagram: "인스타", youtube: "유튜브", blog: "블로그", email: "이메일", kakao: "카톡",
 };
 const REPURPOSE_COST: Record<RepurposeChannel, string> = {
-  instagram: "~₩40", youtube: "~₩30", blog: "~₩100", email: "~₩60", kakao: "~₩20",
+  instagram: "~₩500", youtube: "~₩500", blog: "~₩1,500", email: "~₩1,000", kakao: "~₩300",
 };
 
 function Inner() {
@@ -552,9 +552,9 @@ function Inner() {
     }
   };
 
-  // 미작성 챕터 수 × 챕터당 평균 (₩20 본문 + ₩2 요약) × 안전마진 30%
+  // 새 가격 정책 (Sang-nim 10x 인상, 2026-05): 챕터당 ₩300 고정 (요약 포함)
   const estimateBatchKRW = (chaptersToWriteCount: number) =>
-    Math.ceil(chaptersToWriteCount * 22 * 1.3);
+    chaptersToWriteCount * 300;
 
   // 잔액이 충분한지 사전 체크 (true면 OK, false면 모달 + false)
   const checkBalanceForBatch = (chaptersToWriteCount: number): boolean => {
@@ -788,7 +788,7 @@ function Inner() {
       setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
       return;
     }
-    if (!confirm("크몽 패키지 — 이미지 6장 + 카피 5종 (~₩30, 약 40초). 진행할까요?")) return;
+    if (!confirm("크몽 패키지 — 이미지 6장 (~₩2,400) + 카피 5종 (~₩500), 약 40초. 진행할까요?")) return;
 
     setError(null);
     setKmongModalOpen(true);
@@ -847,7 +847,7 @@ function Inner() {
         setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
         return;
       }
-      if (!confirm("크몽 패키지 생성 — 카피 5종 (~₩30). 이미지 6장은 모달에서 개별 [생성] 클릭 (각 ~5초). 진행할까요?")) return;
+      if (!confirm("크몽 패키지 생성 — 카피 5종 (~₩500). 이미지 6장은 모달에서 개별 [생성] 클릭 (각 ₩400, ~5초). 진행할까요?")) return;
     }
     setKmongBusy(regenerateOnly ? "이미지 생성 중..." : "카피 생성 중 (약 10초)...");
     setError(null);
@@ -964,7 +964,7 @@ function Inner() {
     }
   };
 
-  // 표지 다양화 — 3종 다른 스타일 한번에 생성 (~₩84). Imagen 4 Fast.
+  // 표지 다양화 — 3종 다른 스타일 한번에 생성 (~₩900). Imagen 4 Fast.
   const generateCoverVariations = async () => {
     if (!projectId) return;
     const cnt = coverVariationsCount;
@@ -2047,10 +2047,10 @@ function Inner() {
                 >
                   {metaAllInOneBusy === 0 && (
                     metaAdPackage && metaAdImages.length > 0
-                      ? "🔄 둘 다 다시 생성 (~₩130)"
+                      ? "🔄 둘 다 다시 생성 (~₩2,000)"
                       : metaAdPackage
-                        ? "⚡ 1-click — 이미지만 생성 (~₩90)"
-                        : "⚡ 1-click — 카피 + 이미지 한 번에 (~₩130)"
+                        ? "⚡ 1-click — 이미지만 생성 (~₩1,500)"
+                        : "⚡ 1-click — 카피 + 이미지 한 번에 (~₩2,000)"
                   )}
                   {metaAllInOneBusy === 1 && "⏳ 1/2 카피 생성 중..."}
                   {metaAllInOneBusy === 2 && "⏳ 2/2 이미지 생성 중... (약 30초)"}
@@ -2065,7 +2065,7 @@ function Inner() {
                       disabled={metaAdBusy || metaAllInOneBusy !== 0}
                       className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
                     >
-                      🎯 Meta 광고 카피만 생성 (~₩40)
+                      🎯 Meta 광고 카피만 생성 (~₩500)
                     </button>
                   </>
                 )}
@@ -2170,7 +2170,7 @@ function Inner() {
                         disabled={metaImgBusy || metaAllInOneBusy !== 0}
                         className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
                       >
-                        🎨 광고 이미지 3장만 생성 (~₩90)
+                        🎨 광고 이미지 3장만 생성 (~₩1,500)
                       </button>
                     </>
                   )}
@@ -2591,7 +2591,7 @@ function Inner() {
             <div className="mb-3 p-3 bg-indigo-50/60 border border-indigo-300/50 rounded-lg">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <h3 className="text-sm font-bold text-ink-900">🌐 책 번역</h3>
-                <span className="text-[10px] text-indigo-700">~₩200/책 (Gemini Flash)</span>
+                <span className="text-[10px] text-indigo-700">~₩2,000/책 (전체)</span>
               </div>
               <p className="text-[10px] text-gray-600 mb-2">한국어 책 → 영어 또는 일본어 한 번에 번역. KDP/Amazon 글로벌 진출용.</p>
 
@@ -2621,7 +2621,7 @@ function Inner() {
                 disabled={translateBusy || !project?.chapters?.length}
                 className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded disabled:opacity-50"
               >
-                {translateBusy ? "⏳ 번역 중..." : `🌐 책 전체 번역 (~₩200)`}
+                {translateBusy ? "⏳ 번역 중..." : `🌐 책 전체 번역 (~₩2,000)`}
               </button>
 
               {translateMsg && (
@@ -3223,9 +3223,9 @@ function Inner() {
 
             {/* 1-click bundle 3개 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {bundleCard("publish", "🎯 출간 패키지", "약 ₩70", "표지 + EPUB + 마케팅 카피 (이미 만들어진 표지/EPUB는 그대로)", "from-tiger-orange to-orange-600")}
-              {bundleCard("growth", "📈 성장 패키지", "약 ₩240", "출간 + Meta 광고 카피 + Meta 이미지 3종 + 마케팅 페이지", "from-blue-500 to-blue-700", "추천")}
-              {bundleCard("full", "🚀 풀 패키지", "약 ₩440", "성장 + 인스타·유튜브·블로그·이메일·카톡 5채널 재가공", "from-pink-500 to-purple-600")}
+              {bundleCard("publish", "🎯 출간 패키지", "약 ₩900", "표지 + EPUB + 마케팅 카피 (이미 만들어진 표지/EPUB는 그대로)", "from-tiger-orange to-orange-600")}
+              {bundleCard("growth", "📈 성장 패키지", "약 ₩2,500", "출간 + Meta 광고 카피 + Meta 이미지 3종 + 마케팅 페이지", "from-blue-500 to-blue-700", "추천")}
+              {bundleCard("full", "🚀 풀 패키지", "약 ₩6,300", "성장 + 인스타·유튜브·블로그·이메일·카톡 5채널 재가공", "from-pink-500 to-purple-600")}
             </div>
 
             {bundleBusy && bundleProgress && (
@@ -3289,7 +3289,7 @@ function Inner() {
             disabled={infographicBusy || !((project as any).referencesSummary?.keyPoints?.length)}
             className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
           >
-            {infographicBusy ? "⏳ 5장 생성 중..." : infographic ? "🔄 다시 생성" : "✨ 카드뉴스 인포그래픽 5장 생성 (~₩50)"}
+            {infographicBusy ? "⏳ 5장 생성 중..." : infographic ? "🔄 다시 생성" : "✨ 카드뉴스 인포그래픽 5장 생성 (~₩1,000)"}
           </button>
 
           {infographic && infographic.slides.length > 0 && (
@@ -3448,7 +3448,7 @@ function Inner() {
             disabled={previewVideoBusy}
             className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
           >
-            {previewVideoBusy ? "⏳ 5장 생성 중..." : previewVideo ? "🔄 다시 생성" : "🎬 5장 frame 생성 (~₩30)"}
+            {previewVideoBusy ? "⏳ 5장 생성 중..." : previewVideo ? "🔄 다시 생성" : "🎬 5장 frame 생성 (~₩500)"}
           </button>
 
           {previewVideo && previewVideo.frames.length > 0 && (
@@ -3537,7 +3537,7 @@ function Inner() {
                 >
                   {audiobookBusy
                     ? (audiobookProgress ?? "⏳ 생성 중...")
-                    : `🎙️ 남은 ${project.chapters.length - audiobook.chapters.length}장 생성 (~₩${(project.chapters.length - audiobook.chapters.length) * 50})`}
+                    : `🎙️ 남은 ${project.chapters.length - audiobook.chapters.length}장 생성 (~₩${((project.chapters.length - audiobook.chapters.length) * 300).toLocaleString()})`}
                 </button>
               )}
               <p className="mt-2 text-[10px] text-gray-500">
@@ -3630,7 +3630,7 @@ function Inner() {
               >
                 {courseSlidesBusy
                   ? "⏳ 슬라이드 생성 중..."
-                  : `🎙️ 강의 슬라이드 생성 (~₩${40 + (courseSlideRender ? courseSlideCount * 10 : 0)})`}
+                  : `🎙️ 강의 슬라이드 생성 (~₩2,000)`}
               </button>
             </>
           ) : (
@@ -3802,8 +3802,8 @@ function Inner() {
                   disabled={coverVariationsBusy}
                   className="text-xs px-2 py-1.5 border border-blue-300 rounded-md bg-white"
                 >
-                  <option value={3}>3종 (~₩84)</option>
-                  <option value={5}>5종 (~₩140)</option>
+                  <option value={3}>3종 (~₩900)</option>
+                  <option value={5}>5종 (~₩1,500)</option>
                 </select>
                 <button
                   onClick={generateCoverVariations}

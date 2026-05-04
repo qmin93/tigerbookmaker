@@ -152,14 +152,24 @@ export default function BillingPage() {
           })}
         </div>
 
-        {/* 환산 */}
-        {selected && (
-          <div className="mb-6 p-4 rounded-xl bg-orange-50 border border-tiger-orange/30 text-sm">
-            <div className="font-bold text-ink-900">
-              충전 ₩{selected.toLocaleString()} → 책 약 <strong className="text-tiger-orange">{Math.floor(selected / 1000)}권</strong> (₩1,000/권)
+        {/* 환산 — 새 가격 정책: 라이트 ₩4K/권, 풀 ₩12K/권 */}
+        {selected && (() => {
+          const lightBooks = Math.floor(selected / 4000);
+          const standardBooks = Math.floor(selected / 7400);
+          const fullBooks = Math.floor(selected / 12200);
+          return (
+            <div className="mb-6 p-4 rounded-xl bg-orange-50 border border-tiger-orange/30 text-sm space-y-1">
+              <div className="font-bold text-ink-900">
+                충전 ₩{selected.toLocaleString()} →
+              </div>
+              <div className="text-gray-700">
+                라이트 약 <strong className="text-tiger-orange">{lightBooks}권</strong> (₩4,000/권) ·
+                표준 약 <strong className="text-tiger-orange">{standardBooks}권</strong> (₩7,400/권) ·
+                풀 약 <strong className="text-tiger-orange">{fullBooks}권</strong> (₩12,200/권)
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 결제 위젯 */}
         {selected && (

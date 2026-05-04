@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 export const metadata: Metadata = {
   title: "가격 — Tigerbookmaker",
   description:
-    "지금은 베타 — 모든 기능 무료. ₩3,000 무료 크레딧 자동 지급. 카드 등록 · 정기결제 없음.",
+    "지금은 베타 — 모든 기능 무료. ₩5,000 무료 크레딧 자동 지급. 카드 등록 · 정기결제 없음.",
 };
 
 export default function PricingPage() {
@@ -23,7 +23,7 @@ export default function PricingPage() {
             <span className="text-tiger-orange">모든 기능 무료</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-gray-600 leading-relaxed">
-            ₩3,000 무료 크레딧 자동 지급.{" "}
+            ₩5,000 무료 크레딧 자동 지급.{" "}
             <span className="text-ink-900 font-bold">카드 등록 · 정기결제 없음.</span>
           </p>
         </div>
@@ -42,7 +42,7 @@ export default function PricingPage() {
               <h3 className="mt-4 text-xl font-black tracking-tight text-ink-900">베타 (현재)</h3>
               <div className="mt-3">
                 <div className="text-3xl font-black text-ink-900 tracking-tight">₩0</div>
-                <div className="mt-1 text-sm text-tiger-orange font-bold">+ ₩3,000 무료 크레딧</div>
+                <div className="mt-1 text-sm text-tiger-orange font-bold">+ ₩5,000 무료 크레딧</div>
               </div>
               <ul className="mt-6 space-y-2.5 text-sm text-gray-700 flex-1">
                 <Feature>모든 신기능 (RAG · 톤 매칭 · 마케팅)</Feature>
@@ -112,6 +112,38 @@ export default function PricingPage() {
             </div>
           </div>
 
+          {/* 권당 비용 시나리오 — 새 가격 정책 (Sang-nim 10x 인상, 2026-05) */}
+          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 md:p-8">
+            <h3 className="text-lg md:text-xl font-black tracking-tight text-ink-900 mb-1">
+              권당 비용 시나리오
+            </h3>
+            <p className="text-sm text-gray-600 mb-5">
+              사용하는 기능 조합에 따라 권당 비용이 달라집니다.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">라이트</div>
+                <div className="font-mono text-2xl font-black text-ink-900 mt-1">₩4,000<span className="text-xs text-gray-500 font-normal">/권</span></div>
+                <div className="text-xs text-gray-600 mt-2">본문 12장 + 표지 1장</div>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">표준</div>
+                <div className="font-mono text-2xl font-black text-ink-900 mt-1">₩7,400<span className="text-xs text-gray-500 font-normal">/권</span></div>
+                <div className="text-xs text-gray-600 mt-2">+ 톤 매칭 + 자료 분석 + 마케팅 메타</div>
+              </div>
+              <div className="rounded-xl border border-tiger-orange/40 bg-orange-50/40 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-tiger-orange">★ 풀</div>
+                <div className="font-mono text-2xl font-black text-ink-900 mt-1">₩12,200<span className="text-xs text-gray-500 font-normal">/권</span></div>
+                <div className="text-xs text-gray-600 mt-2">+ Meta 광고 카피 + 이미지 3종</div>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">프리미엄</div>
+                <div className="font-mono text-2xl font-black text-ink-900 mt-1">₩21,300<span className="text-xs text-gray-500 font-normal">/권</span></div>
+                <div className="text-xs text-gray-600 mt-2">+ 인포그래픽 + 표지 다양화 + 재가공 5채널</div>
+              </div>
+            </div>
+          </div>
+
           {/* 베타 사용자 혜택 박스 */}
           <div className="mt-8 rounded-2xl border border-tiger-orange/30 bg-orange-50/60 p-6 md:p-8">
             <div className="flex items-start gap-4">
@@ -178,7 +210,7 @@ export default function PricingPage() {
             지금은 무료. <span className="text-tiger-orange">한 권 만들어보세요.</span>
           </h2>
           <p className="mt-5 text-gray-600 text-lg">
-            ₩3,000 크레딧 자동 지급 · 카드 등록 없음 · 7일 내 100% 환불
+            ₩5,000 크레딧 자동 지급 · 카드 등록 없음 · 7일 내 100% 환불
           </p>
           <div className="mt-10">
             <Link
