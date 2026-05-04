@@ -152,6 +152,16 @@ function Inner() {
   const [repurposeCopiedKey, setRepurposeCopiedKey] = useState<string | null>(null);
   const [expandedBlogPost, setExpandedBlogPost] = useState<number | null>(null);
 
+  // ─── 패키지 funnel + 1-click bundle (Wave B1) ───
+  type BundleLevel = "publish" | "growth" | "full";
+  const [bundleBusy, setBundleBusy] = useState<BundleLevel | null>(null);
+  const [bundleProgress, setBundleProgress] = useState<{ step: number; total: number; label: string } | null>(null);
+
+  // ─── 카드뉴스 인포그래픽 (Wave B3) ───
+  const [infographic, setInfographic] = useState<{ template: string; slides: { slideNum: number; base64: string }[]; generatedAt: number } | null>(null);
+  const [infographicBusy, setInfographicBusy] = useState(false);
+  const [infographicTemplate, setInfographicTemplate] = useState<"minimal" | "bold" | "dark">("bold");
+
   useEffect(() => {
     if (!projectId) {
       router.push("/projects");
@@ -194,6 +204,11 @@ function Inner() {
   // repurposedContent sync (Wave 1)
   useEffect(() => {
     if ((project as any)?.repurposedContent) setRepurposed((project as any).repurposedContent);
+  }, [project]);
+
+  // infographic sync (Wave B3)
+  useEffect(() => {
+    if ((project as any)?.infographic) setInfographic((project as any).infographic);
   }, [project]);
 
   if (unauthorized) {
@@ -1028,6 +1043,151 @@ function Inner() {
 
   const metaImageLabel = (type: MetaAdImage["type"]) =>
     type === "feed" ? "피드" : type === "story" ? "스토리" : "링크";
+
+  // ─── Wave B3: 카드뉴스 인포그래픽 5장 자동 생성 ───
+  const generateInfographic = async () => {
+    if (!projectId) return;
+    setInfographicBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/generate/infographic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, template: infographicTemplate }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `인포그래픽 생성 실패 (${res.status})`);
+      const next = {
+        template: infographicTemplate,
+        slides: data.infographics ?? [],
+        generatedAt: Date.now(),
+      };
+      setInfographic(next);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setInfographicBusy(false);
+    }
+  };
+
+  const downloadInfographicSlide = (slide: { slideNum: number; base64: string }) => {
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${slide.base64}`;
+    a.download = `infographic-${slide.slideNum}.png`;
+    a.click();
+  };
+
+  // ─── Wave B1: 1-click bundle (publish/growth/full) ───
+  // 순차적으로 필요한 endpoint를 호출. 이미 생성된 항목은 스킵 가능.
+  const runBundle = async (level: BundleLevel) => {
+    if (!projectId || !project) return;
+    setBundleBusy(level);
+    setError(null);
+
+    type Step = { label: string; run: () => Promise<void> };
+    const steps: Step[] = [];
+
+    // 출간: 마케팅 메타 (있으면 스킵)
+    if (!(project as any).marketingMeta?.tagline) {
+      steps.push({
+        label: "마케팅 카피 생성",
+        run: async () => {
+          const r = await fetch("/api/generate/marketing-meta", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.message || `마케팅 카피 실패 (${r.status})`);
+          if (d.marketingMeta) setMarketingMeta(d.marketingMeta);
+          if (typeof d.newBalance === "number") setBalance(d.newBalance);
+        },
+      });
+    }
+
+    if (level === "growth" || level === "full") {
+      // Meta 광고 카피
+      if (!(project as any).metaAdPackage) {
+        steps.push({
+          label: "Meta 광고 카피 생성",
+          run: async () => {
+            const r = await fetch("/api/generate/meta-package", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.message || `Meta 광고 카피 실패 (${r.status})`);
+            setMetaAdPackage(d.metaAdPackage);
+            if (typeof d.newBalance === "number") setBalance(d.newBalance);
+          },
+        });
+      }
+      // Meta 광고 이미지 (3장)
+      const existingImgs: any[] = (project as any).metaAdImages ?? [];
+      if (!Array.isArray(existingImgs) || existingImgs.length === 0) {
+        steps.push({
+          label: "Meta 광고 이미지 3장 생성",
+          run: async () => {
+            const r = await fetch("/api/generate/meta-images", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId, template: imageTemplate }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.message || `Meta 광고 이미지 실패 (${r.status})`);
+            setMetaAdImages(d.images ?? []);
+            if (typeof d.newBalance === "number") setBalance(d.newBalance);
+          },
+        });
+      }
+    }
+
+    if (level === "full") {
+      // 콘텐츠 재가공 5채널
+      const existingRep: any = (project as any).repurposedContent ?? {};
+      const channels: RepurposeChannel[] = ["instagram", "youtube", "blog", "email", "kakao"];
+      for (const ch of channels) {
+        if (existingRep?.[ch]) continue;
+        steps.push({
+          label: `${REPURPOSE_LABEL[ch]} 콘텐츠 재가공`,
+          run: async () => {
+            const r = await fetch(`/api/generate/repurpose-${ch}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.message || `${REPURPOSE_LABEL[ch]} 실패 (${r.status})`);
+            setRepurposed((prev: any) => ({ ...(prev ?? {}), [ch]: d.content }));
+            if (typeof d.newBalance === "number") setBalance(d.newBalance);
+          },
+        });
+      }
+    }
+
+    if (steps.length === 0) {
+      setBundleBusy(null);
+      setError("이미 모든 항목이 생성되어 있습니다. 개별 [재생성]을 사용하세요.");
+      return;
+    }
+
+    try {
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        setBundleProgress({ step: i + 1, total: steps.length, label: s.label });
+        await s.run();
+      }
+      // 완료 후 fresh project 로드
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBundleBusy(null);
+      setBundleProgress(null);
+    }
+  };
 
   // 챕터 드래그로 순서 변경
   const handleDragStart = (i: number) => (e: React.DragEvent) => {
@@ -2110,6 +2270,209 @@ function Inner() {
             )}
           </section>
         </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* 📦 패키지 추천 — Funnel + 1-click bundle (Wave B1) */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && (() => {
+        const bookDone = project.chapters.length > 0 && project.chapters.every(c => c.content);
+        const marketingDone = !!(project as any).marketingMeta?.tagline;
+        const metaDone = !!(project as any).metaAdPackage || (Array.isArray((project as any).metaAdImages) && (project as any).metaAdImages.length > 0);
+        const repurposeDone = !!(project as any).repurposedContent && Object.keys((project as any).repurposedContent).length > 0;
+
+        const dots: { label: string; done: boolean; key: string }[] = [
+          { key: "book", label: "책 완성", done: bookDone },
+          { key: "marketing", label: "마케팅 페이지", done: marketingDone },
+          { key: "meta", label: "Meta 광고", done: metaDone },
+          { key: "repurpose", label: "콘텐츠 재가공", done: repurposeDone },
+        ];
+        const nextStep = dots.find(d => !d.done);
+        const allDone = !nextStep;
+
+        const bundleCard = (
+          level: BundleLevel,
+          title: string,
+          priceLabel: string,
+          desc: string,
+          gradient: string,
+          tag?: string,
+        ) => {
+          const isBusy = bundleBusy === level;
+          const otherBusy = bundleBusy && bundleBusy !== level;
+          return (
+            <div className={`relative p-4 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg`}>
+              {tag && (
+                <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-white text-tiger-orange text-[10px] font-black rounded-full shadow">{tag}</div>
+              )}
+              <div className="text-sm font-black mb-1">{title}</div>
+              <div className="text-[11px] opacity-90 mb-3 leading-relaxed break-keep">{desc}</div>
+              <div className="text-lg font-black mb-3">{priceLabel}</div>
+              <button
+                onClick={() => runBundle(level)}
+                disabled={!!bundleBusy || !!loading}
+                className="w-full px-3 py-2 bg-white/95 text-ink-900 rounded-lg text-xs font-black hover:bg-white transition disabled:opacity-50"
+              >
+                {isBusy
+                  ? (bundleProgress ? `⏳ ${bundleProgress.step}/${bundleProgress.total} ${bundleProgress.label}...` : "⏳ 진행 중...")
+                  : otherBusy ? "다른 패키지 진행 중" : "🚀 한 번에 만들기"}
+              </button>
+            </div>
+          );
+        };
+
+        return (
+          <section className="mt-6 mb-4 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 className="text-lg font-black text-ink-900">📦 패키지 추천</h2>
+              <p className="text-[11px] text-gray-500">책 1권 → 다음 단계 자동 / 1-click 묶음</p>
+            </div>
+
+            {/* Funnel — progress dots + next CTA */}
+            <div className="mb-5 p-4 bg-gradient-to-r from-orange-50 via-yellow-50 to-pink-50 rounded-xl border border-tiger-orange/20">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap mb-3">
+                {dots.map((d, i) => (
+                  <div key={d.key} className="flex items-center gap-2">
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${
+                      d.done ? "bg-green-100 text-green-700" : "bg-white text-gray-500 border border-gray-200"
+                    }`}>
+                      <span>{d.done ? "✅" : "⬜"}</span>
+                      <span>{d.label}</span>
+                    </div>
+                    {i < dots.length - 1 && <span className="text-gray-300">→</span>}
+                  </div>
+                ))}
+              </div>
+              {!allDone && nextStep && (
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm text-ink-900">
+                    <span className="text-tiger-orange font-bold">다음:</span> {nextStep.label}
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Next step CTA — 직접 endpoint 호출
+                      if (nextStep.key === "marketing") generateMarketingMeta();
+                      else if (nextStep.key === "meta") {
+                        if (!(project as any).metaAdPackage) generateMetaPackage();
+                        else generateMetaImages();
+                      } else if (nextStep.key === "repurpose") {
+                        // 첫 번째 미완 채널 자동 호출 (인스타 우선)
+                        const channels: RepurposeChannel[] = ["instagram", "youtube", "blog", "email", "kakao"];
+                        const existing: any = (project as any).repurposedContent ?? {};
+                        const firstNeed = channels.find(ch => !existing[ch]) ?? "instagram";
+                        generateRepurpose(firstNeed);
+                      }
+                    }}
+                    disabled={!!bundleBusy || !!loading || nextStep.key === "book"}
+                    className="px-4 py-2 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
+                  >
+                    → 다음: {nextStep.label}
+                  </button>
+                </div>
+              )}
+              {allDone && (
+                <div className="text-sm text-green-700 font-bold">🎉 모든 단계 완료! 책 1권으로 풀 패키지가 준비됐습니다.</div>
+              )}
+            </div>
+
+            {/* 1-click bundle 3개 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {bundleCard("publish", "🎯 출간 패키지", "약 ₩70", "표지 + EPUB + 마케팅 카피 (이미 만들어진 표지/EPUB는 그대로)", "from-tiger-orange to-orange-600")}
+              {bundleCard("growth", "📈 성장 패키지", "약 ₩240", "출간 + Meta 광고 카피 + Meta 이미지 3종 + 마케팅 페이지", "from-blue-500 to-blue-700", "추천")}
+              {bundleCard("full", "🚀 풀 패키지", "약 ₩440", "성장 + 인스타·유튜브·블로그·이메일·카톡 5채널 재가공", "from-pink-500 to-purple-600")}
+            </div>
+
+            {bundleBusy && bundleProgress && (
+              <div className="mt-4 p-3 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold">⏳ {bundleProgress.label}</span>
+                  <span className="text-xs font-mono text-gray-500">{bundleProgress.step}/{bundleProgress.total}</span>
+                </div>
+                <div className="h-1.5 bg-white rounded-full overflow-hidden">
+                  <div className="h-full bg-tiger-orange transition-all" style={{ width: `${(bundleProgress.step / bundleProgress.total) * 100}%` }} />
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2">완료된 항목은 자동 스킵됩니다. 잔액 부족 시 중단.</p>
+              </div>
+            )}
+
+            <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+              💡 비용은 추정치. 실제 차감액은 잔액 표시(상단)와 [방금] 사용량 배너에서 확인하세요. 이미 생성된 항목은 자동 스킵.
+            </p>
+          </section>
+        );
+      })()}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* 📚 카드뉴스 인포그래픽 — 5장 자동 (Wave B3)  */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && (
+        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-black text-ink-900">📚 카드뉴스 인포그래픽</h2>
+            <p className="text-[11px] text-gray-500">책의 핵심 5가지 → 1080×1080 PNG 5장 (Sharp만 사용 — AI 호출 X)</p>
+          </div>
+
+          {!(project as any).referencesSummary?.keyPoints?.length && (
+            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+              ⚠️ <strong>먼저 자료 분석이 필요합니다.</strong>{" "}
+              <Link href={`/write/setup?id=${projectId}`} className="text-tiger-orange font-bold hover:underline">/write/setup</Link>{" "}
+              에서 [🤖 AI 자료 정리]를 실행하세요.
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="text-xs font-bold text-gray-600">템플릿:</span>
+            {(["minimal", "bold", "dark"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setInfographicTemplate(t)}
+                disabled={infographicBusy}
+                className={`px-3 py-1 text-xs rounded-full border transition ${
+                  infographicTemplate === t
+                    ? "bg-tiger-orange text-white border-tiger-orange font-bold"
+                    : "bg-white border-gray-200 text-gray-700 hover:border-tiger-orange"
+                }`}
+              >
+                {t === "minimal" ? "🤍 미니멀" : t === "bold" ? "🟧 볼드" : "⬛ 다크"}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={generateInfographic}
+            disabled={infographicBusy || !((project as any).referencesSummary?.keyPoints?.length)}
+            className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
+          >
+            {infographicBusy ? "⏳ 5장 생성 중..." : infographic ? "🔄 다시 생성" : "✨ 카드뉴스 인포그래픽 5장 생성 (~₩50)"}
+          </button>
+
+          {infographic && infographic.slides.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-ink-900">생성된 카드 ({infographic.slides.length}장)</p>
+                <p className="text-[10px] text-gray-500">템플릿: {infographic.template} · {new Date(infographic.generatedAt).toLocaleString("ko-KR")}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {infographic.slides.map(slide => (
+                  <div key={slide.slideNum} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`data:image/png;base64,${slide.base64}`}
+                      alt={`infographic ${slide.slideNum}`}
+                      className="w-full aspect-square object-cover rounded mb-2"
+                    />
+                    <button
+                      onClick={() => downloadInfographicSlide(slide)}
+                      className="w-full px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
+                    >
+                      ⬇ {slide.slideNum}/{infographic.slides.length} 다운로드
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {/* 챕터 제목 편집 모달 */}
