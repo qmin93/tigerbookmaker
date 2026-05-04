@@ -43,6 +43,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     metaAdPackage: p.data?.metaAdPackage,
     repurposedContent: p.data?.repurposedContent,
     revenue: p.data?.revenue,
+    abTest: p.data?.abTest,             // Wave B5
+    previewVideo: p.data?.previewVideo, // Wave B6
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });
