@@ -4,6 +4,7 @@
 // 응답: { ok, variations: [{ idx, style, base64, vendor, prompt }], totalCostKRW, newBalance }
 
 import { NextResponse } from "next/server";
+import { sql } from "@vercel/postgres";
 import { auth } from "@/auth";
 import { callImageGeneration } from "@/lib/server/ai-server";
 import { coverPrompt } from "@/lib/server/kmong-prompts";
@@ -12,9 +13,66 @@ import {
   deductBalance, logAIUsage, USD_TO_KRW,
 } from "@/lib/server/db";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { generateImagePromptAI } from "@/lib/server/image-prompt-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const THEME_MAP: Record<string, { hex: string; name: string }> = {
+  orange: { hex: "#f97316", name: "warm orange" },
+  blue: { hex: "#3b82f6", name: "deep blue" },
+  green: { hex: "#10b981", name: "fresh emerald" },
+  purple: { hex: "#a855f7", name: "rich violet" },
+  red: { hex: "#ef4444", name: "vibrant red" },
+  gray: { hex: "#6b7280", name: "neutral gray" },
+};
+
+// AI Meta-prompting + RAG context. 실패 시 기존 template (coverPrompt)으로 fallback.
+async function getSmartCoverPrompt(
+  project: any,
+  projectId: string,
+  styleHint: string,
+): Promise<string> {
+  const ch1 = project?.chapters?.[0];
+  const chapterExcerpt = ch1?.content ? String(ch1.content).slice(0, 300) : undefined;
+
+  let referenceChunks: { content: string; filename: string }[] = [];
+  try {
+    const { rows } = await sql<{ content: string; filename: string }>`
+      SELECT rc.content, br.filename
+      FROM reference_chunks rc
+      JOIN book_references br ON br.id = rc.reference_id
+      WHERE br.project_id = ${projectId}
+      LIMIT 2
+    `;
+    referenceChunks = rows.map(r => ({ content: r.content, filename: r.filename }));
+  } catch {
+    // ignore
+  }
+
+  const themeKey = (project?.themeColor as string | undefined) ?? "orange";
+  const theme = THEME_MAP[themeKey] ?? THEME_MAP.orange;
+
+  try {
+    const r = await generateImagePromptAI({
+      bookTopic: String(project?.topic ?? ""),
+      bookAudience: String(project?.audience ?? ""),
+      bookType: String(project?.type ?? ""),
+      themeColorHex: theme.hex,
+      themeColorName: theme.name,
+      purpose: "cover",
+      aspectRatio: "1:1",
+      chapterExcerpt,
+      referenceChunks,
+      headline: styleHint,  // style hint를 headline 슬롯에 — context로만 들어감
+    });
+    // styleHint를 prompt 끝에 붙여 다양성 보존
+    return `${r.prompt}\n\n${styleHint}`;
+  } catch (e: any) {
+    console.warn("[cover-variations] AI meta-prompting failed, falling back to template:", e?.message);
+    return coverPrompt(project, styleHint);
+  }
+}
 
 // 5종 스타일 변형 — 동일 책정보·동일 themeColor + 다른 컴포지션/시점
 const STYLE_VARIANTS: { label: string; hint: string }[] = [
@@ -79,7 +137,7 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < count; i++) {
       const style = STYLE_VARIANTS[i % STYLE_VARIANTS.length];
-      const prompt = coverPrompt(project, style.hint);
+      const prompt = await getSmartCoverPrompt(project, projectId, style.hint);
       try {
         // preferPaid: Imagen 4 Fast — 한국어 글자 없는 추상이라 가장 안정.
         const img = await callImageGeneration({
