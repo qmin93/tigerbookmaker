@@ -2495,8 +2495,47 @@ function Inner() {
                       {activeRepurposeTab === "kakao" && (() => {
                         const kk = repurposed.kakao;
                         const messages = (kk.messages ?? []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+                        // Wave C3: 카카오 비즈니스 채널 양식 (단일 .txt) 다운로드
+                        const downloadKakaoBizFormat = () => {
+                          const lines: string[] = [
+                            "[카카오 비즈니스 채널 알림톡]",
+                            "",
+                            `책 주제: ${project?.topic ?? ""}`,
+                            `대상 독자: ${project?.audience ?? ""}`,
+                            "",
+                            "─────────────────────────",
+                            "",
+                          ];
+                          messages.forEach((m: any, i: number) => {
+                            lines.push(`== 메시지 ${m.order ?? i + 1} ==`);
+                            lines.push(`hook: ${m.hook ?? ""}`);
+                            lines.push(`body: ${m.body ?? ""}`);
+                            lines.push(`cta: ${m.cta ?? ""}`);
+                            lines.push("");
+                          });
+                          lines.push("─────────────────────────");
+                          lines.push("※ 카카오 비즈니스 채널 관리자 페이지 → 알림톡 → 새 메시지에 위 내용을 그대로 복사·붙여넣기 하세요.");
+                          const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `kakao-biz-messages-${(project?.topic ?? "book").slice(0, 20).replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}.txt`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        };
                         return (
                           <div className="space-y-2 text-xs">
+                            {messages.length > 0 && (
+                              <button
+                                onClick={downloadKakaoBizFormat}
+                                className="w-full px-2 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 text-[11px] font-bold rounded border border-yellow-300"
+                                title="5개 메시지를 단일 .txt 파일로 export"
+                              >
+                                📥 카카오 비즈 양식 다운로드 (.txt)
+                              </button>
+                            )}
                             {messages.map((msg: any, i: number) => {
                               const msgKey = `kakao-${i}`;
                               const fullText = `${msg.hook}\n\n${msg.body}\n\n${msg.cta}`;
