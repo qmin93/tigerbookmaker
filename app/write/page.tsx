@@ -114,6 +114,8 @@ function Inner() {
 
   const showConfirm = (opts: NonNullable<typeof confirmModal>) => setConfirmModal(opts);
   const [titleDraft, setTitleDraft] = useState({ title: "", subtitle: "" });
+  const [addChapterOpen, setAddChapterOpen] = useState(false);
+  const [addChapterDraft, setAddChapterDraft] = useState({ title: "", subtitle: "" });
 
   // ─── 마케팅 메타 (tagline / description / authorName / authorBio) ───
   const [marketingMeta, setMarketingMeta] = useState<{
@@ -465,13 +467,25 @@ function Inner() {
     setActiveIdx(Math.max(0, Math.min(activeIdx, chapters.length - 1)));
     await saveProject({ ...project, chapters });
   };
-  const addChapter = async () => {
-    const title = prompt("새 챕터 제목");
-    if (!title) return;
-    const subtitle = prompt("부제 (선택)") ?? "";
+  const addChapter = async (titleArg?: string, subtitleArg?: string) => {
+    let title = titleArg;
+    let subtitle = subtitleArg ?? "";
+    if (!title) {
+      const t = prompt("새 챕터 제목");
+      if (!t) return;
+      title = t;
+      subtitle = prompt("부제 (선택)") ?? "";
+    }
     const chapters = [...project.chapters, { title, subtitle, content: "", images: [] }];
     setActiveIdx(chapters.length - 1);
     await saveProject({ ...project, chapters });
+  };
+  const submitAddChapter = async () => {
+    const title = addChapterDraft.title.trim();
+    if (!title) return;
+    await addChapter(title, addChapterDraft.subtitle.trim());
+    setAddChapterDraft({ title: "", subtitle: "" });
+    setAddChapterOpen(false);
   };
   const startEditTitle = (idx: number) => {
     const c = project.chapters[idx];
@@ -1151,7 +1165,7 @@ function Inner() {
                   : "⚡ 전체 일괄 집필"}
               </button>
               <div className="grid grid-cols-2 gap-1">
-                <button onClick={addChapter} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
+                <button onClick={() => setAddChapterOpen(true)} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
                   + 챕터 추가
                 </button>
                 <button onClick={generateToc} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
@@ -1848,6 +1862,53 @@ function Inner() {
               </div>
             ))}
             </div>
+            {/* + 챕터 추가 inline form */}
+            {addChapterOpen ? (
+              <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={addChapterDraft.title}
+                  onChange={e => setAddChapterDraft(d => ({ ...d, title: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
+                  placeholder="챕터 제목 *"
+                  maxLength={100}
+                  className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-tiger-orange focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={addChapterDraft.subtitle}
+                  onChange={e => setAddChapterDraft(d => ({ ...d, subtitle: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
+                  placeholder="부제 (선택)"
+                  maxLength={150}
+                  className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-tiger-orange focus:outline-none"
+                />
+                <div className="flex gap-1">
+                  <button
+                    onClick={submitAddChapter}
+                    disabled={!addChapterDraft.title.trim() || !!loading}
+                    className="flex-1 px-2 py-1.5 bg-tiger-orange text-white rounded text-xs font-bold hover:bg-orange-600 transition disabled:opacity-50"
+                  >
+                    추가
+                  </button>
+                  <button
+                    onClick={() => { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); }}
+                    className="px-2 py-1.5 border border-gray-200 rounded text-xs hover:bg-white transition"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddChapterOpen(true)}
+                disabled={!!loading}
+                className="mt-2 w-full px-2 py-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:bg-[#fafafa] hover:border-tiger-orange hover:text-tiger-orange transition"
+              >
+                + 챕터 추가
+              </button>
+            )}
           </aside>
 
           {/* 본문 */}
