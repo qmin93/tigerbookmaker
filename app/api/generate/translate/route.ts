@@ -23,7 +23,11 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MIN_BALANCE_KRW = 250;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 책 번역 (1언어) ₩2,000 전체 책
+// 메타 ₩200 + 챕터 12개 합계 = ₩2,000. 챕터당 약 ₩150 (메타 ₩200, 챕터당 ₩150).
+const FIXED_TRANSLATE_META_KRW = 200;
+const FIXED_TRANSLATE_PER_CHAPTER_KRW = 150; // 12 chapter × 150 = 1800; + meta 200 = 2000
+const MIN_BALANCE_KRW = 2000;
 
 // 모든 사용자에게 Gemini Flash 사용 (저비용 보장)
 const TRANSLATE_CHAIN: AIModel[] = [
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
     if (user.balance_krw < MIN_BALANCE_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: `잔액 부족 (~₩200 필요, 최소 ₩${MIN_BALANCE_KRW})`,
+        message: `잔액 부족 (책 번역 ₩${MIN_BALANCE_KRW.toLocaleString()} 필요)`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -111,7 +115,8 @@ export async function POST(req: Request) {
           translatedTopic = String(parsed.topic).slice(0, 500);
           translatedAudience = String(parsed.audience).slice(0, 500);
         }
-        const costKRW = Math.ceil(meta.usage.costUSD * USD_TO_KRW);
+        // 새 가격 정책: 메타 번역 ₩200 고정
+        const costKRW = FIXED_TRANSLATE_META_KRW;
         totalCostKRW += costKRW;
         const log = await logAIUsage({
           userId, task: "edit", model: meta.actualModel,
@@ -170,7 +175,8 @@ export async function POST(req: Request) {
             content: String(parsed.content).slice(0, 50_000),
           };
         }
-        const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+        // 새 가격 정책: 챕터 번역 ₩150/장 고정 (12 chapter × 150 + meta 200 = ₩2,000 전체 책)
+        const costKRW = FIXED_TRANSLATE_PER_CHAPTER_KRW;
         totalCostKRW += costKRW;
         const log = await logAIUsage({
           userId, task: "edit", model: result.actualModel,

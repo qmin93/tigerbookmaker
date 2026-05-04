@@ -18,6 +18,9 @@ import type { TonePreset, ToneSetting } from "@/lib/storage";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 톤 분석 ₩200 고정
+const FIXED_COST_KRW = 200;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -52,10 +55,10 @@ export async function POST(req: Request) {
       // preset은 AI 호출 X — 비용 0
     } else {
       // auto 또는 reference-book — AI 호출
-      if (user.balance_krw < 30) {
+      if (user.balance_krw < FIXED_COST_KRW) {
         return NextResponse.json({
           error: "INSUFFICIENT_BALANCE",
-          message: "잔액 부족 (톤 분석 약 ₩20)",
+          message: `잔액 부족 (톤 분석 ₩${FIXED_COST_KRW})`,
           current: user.balance_krw,
         }, { status: 402 });
       }
@@ -115,7 +118,8 @@ export async function POST(req: Request) {
       if (!result) return NextResponse.json({ error: "AI_CALL_FAILED", message: lastError?.message }, { status: 502 });
 
       finalTone = result.text.trim();
-      costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+      // 새 가격 정책: 톤 분석 ₩200 고정
+      costKRW = FIXED_COST_KRW;
       const log = await logAIUsage({
         userId, task: "edit", model: actualModel,
         inputTokens: result.usage.inputTokens,

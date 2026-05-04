@@ -14,7 +14,9 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const MIN_BALANCE_KRW = 70;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 이메일 시퀀스 ₩1,000 고정
+const FIXED_COST_KRW = 1000;
+const MIN_BALANCE_KRW = 1000;
 
 export async function POST(req: Request) {
   try {
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     if (user.balance_krw < MIN_BALANCE_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: `잔액 부족 (~₩60 필요, 최소 ₩${MIN_BALANCE_KRW})`,
+        message: `잔액 부족 (이메일 시퀀스 ₩${FIXED_COST_KRW.toLocaleString()} 필요)`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -116,7 +118,8 @@ export async function POST(req: Request) {
       repurposedContent: { ...existing, email: sanitized },
     });
 
-    const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: 이메일 시퀀스 ₩1,000 고정
+    const costKRW = FIXED_COST_KRW;
     const log = await logAIUsage({
       userId, task: "edit", model: actualModel,
       inputTokens: result.usage.inputTokens,
@@ -128,14 +131,11 @@ export async function POST(req: Request) {
       durationMs: result.usage.durationMs,
       projectId, status: "success",
     });
-    let newBalance = user.balance_krw;
-    if (costKRW > 0) {
-      const r = await deductBalance({
-        userId, amountKRW: costKRW, aiUsageId: log.id,
-        reason: `이메일 시퀀스 재가공 (${actualModel})`,
-      });
-      newBalance = r.newBalance;
-    }
+    const r = await deductBalance({
+      userId, amountKRW: costKRW, aiUsageId: log.id,
+      reason: `이메일 시퀀스 재가공 (${actualModel})`,
+    });
+    const newBalance = r.newBalance;
 
     return NextResponse.json({ ok: true, content: sanitized, newBalance, costKRW });
   } catch (e: any) {

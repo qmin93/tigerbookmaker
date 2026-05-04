@@ -24,8 +24,10 @@ export const maxDuration = 60;
 
 const VALID_TEMPLATES: CourseSlideTemplate[] = ["minimal", "bold", "academic"];
 const VALID_COUNTS = [8, 12, 16, 20] as const;
-const MIN_BALANCE_KRW = 50;
-const RENDER_COST_PER_SLIDE_KRW = 10;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 강의 슬라이드 12장 전체 패키지 ₩2,000 (PNG render 포함)
+const FIXED_COST_KRW = 2000;
+const MIN_BALANCE_KRW = 2000;
+const RENDER_COST_PER_SLIDE_KRW = 0; // PNG render 비용은 ₩2,000 패키지에 포함
 
 export async function POST(req: Request) {
   try {
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
     if (user.balance_krw < MIN_BALANCE_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: `잔액 부족 (~₩40 필요, 최소 ₩${MIN_BALANCE_KRW})`,
+        message: `잔액 부족 (강의 슬라이드 ₩${FIXED_COST_KRW.toLocaleString()} 필요)`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -163,8 +165,8 @@ export async function POST(req: Request) {
       }, { status: 502 });
     }
 
-    // 비용 산정
-    const aiCostKRW = Math.ceil(aiResult.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: 강의 슬라이드 ₩2,000 전체 패키지 (PNG render 포함). raw API cost는 cost_usd로만.
+    const aiCostKRW = FIXED_COST_KRW;
     let renderCostKRW = 0;
 
     // PNG 렌더 (옵션)

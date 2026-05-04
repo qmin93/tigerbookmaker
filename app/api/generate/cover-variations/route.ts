@@ -18,6 +18,9 @@ import { generateImagePromptAI } from "@/lib/server/image-prompt-ai";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 표지 다양화 ₩300/장 (5종 합계 ₩1,500)
+const FIXED_COST_PER_VARIATION_KRW = 300;
+
 const THEME_MAP: Record<string, { hex: string; name: string }> = {
   orange: { hex: "#f97316", name: "warm orange" },
   blue: { hex: "#3b82f6", name: "deep blue" },
@@ -121,12 +124,12 @@ export async function POST(req: Request) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-    // 사전 비용 체크 — Imagen 4 Fast 1장 ≈ ₩28
-    const estimatedKRW = count * 35; // 여유 마진
+    // 새 가격 정책: 표지 다양화 ₩300/장
+    const estimatedKRW = count * FIXED_COST_PER_VARIATION_KRW;
     if (user.balance_krw < estimatedKRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: `잔액 부족 (예상 ₩${estimatedKRW} 필요).`,
+        message: `잔액 부족 (표지 ${count}종 ₩${estimatedKRW.toLocaleString()} 필요).`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -145,7 +148,8 @@ export async function POST(req: Request) {
           timeoutMs: 30000,
           preferPaid: true,
         });
-        const costKRW = Math.ceil(img.costUSD * USD_TO_KRW);
+        // 새 가격 정책: 표지 다양화 ₩300/장 고정
+        const costKRW = FIXED_COST_PER_VARIATION_KRW;
         totalCostKRW += costKRW;
 
         const { id: usageId } = await logAIUsage({

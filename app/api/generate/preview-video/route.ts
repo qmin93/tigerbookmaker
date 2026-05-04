@@ -20,8 +20,9 @@ import { generateVideoFrame } from "@/lib/server/image-overlay";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const COST_KRW = 30;          // Sharp만 사용 — compute fee
-const MIN_BALANCE_KRW = 30;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 미리보기 영상 5 frames ₩500
+const COST_KRW = 500;
+const MIN_BALANCE_KRW = 500;
 const TOTAL_FRAMES = 5;
 
 export async function POST(req: Request) {

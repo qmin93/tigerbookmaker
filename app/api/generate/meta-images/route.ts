@@ -22,6 +22,9 @@ import { generateImagePromptAI, type ImagePurpose } from "@/lib/server/image-pro
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): Meta 광고 이미지 ₩500/장 (3비율 합계 ₩1,500)
+const FIXED_COST_PER_IMAGE_KRW = 500;
+
 type MetaImageType = "feed" | "story" | "link";
 
 const TYPE_TO_AR: Record<MetaImageType, AspectRatio> = {
@@ -182,11 +185,11 @@ export async function POST(req: Request) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-    // Imagen 4 Fast ~₩28/장 × 3 = ~₩90. 잔액 사전 체크.
-    if (user.balance_krw < 100) {
+    // 새 가격 정책: Meta 광고 이미지 ₩500/장 × 3 = ₩1,500. 최소 1장 가능 잔액 요구.
+    if (user.balance_krw < FIXED_COST_PER_IMAGE_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액이 부족합니다 (Meta 광고 이미지 3장 약 ₩90 필요).",
+        message: `잔액이 부족합니다 (Meta 광고 이미지 ₩${FIXED_COST_PER_IMAGE_KRW}/장).`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -224,7 +227,8 @@ export async function POST(req: Request) {
           preferPaid: true,    // 한국어 글자 가독성 — Imagen 4 Fast 우선
           aspectRatio: ar,
         });
-        const costKRW = Math.ceil(img.costUSD * USD_TO_KRW);
+        // 새 가격 정책: Meta 광고 이미지 ₩500/장 고정
+        const costKRW = FIXED_COST_PER_IMAGE_KRW;
         totalCostKRW += costKRW;
 
         const { id: usageId } = await logAIUsage({

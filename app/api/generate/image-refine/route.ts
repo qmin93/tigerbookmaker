@@ -14,6 +14,9 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 이미지 재생성 ₩300 고정
+const FIXED_COST_KRW = 300;
+
 type RefineImageType =
   | "cover"
   | "meta-feed"
@@ -88,10 +91,10 @@ export async function POST(req: Request) {
 
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    if (user.balance_krw < 50) {
+    if (user.balance_krw < FIXED_COST_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "재생성 약 ₩40 필요",
+        message: `이미지 재생성 ₩${FIXED_COST_KRW} 필요`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -141,8 +144,8 @@ export async function POST(req: Request) {
       aspectRatio: ar,
     });
 
-    const imageCostKRW = Math.ceil(img.costUSD * USD_TO_KRW);
-    const totalCostKRW = imageCostKRW + promptResult.costKRW;
+    // 새 가격 정책: 이미지 재생성 ₩300 고정 (prompt AI cost 포함, raw API cost는 cost_usd로만 기록)
+    const totalCostKRW = FIXED_COST_KRW;
 
     const log = await logAIUsage({
       userId, task: "edit",

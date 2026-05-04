@@ -23,7 +23,8 @@ export const maxDuration = 60;
 
 // 챕터당 비용 (Gemini TTS, ~1500자 본문 기준 — 추정).
 // 실제 Gemini TTS pricing은 token 기반이지만 일단 고정값으로 청구.
-const COST_PER_CHAPTER_KRW = 50;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 오디오북 1챕터 ₩300
+const COST_PER_CHAPTER_KRW = 300;
 const COST_USD_PER_CHAPTER = 0.04;
 
 export async function POST(req: Request) {

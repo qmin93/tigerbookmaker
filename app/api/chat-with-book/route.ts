@@ -21,6 +21,9 @@ import { ragSearch, formatRagContext } from "@/lib/server/rag";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 책 챗봇 1 질문 ₩30 고정
+const FIXED_COST_KRW = 30;
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_QUESTION_LEN = 500;
 const MAX_HISTORY = 10;
@@ -70,7 +73,7 @@ export async function POST(req: Request) {
     const author = await getUser(book.user_id);
     if (!author) return NextResponse.json({ error: "AUTHOR_NOT_FOUND" }, { status: 404 });
 
-    if (author.balance_krw < 5) {
+    if (author.balance_krw < FIXED_COST_KRW) {
       return NextResponse.json({
         error: "AUTHOR_INSUFFICIENT_BALANCE",
         message: "이 책의 작가 잔액이 부족하여 챗봇을 사용할 수 없습니다.",
@@ -179,8 +182,8 @@ ${trimmedQuestion}
 
     const answer = result.text.trim();
 
-    // 작가 잔액에서 비용 차감
-    const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: 챗봇 1 질문 ₩30 고정 (작가 잔액에서 차감)
+    const costKRW = FIXED_COST_KRW;
     const { id: usageId } = await logAIUsage({
       userId: book.user_id,
       task: "edit",

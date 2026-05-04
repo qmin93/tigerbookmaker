@@ -12,6 +12,9 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): Meta 광고 카피 ₩500 고정
+const FIXED_COST_KRW = 500;
+
 const META_CTAS = ["학습하기", "자세히 알아보기", "구독하기", "신청하기", "무료 체험"];
 
 export async function POST(req: Request) {
@@ -32,10 +35,10 @@ export async function POST(req: Request) {
 
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    if (user.balance_krw < 50) {
+    if (user.balance_krw < FIXED_COST_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액 부족 (~₩40)",
+        message: `잔액 부족 (Meta 광고 카피 ₩${FIXED_COST_KRW})`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -142,7 +145,8 @@ JSON만 출력. 다른 설명 X. 모든 텍스트 한국어.`;
 
     await updateProjectData(projectId, userId, { ...project, metaAdPackage });
 
-    const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: Meta 광고 카피 ₩500 고정
+    const costKRW = FIXED_COST_KRW;
     const log = await logAIUsage({
       userId, task: "edit", model: actualModel,
       inputTokens: result.usage.inputTokens,
@@ -154,11 +158,8 @@ JSON만 출력. 다른 설명 X. 모든 텍스트 한국어.`;
       durationMs: result.usage.durationMs,
       projectId, status: "success",
     });
-    let newBalance = user.balance_krw;
-    if (costKRW > 0) {
-      const r = await deductBalance({ userId, amountKRW: costKRW, aiUsageId: log.id, reason: `Meta 광고 패키지 (${actualModel})` });
-      newBalance = r.newBalance;
-    }
+    const r = await deductBalance({ userId, amountKRW: costKRW, aiUsageId: log.id, reason: `Meta 광고 패키지 (${actualModel})` });
+    const newBalance = r.newBalance;
     return NextResponse.json({ ok: true, metaAdPackage, newBalance, costKRW });
   } catch (e: any) {
     console.error("[/api/generate/meta-package]", e);

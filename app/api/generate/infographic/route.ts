@@ -18,8 +18,9 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const VALID_TEMPLATES: InfographicTemplate[] = ["minimal", "bold", "dark"];
-const COST_KRW = 50;          // Sharp만 사용 — compute fee
-const MIN_BALANCE_KRW = 50;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 카드뉴스 인포그래픽 5장 합계 ₩1,000 (한 장 ₩200)
+const COST_KRW = 1000;
+const MIN_BALANCE_KRW = 1000;
 const TARGET_SLIDES = 5;
 
 export async function POST(req: Request) {

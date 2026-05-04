@@ -19,6 +19,9 @@ import { ragSearch, hasReferences } from "@/lib/server/rag";
 export const runtime = "nodejs";
 export const maxDuration = 60; // Vercel Hobby 한계 (Pro 업그레이드 시 300으로)
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 본문 1챕터 ₩300 (was ~₩37)
+const FIXED_COST_PER_CHAPTER_KRW = 300;
+
 export async function POST(req: Request) {
   try {
     // 1. 인증
@@ -77,14 +80,16 @@ export async function POST(req: Request) {
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-    if (user.balance_krw < estimate.minimumBalanceKRW) {
+    // 새 가격 정책: 본문 1챕터 ₩300 고정. token-based 견적은 logging용으로만 사용.
+    const requiredBalanceKRW = FIXED_COST_PER_CHAPTER_KRW;
+    if (user.balance_krw < requiredBalanceKRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: `잔액이 부족합니다. ${estimate.minimumBalanceKRW.toLocaleString()}원 이상 충전 후 시도하세요.`,
-        required: estimate.minimumBalanceKRW,
+        message: `잔액이 부족합니다. ${requiredBalanceKRW.toLocaleString()}원 이상 충전 후 시도하세요.`,
+        required: requiredBalanceKRW,
         current: user.balance_krw,
-        shortfall: estimate.minimumBalanceKRW - user.balance_krw,
-        estimate: estimate.breakdown,
+        shortfall: requiredBalanceKRW - user.balance_krw,
+        estimate: `본문 1챕터 ₩${FIXED_COST_PER_CHAPTER_KRW.toLocaleString()}`,
       }, { status: 402 });
     }
 
@@ -151,8 +156,8 @@ export async function POST(req: Request) {
           return;
         }
 
-        // 6. 비용 차감 + 로그
-        const costKRW = Math.ceil(bodyUsage.costUSD * USD_TO_KRW);
+        // 6. 비용 차감 + 로그 — 새 가격 정책: 본문 1챕터 ₩300 고정 (raw API cost는 cost_usd로만 기록)
+        const costKRW = FIXED_COST_PER_CHAPTER_KRW;
         const { id: usageId } = await logAIUsage({
           userId, task: "chapter", model: actualModel,
           inputTokens: bodyUsage.inputTokens,
@@ -167,13 +172,11 @@ export async function POST(req: Request) {
         });
 
         let newBalance = user.balance_krw;
-        if (costKRW > 0) {
-          const r = await deductBalance({
-            userId, amountKRW: costKRW, aiUsageId: usageId,
-            reason: `${chapterIdx + 1}장 집필 (${actualModel})`,
-          });
-          newBalance = r.newBalance;
-        }
+        const r = await deductBalance({
+          userId, amountKRW: costKRW, aiUsageId: usageId,
+          reason: `${chapterIdx + 1}장 집필 (${actualModel})`,
+        });
+        newBalance = r.newBalance;
 
         // 7. 요약 (동기, 실패해도 본문엔 영향 X) — fallback chain 적용
         // Gemini Flash → Flash Lite → 2.5 Flash Lite 순차 시도. 한 vendor 다운되어도 다음 시도.
@@ -198,8 +201,9 @@ export async function POST(req: Request) {
             retries: 2,
           });
           summary = sumResult.text.trim();
-          summaryCostKRW = Math.ceil(sumResult.usage.costUSD * USD_TO_KRW);
-          const { id: sumUsageId } = await logAIUsage({
+          // 새 가격 정책: 챕터 ₩300에 요약 포함. 추가 차감 X. raw API cost는 cost_usd로만 기록.
+          summaryCostKRW = 0;
+          await logAIUsage({
             userId, task: "summary", model: sumResult.actualModel,
             inputTokens: sumResult.usage.inputTokens,
             outputTokens: sumResult.usage.outputTokens,
@@ -207,18 +211,11 @@ export async function POST(req: Request) {
             cacheReadTokens: sumResult.usage.cacheReadTokens,
             cacheWriteTokens: sumResult.usage.cacheWriteTokens,
             costUSD: sumResult.usage.costUSD,
-            costKRW: summaryCostKRW,
+            costKRW: 0,
             durationMs: sumResult.usage.durationMs,
             projectId, chapterIdx,
             status: "success",
           });
-          if (summaryCostKRW > 0) {
-            const r = await deductBalance({
-              userId, amountKRW: summaryCostKRW, aiUsageId: sumUsageId,
-              reason: `${chapterIdx + 1}장 요약 (${sumResult.actualModel})`,
-            });
-            summaryNewBalance = r.newBalance;
-          }
         } catch (e: any) {
           await logAIUsage({
             userId, task: "summary", model: "gemini-flash-latest",

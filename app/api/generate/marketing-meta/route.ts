@@ -16,6 +16,9 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 마케팅 메타 ₩500 고정
+const FIXED_COST_KRW = 500;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -49,10 +52,10 @@ export async function POST(req: Request) {
     // AI 생성
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    if (user.balance_krw < 30) {
+    if (user.balance_krw < FIXED_COST_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액 부족 (~₩30)",
+        message: `잔액 부족 (마케팅 메타 ₩${FIXED_COST_KRW})`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -124,7 +127,8 @@ JSON만 출력. 다른 설명 X.`;
 
     await updateProjectData(projectId, userId, { ...project, marketingMeta });
 
-    const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: 마케팅 메타 ₩500 고정
+    const costKRW = FIXED_COST_KRW;
     const { id: usageId } = await logAIUsage({
       userId, task: "edit", model: actualModel,
       inputTokens: result.usage.inputTokens,
@@ -136,14 +140,11 @@ JSON만 출력. 다른 설명 X.`;
       durationMs: result.usage.durationMs,
       projectId, status: "success",
     });
-    let newBalance = user.balance_krw;
-    if (costKRW > 0) {
-      const r = await deductBalance({
-        userId, amountKRW: costKRW, aiUsageId: usageId,
-        reason: `마케팅 메타 (${actualModel})`,
-      });
-      newBalance = r.newBalance;
-    }
+    const r = await deductBalance({
+      userId, amountKRW: costKRW, aiUsageId: usageId,
+      reason: `마케팅 메타 (${actualModel})`,
+    });
+    const newBalance = r.newBalance;
 
     return NextResponse.json({ ok: true, marketingMeta, newBalance, costKRW, source: "ai" });
   } catch (e: any) {

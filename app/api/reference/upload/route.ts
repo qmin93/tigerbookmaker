@@ -23,8 +23,9 @@ const MAX_DOCX_BYTES = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB (Gemini inline_data 한도 고려)
 const MAX_TEXT_LENGTH = 500_000;          // 500k 글자
 const MAX_CHUNKS = 1000;
-const OCR_COST_KRW = 30;
-const OCR_MIN_BALANCE = 50;
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 이미지 OCR ₩200
+const OCR_COST_KRW = 200;
+const OCR_MIN_BALANCE = 200;
 
 export async function POST(req: Request) {
   try {

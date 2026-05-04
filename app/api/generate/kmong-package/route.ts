@@ -19,6 +19,10 @@ import { rateLimit } from "@/lib/server/rate-limit";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 표지·썸네일·목차·스펙 이미지 ₩400/장, 카피 5종 ₩500 고정
+const FIXED_COST_PER_IMAGE_KRW = 400;
+const FIXED_COST_COPY_KRW = 500;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -52,11 +56,12 @@ export async function POST(req: Request) {
       ? regenerateOnly
       : [];
 
-    // Cloudflare 무료라 이미지 비용 0. 카피만 ~₩30. 잔액 사전 체크 최소.
-    if (user.balance_krw < 50) {
+    // 새 가격 정책: 이미지 ₩400/장, 카피 ₩500. 최소 카피 1회 또는 이미지 1장 가능한 잔액 요구.
+    const minRequired = Math.min(FIXED_COST_PER_IMAGE_KRW, FIXED_COST_COPY_KRW);
+    if (user.balance_krw < minRequired) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액이 부족합니다 (카피 생성 약 ₩30 필요).",
+        message: `잔액이 부족합니다 (이미지 ₩${FIXED_COST_PER_IMAGE_KRW}/장, 카피 ₩${FIXED_COST_COPY_KRW}).`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -75,7 +80,8 @@ export async function POST(req: Request) {
           timeoutMs: 30000,
           preferPaid: PAID_TYPES.has(type),
         });
-        const costKRW = Math.ceil(img.costUSD * USD_TO_KRW);
+        // 새 가격 정책: 이미지 ₩400/장 고정 (raw API cost는 cost_usd로만 기록)
+        const costKRW = FIXED_COST_PER_IMAGE_KRW;
         totalCostKRW += costKRW;
 
         const { id: usageId } = await logAIUsage({
@@ -131,19 +137,18 @@ export async function POST(req: Request) {
           const parsed = JSON.parse(txt) as KmongCopy;
           if (typeof parsed.kmongDescription === "string" && Array.isArray(parsed.kmongHighlights)) {
             copy = parsed;
-            const copyCostKRW = Math.ceil(copyResult.usage.costUSD * USD_TO_KRW);
+            // 새 가격 정책: 카피 5종 ₩500 고정 (raw API cost는 cost_usd로만 기록)
+            const copyCostKRW = FIXED_COST_COPY_KRW;
             totalCostKRW += copyCostKRW;
             const { id: copyUsageId } = await logAIUsage({
               userId, task: "edit", model: candidates[0],
               ...copyResult.usage, costKRW: copyCostKRW,
               projectId, status: "success",
             });
-            if (copyCostKRW > 0) {
-              await deductBalance({
-                userId, amountKRW: copyCostKRW, aiUsageId: copyUsageId,
-                reason: `크몽 카피 5종 (${candidates[0]})`,
-              });
-            }
+            await deductBalance({
+              userId, amountKRW: copyCostKRW, aiUsageId: copyUsageId,
+              reason: `크몽 카피 5종 (${candidates[0]})`,
+            });
           }
         } catch (e: any) {
           await logAIUsage({

@@ -18,6 +18,8 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const MAX_CHUNKS_FOR_SUMMARY = 30;  // 토큰 한계 — 너무 많으면 sample
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 자료 분석 ₩200 고정
+const FIXED_COST_KRW = 200;
 
 export async function POST(req: Request) {
   try {
@@ -37,10 +39,10 @@ export async function POST(req: Request) {
 
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    if (user.balance_krw < 30) {
+    if (user.balance_krw < FIXED_COST_KRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        message: "잔액 부족 (요약 약 ₩20 필요)",
+        message: `잔액 부족 (자료 분석 ₩${FIXED_COST_KRW} 필요)`,
         current: user.balance_krw,
       }, { status: 402 });
     }
@@ -130,7 +132,8 @@ export async function POST(req: Request) {
 
     await updateProjectData(projectId, userId, { ...project, referencesSummary: summary });
 
-    const costKRW = Math.ceil(result.usage.costUSD * USD_TO_KRW);
+    // 새 가격 정책: 자료 분석 ₩200 고정 (raw API cost는 cost_usd로만 기록)
+    const costKRW = FIXED_COST_KRW;
     const { id: usageId } = await logAIUsage({
       userId, task: "edit", model: actualModel,
       inputTokens: result.usage.inputTokens,
@@ -142,14 +145,11 @@ export async function POST(req: Request) {
       durationMs: result.usage.durationMs,
       projectId, status: "success",
     });
-    let newBalance = user.balance_krw;
-    if (costKRW > 0) {
-      const r = await deductBalance({
-        userId, amountKRW: costKRW, aiUsageId: usageId,
-        reason: `자료 요약 (${actualModel})`,
-      });
-      newBalance = r.newBalance;
-    }
+    const r = await deductBalance({
+      userId, amountKRW: costKRW, aiUsageId: usageId,
+      reason: `자료 요약 (${actualModel})`,
+    });
+    const newBalance = r.newBalance;
 
     return NextResponse.json({ ok: true, summary, newBalance, costKRW });
   } catch (e: any) {

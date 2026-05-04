@@ -19,6 +19,9 @@ import { ragSearch, hasReferences } from "@/lib/server/rag";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// 가격 정책 (Sang-nim 10x 인상, 2026-05): 본문 1챕터 ₩300 (chapter route와 동일)
+const FIXED_COST_PER_CHAPTER_KRW = 300;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -62,12 +65,14 @@ export async function POST(req: Request) {
     const estimate = estimateCost("chapter", project, model);
     const user = await getUser(userId);
     if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-    if (user.balance_krw < estimate.minimumBalanceKRW) {
+    // 새 가격 정책: 본문 1챕터 ₩300 고정.
+    const requiredBalanceKRW = FIXED_COST_PER_CHAPTER_KRW;
+    if (user.balance_krw < requiredBalanceKRW) {
       return NextResponse.json({
         error: "INSUFFICIENT_BALANCE",
-        required: estimate.minimumBalanceKRW,
+        required: requiredBalanceKRW,
         current: user.balance_krw,
-        shortfall: estimate.minimumBalanceKRW - user.balance_krw,
+        shortfall: requiredBalanceKRW - user.balance_krw,
       }, { status: 402 });
     }
 
@@ -137,7 +142,8 @@ export async function POST(req: Request) {
         }
 
         // 비용 차감 + 로그
-        const costKRW = Math.ceil(bodyUsage.costUSD * USD_TO_KRW);
+        // 새 가격 정책: 본문 1챕터 ₩300 고정 (raw API cost는 cost_usd로만 기록)
+        const costKRW = FIXED_COST_PER_CHAPTER_KRW;
         const { id: usageId } = await logAIUsage({
           userId, task: "chapter", model: actualModel,
           inputTokens: bodyUsage.inputTokens,
@@ -151,13 +157,11 @@ export async function POST(req: Request) {
           status: "success",
         });
         let newBalance = user.balance_krw;
-        if (costKRW > 0) {
-          const r = await deductBalance({
-            userId, amountKRW: costKRW, aiUsageId: usageId,
-            reason: `${chapterIdx + 1}장 이어쓰기 (${actualModel})`,
-          });
-          newBalance = r.newBalance;
-        }
+        const r = await deductBalance({
+          userId, amountKRW: costKRW, aiUsageId: usageId,
+          reason: `${chapterIdx + 1}장 이어쓰기 (${actualModel})`,
+        });
+        newBalance = r.newBalance;
 
         // 최종 본문 = seed + AI
         const fullText = seed + "\n\n" + aiText.trim();
@@ -179,8 +183,9 @@ export async function POST(req: Request) {
             retries: 2,
           });
           summary = sumResult.text.trim();
-          summaryCostKRW = Math.ceil(sumResult.usage.costUSD * USD_TO_KRW);
-          const { id: sumUsageId } = await logAIUsage({
+          // 새 가격 정책: 챕터 ₩300에 요약 포함. 추가 차감 X.
+          summaryCostKRW = 0;
+          await logAIUsage({
             userId, task: "summary", model: sumResult.actualModel,
             inputTokens: sumResult.usage.inputTokens,
             outputTokens: sumResult.usage.outputTokens,
@@ -188,17 +193,10 @@ export async function POST(req: Request) {
             cacheReadTokens: sumResult.usage.cacheReadTokens,
             cacheWriteTokens: sumResult.usage.cacheWriteTokens,
             costUSD: sumResult.usage.costUSD,
-            costKRW: summaryCostKRW,
+            costKRW: 0,
             durationMs: sumResult.usage.durationMs,
             projectId, chapterIdx, status: "success",
           });
-          if (summaryCostKRW > 0) {
-            const r = await deductBalance({
-              userId, amountKRW: summaryCostKRW, aiUsageId: sumUsageId,
-              reason: `${chapterIdx + 1}장 요약 (${sumResult.actualModel})`,
-            });
-            summaryNewBalance = r.newBalance;
-          }
         } catch (e: any) {
           await logAIUsage({
             userId, task: "summary", model: "gemini-flash-latest",
