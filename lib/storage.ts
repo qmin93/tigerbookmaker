@@ -52,6 +52,54 @@ export interface MetaAdImage {
   generatedAt: number;
 }
 
+export interface RepurposedContent {
+  instagram?: {
+    cards: Array<{ slideNum: number; title: string; body: string; designNote: string }>;
+    caption: string;
+    hashtags: string[];
+    generatedAt: number;
+  };
+  youtube?: {
+    title: string;
+    script: string;          // 1-3분 분량
+    thumbnailConcept: string; // 디자이너용 가이드
+    chapterMarkers: Array<{ time: string; label: string }>;
+    description: string;
+    tags: string[];
+    generatedAt: number;
+  };
+  blog?: {
+    posts: Array<{
+      order: number;
+      title: string;
+      body: string;          // 마크다운 1500자
+      excerpt: string;
+      tags: string[];
+    }>;
+    seriesTitle: string;
+    generatedAt: number;
+  };
+  email?: {
+    series: Array<{
+      day: number;           // 1, 4, 8, 14
+      subject: string;
+      preheader: string;
+      body: string;          // HTML-safe text
+      cta: string;
+    }>;
+    generatedAt: number;
+  };
+  kakao?: {
+    messages: Array<{
+      order: number;
+      hook: string;          // 짧은 후킹 (한 줄)
+      body: string;          // 본문 (200자 이내)
+      cta: string;
+    }>;
+    generatedAt: number;
+  };
+}
+
 export interface MetaAdPackage {
   headlines: string[];          // 3개, 각 ≤40자
   primaryTexts: string[];       // 3개, 각 ≤125자
@@ -78,6 +126,7 @@ export interface BookProject {
   marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
   metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
   metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)
+  repurposedContent?: RepurposedContent;  // Wave 1: 5채널 콘텐츠 재가공 (인스타/유튜브/블로그/이메일/카톡)
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
