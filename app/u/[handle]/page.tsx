@@ -5,6 +5,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getTheme } from "@/lib/theme-colors";
+import type { ThemeColorKey } from "@/lib/storage";
 
 interface SocialLink {
   label: string;
@@ -43,20 +45,6 @@ function socialIcon(url: string): string {
   if (u.includes("linkedin.com")) return "💼";
   if (u.startsWith("mailto:") || u.includes("@")) return "✉️";
   return "🌐";
-}
-
-// theme color → tailwind class set (책 카드 fallback용)
-function themeFallback(color: string): { bg: string; text: string; border: string } {
-  switch (color) {
-    case "blue":   return { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200" };
-    case "green":  return { bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200" };
-    case "purple": return { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" };
-    case "pink":   return { bg: "bg-pink-50",   text: "text-pink-700",   border: "border-pink-200" };
-    case "red":    return { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200" };
-    case "yellow": return { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200" };
-    case "gray":   return { bg: "bg-gray-50",   text: "text-gray-700",   border: "border-gray-200" };
-    default:       return { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" };
-  }
 }
 
 export default function UserProfilePage({ params }: { params: { handle: string } }) {
@@ -216,12 +204,15 @@ export default function UserProfilePage({ params }: { params: { handle: string }
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {data.books.map(book => {
-                  const fb = themeFallback(book.themeColor);
+                  const theme = getTheme((book.themeColor as ThemeColorKey | undefined) ?? "orange");
+                  // theme.accent → "text-{color}-600 border-{color}-500"
+                  // theme.accentBorder → "border-l-{color}-500"
+                  const accentText = theme.accent.split(" ")[0]; // "text-{color}-600"
                   return (
                     <Link
                       key={book.id}
                       href={`/book/${book.id}`}
-                      className="group block bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all hover:-translate-y-1"
+                      className={`group block bg-white rounded-xl overflow-hidden border border-gray-100 border-l-4 ${theme.accentBorder} shadow-sm hover:shadow-lg transition-all hover:-translate-y-1`}
                     >
                       {/* 표지 — 3:4 aspect */}
                       <div className="aspect-[3/4] w-full overflow-hidden bg-gray-50">
@@ -233,20 +224,20 @@ export default function UserProfilePage({ params }: { params: { handle: string }
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <div className={`w-full h-full flex items-center justify-center ${fb.bg} border-2 ${fb.border} p-3`}>
-                            <span className={`text-sm md:text-base font-bold text-center ${fb.text} line-clamp-4`}>
+                          <div className={`w-full h-full flex items-center justify-center ${theme.bg} p-3`}>
+                            <span className={`text-sm md:text-base font-bold text-center ${accentText} line-clamp-4`}>
                               {book.topic}
                             </span>
                           </div>
                         )}
                       </div>
                       {/* 제목 + tagline */}
-                      <div className="p-3">
-                        <div className="font-semibold text-sm text-gray-900 line-clamp-2 leading-snug">
+                      <div className={`p-3 ${theme.bg}`}>
+                        <div className={`font-semibold text-sm ${accentText} line-clamp-2 leading-snug`}>
                           {book.topic}
                         </div>
                         {book.tagline && (
-                          <div className="text-xs text-gray-500 mt-1 line-clamp-2 leading-snug">
+                          <div className="text-xs text-gray-600 mt-1 line-clamp-2 leading-snug">
                             {book.tagline}
                           </div>
                         )}
