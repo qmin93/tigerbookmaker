@@ -13,6 +13,13 @@ interface SocialLink {
   url: string;
 }
 
+interface ReferralStats {
+  code: string | null;
+  totalReferred: number;
+  totalCreditsEarned: number;
+  recentSignups: Array<{ awarded_at: string | null; created_at: string }>;
+}
+
 type HandleStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 const MAX_LINKS = 8;
@@ -36,6 +43,54 @@ export default function ProfileEditPage() {
   // handle 사용가능 체크
   const [handleStatus, setHandleStatus] = useState<HandleStatus>("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 추천 시스템 상태
+  const [referral, setReferral] = useState<ReferralStats | null>(null);
+  const [refCopied, setRefCopied] = useState(false);
+
+  // 추천 통계 로드
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/referral");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.stats) setReferral(data.stats);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const referralUrl = referral?.code && typeof window !== "undefined"
+    ? `${window.location.origin}/r/${referral.code}`
+    : "";
+
+  const copyReferralUrl = async () => {
+    if (!referralUrl) return;
+    try {
+      await navigator.clipboard.writeText(referralUrl);
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 2000);
+    } catch {}
+  };
+
+  const shareKakao = () => {
+    if (!referralUrl) return;
+    const text = `타이거북메이커로 책 쓰기 — 가입하면 ₩2,000 무료 크레딧! ${referralUrl}`;
+    // KakaoTalk 공유 SDK가 없을 경우 fallback: URL 공유
+    if (typeof navigator !== "undefined" && (navigator as any).share) {
+      (navigator as any).share({ title: "타이거북메이커", text, url: referralUrl }).catch(() => {});
+    } else {
+      window.open(`https://story.kakao.com/share?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent(text)}`, "_blank");
+    }
+  };
+
+  const shareTwitter = () => {
+    if (!referralUrl) return;
+    const text = `타이거북메이커로 책 쓰기 — 가입하면 ₩2,000 무료 크레딧!`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(referralUrl)}`, "_blank");
+  };
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -167,6 +222,63 @@ export default function ProfileEditPage() {
                   </a>
                 )}
               </div>
+            </div>
+
+            {/* 🎁 친구 초대 (Referral) */}
+            <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl border border-orange-200 p-5 mb-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                <div>
+                  <div className="text-base font-bold text-ink-900">🎁 친구 초대</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    친구가 가입하면 양쪽 다 <strong className="text-tiger-orange">₩2,000 크레딧</strong> 자동 지급
+                  </div>
+                </div>
+                {referral && (
+                  <div className="text-right">
+                    <div className="text-xs font-mono uppercase tracking-wider text-gray-500">통계</div>
+                    <div className="text-sm font-bold text-ink-900">
+                      {referral.totalReferred}<span className="text-gray-400 font-normal">명 가입</span>
+                      <span className="text-gray-300 mx-2">·</span>
+                      <span className="text-tiger-orange">₩{referral.totalCreditsEarned.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {referral?.code ? (
+                <>
+                  <div className="bg-white border border-gray-200 rounded-lg p-3 mb-3 flex items-center gap-2 flex-wrap">
+                    <div className="font-mono text-xs md:text-sm text-ink-900 break-all flex-1 min-w-0">
+                      {referralUrl}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyReferralUrl}
+                      className="px-3 py-1.5 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition whitespace-nowrap"
+                    >
+                      {refCopied ? "✓ 복사됨" : "URL 복사"}
+                    </button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={shareKakao}
+                      className="px-3 py-2 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-md hover:bg-yellow-500 transition"
+                    >
+                      카카오톡 공유
+                    </button>
+                    <button
+                      type="button"
+                      onClick={shareTwitter}
+                      className="px-3 py-2 bg-black text-white text-xs font-bold rounded-md hover:bg-gray-800 transition"
+                    >
+                      트위터 공유
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-gray-400 text-center py-3">추천 코드 발급 중...</div>
+              )}
             </div>
 
             {/* handle */}
