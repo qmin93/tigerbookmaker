@@ -169,6 +169,24 @@ function Inner() {
   const [infographicBusy, setInfographicBusy] = useState(false);
   const [infographicTemplate, setInfographicTemplate] = useState<"minimal" | "bold" | "dark">("bold");
 
+  // ─── 📻 오디오북 (TTS, Gemini) ───
+  // 책 본문 → 한국어 TTS로 챕터별 WAV → 오디오북.
+  // Vercel 60s timeout 때문에 프론트가 chapterIdx 지정해 한 챕터씩 순차 호출.
+  type AudiobookChapterUI = {
+    chapterIdx: number;
+    title: string;
+    wavBase64: string;
+    durationMs: number;
+    voiceName: string;
+  };
+  const [audiobook, setAudiobook] = useState<{
+    chapters: AudiobookChapterUI[];
+    voiceName: string;
+    generatedAt: number;
+  } | null>(null);
+  const [audiobookBusy, setAudiobookBusy] = useState(false);
+  const [audiobookProgress, setAudiobookProgress] = useState<string | null>(null);
+
   // ─── 책별 매출 입력 ("이정도 번다") ───
   // 사용자가 채널별 누적 매출 직접 입력 → /profile에서 비용 vs 매출 ROI 계산.
   type RevenueChannelInput = { channel: string; label?: string; grossKRW: number; feeRate: number };
@@ -260,6 +278,11 @@ function Inner() {
   // infographic sync (Wave B3)
   useEffect(() => {
     if ((project as any)?.infographic) setInfographic((project as any).infographic);
+  }, [project]);
+
+  // audiobook sync — project이 로드/갱신될 때 동기화
+  useEffect(() => {
+    if ((project as any)?.audiobook) setAudiobook((project as any).audiobook);
   }, [project]);
 
   // revenue sync — project.revenue가 있으면 입력 폼에 반영. 없는 채널은 0으로 보존.
@@ -1247,6 +1270,70 @@ function Inner() {
     const a = document.createElement("a");
     a.href = `data:image/png;base64,${slide.base64}`;
     a.download = `infographic-${slide.slideNum}.png`;
+    a.click();
+  };
+
+  // ─── 📻 오디오북 — 챕터별 TTS 순차 생성 ───
+  // Vercel 60s 한계 때문에 한 챕터씩 호출. 빈 챕터만 채움 (regenerate=false).
+  const generateAudiobook = async (regenerateAll = false) => {
+    if (!projectId) return;
+    const totalChapters = project.chapters?.length ?? 0;
+    if (totalChapters === 0) return;
+
+    setAudiobookBusy(true);
+    setError(null);
+    setAudiobookProgress(`준비 중...`);
+
+    try {
+      // 처리할 챕터 idx 결정 (프론트에서 한 챕터씩 호출 위해 명시적 계산).
+      const existingSet = new Set(
+        (audiobook?.chapters ?? []).map((c) => c.chapterIdx),
+      );
+      const targetIdxs = regenerateAll
+        ? Array.from({ length: totalChapters }, (_, i) => i)
+        : Array.from({ length: totalChapters }, (_, i) => i).filter(
+            (i) => !existingSet.has(i),
+          );
+
+      if (targetIdxs.length === 0) {
+        setAudiobookProgress("이미 모든 챕터 생성됨");
+        return;
+      }
+
+      let lastAudiobook: any = audiobook;
+      for (let i = 0; i < targetIdxs.length; i++) {
+        const idx = targetIdxs[i];
+        setAudiobookProgress(`⏳ ${i + 1}/${targetIdxs.length} 챕터 생성 중...`);
+        const res = await fetch("/api/generate/audiobook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, chapterIdx: idx }),
+        });
+        const data = await res.json();
+        if (res.status === 402) {
+          if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+          throw new Error("잔액 부족");
+        }
+        if (!res.ok) throw new Error(data.message || `오디오북 생성 실패 (${res.status})`);
+        if (data.audiobook) {
+          lastAudiobook = data.audiobook;
+          setAudiobook(data.audiobook);
+        }
+        if (typeof data.newBalance === "number") setBalance(data.newBalance);
+      }
+      setAudiobookProgress(null);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+      setAudiobookProgress(null);
+    } finally {
+      setAudiobookBusy(false);
+    }
+  };
+
+  const downloadAudio = (c: AudiobookChapterUI) => {
+    const a = document.createElement("a");
+    a.href = `data:audio/wav;base64,${c.wavBase64}`;
+    a.download = `${(c.chapterIdx + 1).toString().padStart(2, "0")}-${c.title.replace(/[\\/:*?"<>|]/g, "_")}.wav`;
     a.click();
   };
 
@@ -2833,6 +2920,63 @@ function Inner() {
                 ))}
               </div>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* 📻 오디오북 — 챕터별 한국어 TTS (Gemini)  */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
+        <section className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-purple-50 to-teal-50 rounded-xl border border-purple-200">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-black text-ink-900">📻 오디오북</h2>
+            <p className="text-[11px] text-gray-500">책 본문 → 한국어 TTS WAV (Gemini · Charon voice)</p>
+          </div>
+
+          {audiobook?.chapters && audiobook.chapters.length > 0 ? (
+            <>
+              <div className="space-y-2">
+                {audiobook.chapters.map((c) => (
+                  <div key={c.chapterIdx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-purple-100">
+                    <span className="text-xs font-bold text-purple-600 w-8 text-center shrink-0">{c.chapterIdx + 1}장</span>
+                    <span className="text-xs text-gray-700 truncate flex-1 min-w-0" title={c.title}>{c.title}</span>
+                    <audio controls className="h-8 shrink-0" style={{ maxWidth: 240 }} src={`data:audio/wav;base64,${c.wavBase64}`} />
+                    <button
+                      onClick={() => downloadAudio(c)}
+                      className="text-xs px-2 py-1 text-purple-600 hover:bg-purple-50 rounded shrink-0"
+                      title="WAV 다운로드"
+                    >
+                      💾
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {audiobook.chapters.length < project.chapters.length && (
+                <button
+                  onClick={() => generateAudiobook(false)}
+                  disabled={audiobookBusy}
+                  className="mt-3 px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition disabled:opacity-50"
+                >
+                  {audiobookBusy
+                    ? (audiobookProgress ?? "⏳ 생성 중...")
+                    : `🎙️ 남은 ${project.chapters.length - audiobook.chapters.length}장 생성 (~₩${(project.chapters.length - audiobook.chapters.length) * 50})`}
+                </button>
+              )}
+              <p className="mt-2 text-[10px] text-gray-500">
+                생성: {new Date(audiobook.generatedAt).toLocaleString("ko-KR")} · {audiobook.chapters.length}/{project.chapters.length}장
+              </p>
+            </>
+          ) : (
+            <button
+              onClick={() => generateAudiobook(false)}
+              disabled={audiobookBusy}
+              className="w-full sm:w-auto px-5 py-2.5 bg-purple-500 text-white rounded-lg text-sm font-black hover:bg-purple-600 transition disabled:opacity-50"
+            >
+              {audiobookBusy
+                ? (audiobookProgress ?? "⏳ 생성 중...")
+                : `🎙️ 오디오북 생성 (${project.chapters.length}챕터, ~₩${project.chapters.length * 50})`}
+            </button>
           )}
         </section>
       )}
