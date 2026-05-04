@@ -1,4 +1,6 @@
 // URL → fetch HTML → Readability로 메인 콘텐츠 추출 → plain text
+// linkedom 사용 (jsdom drop-in replacement, serverless 친화, 훨씬 가벼움)
+// 이전 jsdom은 1277 파일 trace + Vercel cold start 무거움 + 종종 호환 이슈
 
 export async function extractUrlText(url: string, timeoutMs = 15000): Promise<{
   title: string;
@@ -34,11 +36,13 @@ export async function extractUrlText(url: string, timeoutMs = 15000): Promise<{
     clearTimeout(tid);
   }
 
-  // Readability로 메인 콘텐츠 추출
-  const { JSDOM } = await import("jsdom");
+  // linkedom — DOMParser-호환 경량 라이브러리
+  const { parseHTML } = await import("linkedom");
   const { Readability } = await import("@mozilla/readability");
-  const dom = new JSDOM(html, { url });
-  const reader = new Readability(dom.window.document);
+
+  const { document } = parseHTML(html);
+  // Readability는 jsdom의 document API와 동일 인터페이스 사용 — linkedom 호환
+  const reader = new Readability(document as any);
   const article = reader.parse();
   if (!article) throw new Error("Could not extract readable content");
 
