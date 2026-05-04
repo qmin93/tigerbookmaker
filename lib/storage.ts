@@ -164,6 +164,22 @@ export interface BookRevenue {
   updatedAt: number;
 }
 
+// Audiobook — 챕터별 TTS WAV (Gemini TTS, 24kHz/16-bit/mono).
+// wavBase64는 큰 데이터 (1분 ≈ 1MB) — 일단 DB JSON에 저장. 나중에 S3/R2 이전 가능.
+export interface AudiobookChapter {
+  chapterIdx: number;
+  title: string;
+  wavBase64: string;
+  durationMs: number;
+  voiceName: string;
+}
+
+export interface Audiobook {
+  chapters: AudiobookChapter[];
+  voiceName: string;
+  generatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -182,6 +198,7 @@ export interface BookProject {
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   revenue?: BookRevenue;   // 책별 매출 (사용자 직접 입력) — /profile에서 ROI 계산
+  audiobook?: Audiobook;   // 오디오북 — 챕터별 TTS WAV (Gemini TTS, 한국어)
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;
