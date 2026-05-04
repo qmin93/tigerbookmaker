@@ -101,6 +101,18 @@ export interface RepurposedContent {
   };
 }
 
+// Wave B3: 카드뉴스 인포그래픽 (Sharp 기반, AI 호출 X)
+export interface InfographicSlide {
+  slideNum: number;          // 1, 2, 3, 4, 5
+  base64: string;            // 1080x1080 PNG
+}
+
+export interface Infographic {
+  template: "minimal" | "bold" | "dark";
+  slides: InfographicSlide[];   // 5장
+  generatedAt: number;
+}
+
 export interface MetaAdPackage {
   headlines: string[];          // 3개, 각 ≤40자
   primaryTexts: string[];       // 3개, 각 ≤125자
@@ -128,6 +140,7 @@ export interface BookProject {
   metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
   metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)
   repurposedContent?: RepurposedContent;  // Wave 1: 5채널 콘텐츠 재가공 (인스타/유튜브/블로그/이메일/카톡)
+  infographic?: Infographic;             // Wave B3: 카드뉴스 인포그래픽 5장 (Sharp 기반, AI 호출 X)
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
