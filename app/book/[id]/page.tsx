@@ -178,12 +178,20 @@ export default function BookPage({ params }: { params: { id: string } }) {
               </p>
             )}
 
-            <Link
-              href={`/share/${id}`}
-              className={`inline-block ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} font-bold text-lg px-8 py-4 rounded-xl shadow-lg transition transform hover:scale-105`}
-            >
-              📖 읽어보기
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+              <Link
+                href={`/share/${id}`}
+                className={`inline-block ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} font-bold text-lg px-8 py-4 rounded-xl shadow-lg transition transform hover:scale-105`}
+              >
+                📖 읽어보기
+              </Link>
+              <Link
+                href={`/book/${id}/chat`}
+                className={`inline-block bg-white border-2 ${theme.accentBorder} ${theme.accent.split(" ")[0]} font-bold text-lg px-8 py-4 rounded-xl shadow-md hover:shadow-lg transition transform hover:scale-105`}
+              >
+                💬 이 책에 대해 질문 →
+              </Link>
+            </div>
           </div>
         </div>
       </section>
