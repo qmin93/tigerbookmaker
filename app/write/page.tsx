@@ -1260,6 +1260,8 @@ function Inner() {
                   </>
                 )}
 
+                {/* 📦 크몽 등록 가이드 (정적, AI 호출 X) */}
+                <KmongGuideBox project={project} />
                 {marketingEditOpen && (
                   <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
                     <div>
@@ -2740,6 +2742,142 @@ function BatchBanner({
         <div className="text-sm text-ink-900">중단됨 — {batch.completedCount}장 완료. 사이드바에서 개별 챕터 이어 작성 가능.</div>
         <button onClick={onDismiss} className="px-3 py-1 text-xs border border-gray-300 text-ink-900 rounded-lg hover:bg-white">닫기</button>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// 📦 크몽 등록 가이드 — 정적 추천 (카테고리/가격/제목/설명/키워드)
+// AI 호출 없음. 책 type / topic / targetPages / 기존 카피 활용.
+// ─────────────────────────────────────────────────────────
+
+const KMONG_CATEGORIES: Record<string, string> = {
+  "자기계발서": "취업·이직 > 자기계발 / 동기부여",
+  "재테크": "비즈니스 코칭 > 재테크·자산관리",
+  "에세이": "전자책·소책자 > 에세이",
+  "실용서": "비즈니스 코칭 > 실용·노하우",
+  "매뉴얼": "비즈니스 코칭 > 매뉴얼·가이드",
+  "웹소설": "전자책·소책자 > 소설·시",
+  "전문서": "비즈니스 코칭 > 전문 분야",
+};
+
+function suggestKmongPriceKRW(targetPages: number): number {
+  if (!targetPages || targetPages < 50) return 3000;
+  if (targetPages < 100) return 5000;
+  if (targetPages < 200) return 10000;
+  return 15000;
+}
+
+function suggestKmongKeywords(project: any): string[] {
+  const fromCopy: string[] = Array.isArray(project?.kmongPackage?.copy?.kmongHighlights)
+    ? project.kmongPackage.copy.kmongHighlights.slice(0, 5).map((s: string) => String(s).trim()).filter(Boolean)
+    : [];
+  if (fromCopy.length > 0) return fromCopy;
+  // fallback — 챕터 제목 첫 5개에서 추출
+  const fromChapters = (project?.chapters ?? [])
+    .slice(0, 5)
+    .map((c: any) => String(c?.title ?? "").trim())
+    .filter(Boolean);
+  return fromChapters.length > 0 ? fromChapters : [project?.topic ?? "전자책"];
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        navigator.clipboard.writeText(text || "").then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }).catch(() => {});
+      }}
+      className="text-[10px] px-1.5 py-0.5 border border-gray-200 rounded hover:bg-white transition shrink-0"
+      title="복사"
+    >
+      {copied ? "✓" : "📋 복사"}
+    </button>
+  );
+}
+
+function KmongGuideBox({ project }: { project: any }) {
+  const [open, setOpen] = useState(false);
+
+  const type = project?.type ?? "";
+  const category = KMONG_CATEGORIES[type] ?? "전자책·소책자 > 기타";
+  const targetPages = Number(project?.targetPages ?? 0);
+  const price = suggestKmongPriceKRW(targetPages);
+  const title =
+    project?.marketingMeta?.tagline ||
+    project?.kmongPackage?.copy?.kmongTitle ||
+    project?.topic ||
+    "(제목 미지정)";
+  const description =
+    project?.kmongPackage?.copy?.kmongDescription ||
+    project?.marketingMeta?.description ||
+    "(상세 설명 미작성 — '🤖 AI가 마케팅 카피 생성' 또는 '📦 크몽 패키지 생성' 후 자동 채워집니다.)";
+  const keywords = suggestKmongKeywords(project);
+
+  return (
+    <div className="mt-2 p-2 bg-yellow-50/60 border border-yellow-300/60 rounded-lg">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-left"
+      >
+        <span className="text-xs font-bold text-ink-900">📦 크몽 등록 가이드</span>
+        <span className="text-[10px] text-gray-500">{open ? "접기 ▲" : "펼치기 ▼"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 text-[11px]">
+          <div className="flex items-start gap-2">
+            <div className="w-16 shrink-0 text-gray-500 font-bold">카테고리</div>
+            <div className="flex-1 break-keep text-ink-900">{category}</div>
+            <CopyButton text={category} />
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-16 shrink-0 text-gray-500 font-bold">추천가</div>
+            <div className="flex-1 text-ink-900">
+              ₩{price.toLocaleString()}
+              <span className="ml-1 text-[10px] text-gray-500">({targetPages || "?"}쪽 기준)</span>
+            </div>
+            <CopyButton text={String(price)} />
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-16 shrink-0 text-gray-500 font-bold">제목</div>
+            <div className="flex-1 break-keep text-ink-900 line-clamp-3">{title}</div>
+            <CopyButton text={title} />
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-16 shrink-0 text-gray-500 font-bold">상세</div>
+            <div className="flex-1 break-keep text-ink-900 line-clamp-4 whitespace-pre-wrap">{description}</div>
+            <CopyButton text={description} />
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="w-16 shrink-0 text-gray-500 font-bold">키워드</div>
+            <div className="flex-1 flex flex-wrap gap-1">
+              {keywords.map((k, i) => (
+                <span key={i} className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-ink-900">{k}</span>
+              ))}
+            </div>
+            <CopyButton text={keywords.join(", ")} />
+          </div>
+          <div className="pt-1">
+            <a
+              href="https://kmong.com/register/service"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block w-full text-center px-2 py-1.5 bg-yellow-500 text-white rounded text-[11px] font-bold hover:bg-yellow-600 transition"
+            >
+              🔗 크몽에 새 서비스 등록
+            </a>
+          </div>
+          <p className="text-[10px] text-gray-500 leading-relaxed pt-1">
+            추천값은 정적 매핑입니다. 크몽 화면의 실제 카테고리·정책에 맞춰 수정해 사용하세요.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
