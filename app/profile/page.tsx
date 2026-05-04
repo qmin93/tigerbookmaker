@@ -76,6 +76,74 @@ export default function ProfileEditPage() {
   // 개인 종합 통계
   const [ownStats, setOwnStats] = useState<OwnStats | null>(null);
 
+  // 📧 구독자 알림 발송 modal
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyBooks, setNotifyBooks] = useState<Array<{ id: string; topic: string }>>([]);
+  const [notifyBooksLoading, setNotifyBooksLoading] = useState(false);
+  const [notifyBooksError, setNotifyBooksError] = useState<string | null>(null);
+  const [notifySelectedBookId, setNotifySelectedBookId] = useState<string | null>(null);
+  const [notifyMessage, setNotifyMessage] = useState("");
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+
+  const openNotifyModal = async () => {
+    setNotifyOpen(true);
+    setNotifyResult(null);
+    setNotifyError(null);
+    setNotifyBooksError(null);
+    setNotifyBooksLoading(true);
+    try {
+      const r = await fetch("/api/projects");
+      if (!r.ok) throw new Error(`목록 로드 실패 (${r.status})`);
+      const data = await r.json();
+      const list: Array<{ id: string; topic: string; archived?: boolean }> = (data.projects ?? []).map((p: any) => ({
+        id: p.id,
+        topic: p.topic,
+        archived: p.archived === true,
+      }));
+      // archive 제외 (공유 여부는 서버에서 검증)
+      setNotifyBooks(list.filter((b) => !b.archived).map((b) => ({ id: b.id, topic: b.topic })));
+    } catch (e: any) {
+      setNotifyBooksError(e.message ?? "책 목록 로드 실패");
+    } finally {
+      setNotifyBooksLoading(false);
+    }
+  };
+
+  const closeNotifyModal = () => {
+    if (notifyBusy) return;
+    setNotifyOpen(false);
+    setNotifySelectedBookId(null);
+    setNotifyMessage("");
+    setNotifyResult(null);
+    setNotifyError(null);
+  };
+
+  const sendNotify = async () => {
+    if (!notifySelectedBookId) return;
+    setNotifyBusy(true);
+    setNotifyError(null);
+    try {
+      const res = await fetch("/api/profile/notify-subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: notifySelectedBookId, message: notifyMessage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || `발송 실패 (${res.status})`);
+      setNotifyResult({
+        sent: Number(data.sentCount ?? 0),
+        failed: Number(data.failedCount ?? 0),
+        total: Number(data.total ?? 0),
+      });
+    } catch (e: any) {
+      setNotifyError(e.message ?? "발송 실패");
+    } finally {
+      setNotifyBusy(false);
+    }
+  };
+
   // 추천 통계 로드
   useEffect(() => {
     let cancelled = false;
@@ -351,6 +419,118 @@ export default function ProfileEditPage() {
                 </div>
               </div>
             )}
+
+            {/* 📧 구독자 알림 발송 */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                <div>
+                  <div className="text-base font-bold text-ink-900">📧 구독자 알림</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    구독자 <strong className="text-ink-900">{subscriberCount.toLocaleString()}</strong>명에게 새 책 알림 메일을 보냅니다.
+                  </div>
+                </div>
+                {!notifyOpen && (
+                  <button
+                    type="button"
+                    onClick={openNotifyModal}
+                    disabled={subscriberCount === 0}
+                    className="px-3 py-2 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition disabled:opacity-40"
+                  >
+                    📧 새 책 알림 발송
+                  </button>
+                )}
+              </div>
+
+              {notifyOpen && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  {notifyResult ? (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
+                        <div className="font-bold text-green-800">📤 발송 완료</div>
+                        <div className="text-green-700 mt-1 text-xs">
+                          성공 <strong>{notifyResult.sent.toLocaleString()}</strong>건
+                          {notifyResult.failed > 0 && (
+                            <> · 실패 <strong className="text-red-600">{notifyResult.failed.toLocaleString()}</strong>건</>
+                          )}
+                          {" "}/ 총 {notifyResult.total.toLocaleString()}명
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeNotifyModal}
+                        className="w-full px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-md hover:bg-gray-200 transition"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-wider text-gray-500 mb-2">책 선택 (공유 활성 책만 발송 가능)</label>
+                        {notifyBooksLoading && (
+                          <div className="text-xs text-gray-400">책 목록 로드 중...</div>
+                        )}
+                        {notifyBooksError && (
+                          <div className="text-xs text-red-600">{notifyBooksError}</div>
+                        )}
+                        {!notifyBooksLoading && !notifyBooksError && notifyBooks.length === 0 && (
+                          <div className="text-xs text-gray-400">발송할 책이 없습니다.</div>
+                        )}
+                        {!notifyBooksLoading && notifyBooks.length > 0 && (
+                          <select
+                            value={notifySelectedBookId ?? ""}
+                            onChange={(e) => setNotifySelectedBookId(e.target.value || null)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none"
+                          >
+                            <option value="">— 책을 선택하세요 —</option>
+                            {notifyBooks.map((b) => (
+                              <option key={b.id} value={b.id}>{b.topic}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-mono uppercase tracking-wider text-gray-500 mb-2">
+                          추가 메시지 (선택, {notifyMessage.length}/500)
+                        </label>
+                        <textarea
+                          value={notifyMessage}
+                          onChange={(e) => setNotifyMessage(e.target.value.slice(0, 500))}
+                          placeholder="구독자에게 전할 메시지를 적어 주세요"
+                          maxLength={500}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none resize-none"
+                        />
+                      </div>
+
+                      {notifyError && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">{notifyError}</div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={closeNotifyModal}
+                          disabled={notifyBusy}
+                          className="px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-md hover:bg-gray-200 transition disabled:opacity-40"
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          onClick={sendNotify}
+                          disabled={notifyBusy || !notifySelectedBookId}
+                          className="flex-1 px-3 py-2 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition disabled:opacity-40"
+                        >
+                          {notifyBusy ? "발송 중..." : `📤 ${subscriberCount.toLocaleString()}명에게 발송`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* 📊 사용 통계 */}
             {ownStats && (

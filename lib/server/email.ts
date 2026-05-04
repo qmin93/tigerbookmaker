@@ -1,4 +1,4 @@
-// Resend 기반 트랜잭셔널 메일 (영수증·환불 알림)
+// Resend 기반 트랜잭셔널 메일 (영수증·환불 알림·구독자 새 책 알림)
 import "server-only";
 import { Resend } from "resend";
 
@@ -8,6 +8,18 @@ function getResend() {
   return _resend;
 }
 const FROM = process.env.EMAIL_FROM ?? "Tigerbookmaker <onboarding@resend.dev>";
+
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 const wrap = (title: string, body: string) => `
 <!DOCTYPE html>
@@ -49,6 +61,84 @@ export async function sendReceiptEmail(opts: {
     subject: `[Tigerbookmaker] 결제 영수증 — ₩${opts.amount.toLocaleString()}`,
     html: wrap("결제 완료", body),
   });
+}
+
+// 구독자 새 책 알림 — Resend batch API로 100건씩 일괄 발송.
+// 도메인 verify 안 된 환경에서는 onboarding@resend.dev로 자동 fallback (FROM env).
+export async function sendNewBookNotifications(opts: {
+  recipients: string[]; // 구독자 이메일 배열
+  authorName: string;
+  bookTopic: string;
+  bookUrl: string;
+  profileUrl: string | null;
+  customMessage?: string;
+}): Promise<{ sentCount: number; failedCount: number }> {
+  if (opts.recipients.length === 0) return { sentCount: 0, failedCount: 0 };
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { sentCount: 0, failedCount: opts.recipients.length };
+
+  const subject = `📖 ${opts.authorName} 새 책 — ${opts.bookTopic}`;
+  const safeAuthor = escapeHtml(opts.authorName);
+  const safeTopic = escapeHtml(opts.bookTopic);
+  const safeMessage =
+    typeof opts.customMessage === "string" && opts.customMessage.trim().length > 0
+      ? escapeHtml(opts.customMessage.slice(0, 500))
+      : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,Segoe UI,sans-serif;background:#fafafa">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" style="max-width:560px;background:#fff;border-radius:16px;border:1px solid #e5e7eb;padding:40px 32px">
+        <tr><td>
+          <div style="font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.2em;color:#f97316;text-transform:uppercase;font-weight:700;margin-bottom:12px">📖 새 책 출간</div>
+          <h1 style="margin:0 0 8px;font-size:28px;font-weight:900;letter-spacing:-0.02em;color:#0a0a0a;line-height:1.15">${safeTopic}</h1>
+          <p style="margin:0 0 20px;color:#6b7280;font-size:14px">by ${safeAuthor}</p>
+          ${safeMessage ? `<p style="margin:24px 0;font-size:15px;line-height:1.65;color:#1a1a1a">${safeMessage}</p>` : ""}
+          <a href="${opts.bookUrl}" style="display:inline-block;margin-top:24px;padding:14px 28px;background:#f97316;color:#fff;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px">📖 책 보기 →</a>
+          ${opts.profileUrl ? `<p style="margin-top:24px;font-size:13px;color:#9ca3af">또는 <a href="${opts.profileUrl}" style="color:#f97316;text-decoration:none">${safeAuthor}의 다른 책 보기</a></p>` : ""}
+          <hr style="border:0;border-top:1px solid #e5e7eb;margin:32px 0">
+          <p style="font-size:11px;color:#9ca3af;line-height:1.5">
+            이 메일은 ${safeAuthor}님 작가 페이지에서 구독한 분께 발송됐습니다.<br>
+            🐯 Tigerbookmaker 통해 전달됨.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  let sentCount = 0;
+  let failedCount = 0;
+
+  // Resend batch API: 한 번 호출에 최대 100건
+  for (let i = 0; i < opts.recipients.length; i += 100) {
+    const batch = opts.recipients.slice(i, i + 100);
+    const payload = batch.map((to) => ({
+      from: FROM,
+      to,
+      subject,
+      html,
+    }));
+    try {
+      const res = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) sentCount += batch.length;
+      else failedCount += batch.length;
+    } catch {
+      failedCount += batch.length;
+    }
+  }
+
+  return { sentCount, failedCount };
 }
 
 export async function sendRefundEmail(opts: {
