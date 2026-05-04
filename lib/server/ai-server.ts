@@ -678,20 +678,24 @@ export interface ImageResult {
 // 한 번 429 받으면 다음 호출은 즉시 다음 vendor로 (15s timeout 낭비 X).
 let cloudflareDownUntil = 0;
 
+export type AspectRatio = "1:1" | "9:16" | "16:9" | "3:4" | "4:3";
+
 export async function callImageGeneration(opts: {
   prompt: string;
   timeoutMs?: number;
   preferPaid?: boolean;  // true면 Imagen 4 Fast 우선 (한국어 글자 깔끔, 표지·썸네일·인포그래픽용). 기본 false.
+  aspectRatio?: AspectRatio;  // 기본 "1:1" — 기존 호출자 호환
 }): Promise<ImageResult> {
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? 30000;
+  const aspectRatio: AspectRatio = opts.aspectRatio ?? "1:1";
   const errors: string[] = [];
   const now = Date.now();
 
   // preferPaid: 한국어 글자 정확 필요 (표지/썸네일/인포그래픽) — Imagen 4 Fast 우선
   if (opts.preferPaid && process.env.GEMINI_API_KEY) {
     try {
-      const r = await callImagenFast(opts.prompt, timeoutMs);
+      const r = await callImagenFast(opts.prompt, timeoutMs, aspectRatio);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
       errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
@@ -700,7 +704,7 @@ export async function callImageGeneration(opts: {
   // 1순위: Cloudflare Workers AI (무료 1만/일) — quota 도달 시 1시간 skip
   if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && now > cloudflareDownUntil) {
     try {
-      const r = await callCloudflareImage(opts.prompt, timeoutMs);
+      const r = await callCloudflareImage(opts.prompt, timeoutMs, aspectRatio);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
       const msg = String(e?.message ?? e);
@@ -715,7 +719,7 @@ export async function callImageGeneration(opts: {
   // 2순위: OpenAI gpt-image-1 (paid, 신뢰성 높음) — quota 도달 시 우선
   if (process.env.OPENAI_API_KEY) {
     try {
-      const r = await callOpenAIImage(opts.prompt, timeoutMs);
+      const r = await callOpenAIImage(opts.prompt, timeoutMs, aspectRatio);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
       errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
@@ -724,7 +728,7 @@ export async function callImageGeneration(opts: {
   // 3순위: Imagen 4 Fast (paid, 한국어 깔끔) — preferPaid 아닐 때 fallback
   if (!opts.preferPaid && process.env.GEMINI_API_KEY) {
     try {
-      const r = await callImagenFast(opts.prompt, timeoutMs);
+      const r = await callImagenFast(opts.prompt, timeoutMs, aspectRatio);
       return { ...r, durationMs: Date.now() - started };
     } catch (e: any) {
       errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
@@ -732,7 +736,7 @@ export async function callImageGeneration(opts: {
   }
   // 4순위: Pollinations (무료, 한국어 약함, Vercel server에서 종종 hang) — 마지막 보루, 짧은 timeout
   try {
-    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 8000));
+    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 8000), aspectRatio);
     return { ...r, durationMs: Date.now() - started };
   } catch (e: any) {
     errors.push(`Pollinations: ${String(e?.message ?? e).slice(0, 120)}`);
@@ -740,11 +744,36 @@ export async function callImageGeneration(opts: {
   throw new Error(`모든 이미지 vendor 실패. ${errors.join(" / ") || "API 키 없음"}`);
 }
 
-async function callCloudflareImage(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+// Cloudflare Flux: width/height must be multiples of 64
+function aspectToCloudflareSize(ar: AspectRatio): { width: number; height: number } {
+  switch (ar) {
+    case "9:16": return { width: 768, height: 1344 };
+    case "16:9": return { width: 1344, height: 768 };
+    case "3:4":  return { width: 832, height: 1152 };  // ~3:4 multiples of 64
+    case "4:3":  return { width: 1152, height: 832 };
+    case "1:1":
+    default:     return { width: 1024, height: 1024 };
+  }
+}
+
+// OpenAI gpt-image-1 valid sizes: 1024x1024, 1024x1536, 1536x1024
+function aspectToOpenAISize(ar: AspectRatio): string {
+  switch (ar) {
+    case "9:16":
+    case "3:4":  return "1024x1536";
+    case "16:9":
+    case "4:3":  return "1536x1024";
+    case "1:1":
+    default:     return "1024x1024";
+  }
+}
+
+async function callCloudflareImage(prompt: string, timeoutMs: number, aspectRatio: AspectRatio = "1:1"): Promise<Omit<ImageResult, "durationMs">> {
   const token = process.env.CLOUDFLARE_API_TOKEN!;
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID!;
   const model = "@cf/black-forest-labs/flux-1-schnell";
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+  const { width, height } = aspectToCloudflareSize(aspectRatio);
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -754,7 +783,7 @@ async function callCloudflareImage(prompt: string, timeoutMs: number): Promise<O
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt, num_steps: 4 }),  // flux-schnell은 4 steps default
+      body: JSON.stringify({ prompt, num_steps: 4, width, height }),  // flux-schnell은 4 steps default
       signal: ctrl.signal,
     });
     if (!res.ok) {
@@ -776,10 +805,11 @@ async function callCloudflareImage(prompt: string, timeoutMs: number): Promise<O
   }
 }
 
-async function callPollinations(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
-  // Pollinations.ai — 무료, API 키 불필요. flux 모델로 1024x1024 PNG 반환.
+async function callPollinations(prompt: string, timeoutMs: number, aspectRatio: AspectRatio = "1:1"): Promise<Omit<ImageResult, "durationMs">> {
+  // Pollinations.ai — 무료, API 키 불필요. flux 모델로 PNG 반환.
   // private=true: feed에 이미지 노출 안 함
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&model=flux&nologo=true&private=true`;
+  const { width, height } = aspectToCloudflareSize(aspectRatio);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&model=flux&nologo=true&private=true`;
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -797,7 +827,7 @@ async function callPollinations(prompt: string, timeoutMs: number): Promise<Omit
   }
 }
 
-async function callImagenFast(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+async function callImagenFast(prompt: string, timeoutMs: number, aspectRatio: AspectRatio = "1:1"): Promise<Omit<ImageResult, "durationMs">> {
   const apiKey = process.env.GEMINI_API_KEY!;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${apiKey}`;
   const ctrl = new AbortController();
@@ -808,7 +838,7 @@ async function callImagenFast(prompt: string, timeoutMs: number): Promise<Omit<I
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instances: [{ prompt }],
-        parameters: { sampleCount: 1, aspectRatio: "1:1" },
+        parameters: { sampleCount: 1, aspectRatio },
       }),
       signal: ctrl.signal,
     });
@@ -828,15 +858,16 @@ async function callImagenFast(prompt: string, timeoutMs: number): Promise<Omit<I
   }
 }
 
-async function callOpenAIImage(prompt: string, timeoutMs: number): Promise<Omit<ImageResult, "durationMs">> {
+async function callOpenAIImage(prompt: string, timeoutMs: number, aspectRatio: AspectRatio = "1:1"): Promise<Omit<ImageResult, "durationMs">> {
   const apiKey = process.env.OPENAI_API_KEY!;
+  const size = aspectToOpenAISize(aspectRatio);
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1024x1024", n: 1 }),
+      body: JSON.stringify({ model: "gpt-image-1", prompt, size, n: 1 }),
       signal: ctrl.signal,
     });
     if (!res.ok) {
