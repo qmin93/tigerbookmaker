@@ -34,6 +34,26 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Referral (추천 시스템 — 2026-05-04) ──
+export const referralCodes = pgTable("referral_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  code: text("code").notNull().unique(),
+  totalReferred: integer("total_referred").notNull().default(0),
+  totalCreditsEarned: integer("total_credits_earned").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const referralSignups = pgTable("referral_signups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  referrerUserId: uuid("referrer_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  referredUserId: uuid("referred_user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  creditAmount: integer("credit_amount").notNull().default(2000),
+  awardedAt: timestamp("awarded_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const accounts = pgTable("accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
