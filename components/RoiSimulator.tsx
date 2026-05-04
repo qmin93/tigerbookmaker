@@ -6,6 +6,7 @@ import { calculateRoi } from "@/lib/roi-calc";
 export function RoiSimulator() {
   const [bookPrice, setBookPrice] = useState(5000);
   const [monthlySales, setMonthlySales] = useState(10);
+  const [newBooksPerMonth, setNewBooksPerMonth] = useState(1);
   const [chapters, setChapters] = useState(12);
   const [adSpend, setAdSpend] = useState(0);
   const [channel, setChannel] = useState<"kmong" | "direct">("kmong");
@@ -14,6 +15,7 @@ export function RoiSimulator() {
   const r = calculateRoi({
     bookPrice,
     monthlySales,
+    newBooksPerMonth,
     chapters,
     monthlyAdSpend: adSpend,
     channelFeeRate,
@@ -54,16 +56,25 @@ export function RoiSimulator() {
               onChange={setBookPrice}
             />
             <SliderInput
-              label="월 판매량"
+              label="월 판매 부수 (모든 책 합산)"
               value={monthlySales}
               min={0}
-              max={50}
+              max={100}
               step={1}
               unit="권"
               onChange={setMonthlySales}
             />
             <SliderInput
-              label="챕터 수"
+              label="월 신규 출간 수"
+              value={newBooksPerMonth}
+              min={0}
+              max={10}
+              step={1}
+              unit="권"
+              onChange={setNewBooksPerMonth}
+            />
+            <SliderInput
+              label="권당 챕터 수"
               value={chapters}
               min={5}
               max={20}

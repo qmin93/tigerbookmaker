@@ -1,12 +1,19 @@
 // ROI 계산 — 순수 함수 (frontend/backend 모두 활용)
 // A 부수익러 페르소나용 시뮬레이터의 핵심 로직
+//
+// 회계 모델:
+// - PDF 책은 한 번 만들면 무한 복제. 책 1권 만드는 데 ₩costPerBook 한 번 듬.
+// - 그 책을 N부 팔면 매출은 N × bookPrice, 추가 제작비 X.
+// - 따라서 monthlyProductionCost = costPerBook × newBooksPerMonth (출간 수, NOT 판매 수)
+// - 손익분기점은 권당 순익 (가격 × (1 - 수수료))으로 광고비 + 제작비 회수
 
 export interface RoiInputs {
-  bookPrice: number;        // 권당 판매가 ₩
-  monthlySales: number;     // 월 판매량
-  chapters: number;         // 챕터 수 (5~20)
-  monthlyAdSpend: number;   // 월 광고비 ₩
-  channelFeeRate: number;   // 0.20 (크몽 20%) or 0 (직접)
+  bookPrice: number;          // 권당 판매가 ₩
+  monthlySales: number;       // 월 판매 부수 (모든 책 합산)
+  newBooksPerMonth: number;   // 월 신규 출간 수 (보통 1~5권)
+  chapters: number;           // 챕터 수 (5~20)
+  monthlyAdSpend: number;     // 월 광고비 ₩
+  channelFeeRate: number;     // 0.20 (크몽 20%) or 0 (직접)
 }
 
 export interface RoiOutputs {
@@ -15,7 +22,7 @@ export interface RoiOutputs {
   monthlyProductionCost: number;
   monthlyChannelFee: number;
   monthlyNetProfit: number;
-  breakEvenBooks: number;     // 광고비 회수에 필요한 월 권수 (광고 0이면 0)
+  breakEvenBooks: number;     // 광고비 + 제작비 회수에 필요한 월 판매 부수
   quarterlyNetProfit: number;
   yearlyNetProfit: number;
   marginRate: number;          // 수익률 (0~1)
@@ -41,16 +48,19 @@ export function calculateRoi(inputs: RoiInputs): RoiOutputs {
     + COST_META_AD_IMAGES;
 
   const monthlyRevenue = inputs.bookPrice * inputs.monthlySales;
-  const monthlyProductionCost = costPerBook * inputs.monthlySales;
+  // 제작비는 신규 출간 수 × 권당 비용 (판매 수 X — PDF는 무한 복제)
+  const monthlyProductionCost = costPerBook * inputs.newBooksPerMonth;
   const monthlyChannelFee = monthlyRevenue * inputs.channelFeeRate;
   const monthlyNetProfit = monthlyRevenue - monthlyProductionCost - monthlyChannelFee - inputs.monthlyAdSpend;
 
-  // 손익분기점 (광고비를 권당 마진으로 회수하는 데 필요한 권수)
-  const profitPerBook = inputs.bookPrice * (1 - inputs.channelFeeRate) - costPerBook;
+  // 손익분기점 (총 비용 회수에 필요한 월 판매 부수)
+  // = (제작비 + 광고비) / 권당 순익(가격 × (1-수수료))
+  const profitPerSale = inputs.bookPrice * (1 - inputs.channelFeeRate);
+  const fixedCosts = monthlyProductionCost + inputs.monthlyAdSpend;
   let breakEvenBooks = 0;
-  if (inputs.monthlyAdSpend > 0) {
-    breakEvenBooks = profitPerBook > 0
-      ? Math.ceil(inputs.monthlyAdSpend / profitPerBook)
+  if (fixedCosts > 0) {
+    breakEvenBooks = profitPerSale > 0
+      ? Math.ceil(fixedCosts / profitPerSale)
       : Infinity;
   }
 
