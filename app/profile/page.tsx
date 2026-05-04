@@ -61,6 +61,9 @@ export default function ProfileEditPage() {
   // QR 코드
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
+  // 구독자 수 (GET /api/profile에서 함께 받음)
+  const [subscriberCount, setSubscriberCount] = useState<number>(0);
+
   // 추천 통계 로드
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +119,8 @@ export default function ProfileEditPage() {
           return;
         }
         if (!res.ok) throw new Error(`로드 실패 (${res.status})`);
-        const { profile } = await res.json();
+        const payload = await res.json();
+        const profile = payload.profile;
         if (cancelled) return;
         setHandle(profile.handle ?? "");
         setOriginalHandle(profile.handle ?? "");
@@ -124,6 +128,7 @@ export default function ProfileEditPage() {
         setAvatarUrl(profile.avatarUrl ?? "");
         setBio(profile.bio ?? "");
         setSocialLinks(Array.isArray(profile.socialLinks) ? profile.socialLinks : []);
+        if (typeof payload.subscriberCount === "number") setSubscriberCount(payload.subscriberCount);
       } catch (e: any) {
         if (!cancelled) setError(e.message ?? "프로필 로드 실패");
       } finally {
@@ -273,11 +278,16 @@ export default function ProfileEditPage() {
                   </a>
                 )}
               </div>
-              {visitStats && (
+              {(visitStats || subscriberCount > 0) && (
                 <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
-                  <span>👀 총 방문 <strong className="text-ink-900">{visitStats.totalViews.toLocaleString()}</strong>회</span>
-                  <span>최근 7일 <strong className="text-ink-900">{visitStats.last7days.toLocaleString()}</strong>회</span>
-                  <span>최근 30일 <strong className="text-ink-900">{visitStats.last30days.toLocaleString()}</strong>회</span>
+                  {visitStats && (
+                    <>
+                      <span>👀 총 방문 <strong className="text-ink-900">{visitStats.totalViews.toLocaleString()}</strong>회</span>
+                      <span>최근 7일 <strong className="text-ink-900">{visitStats.last7days.toLocaleString()}</strong>회</span>
+                      <span>최근 30일 <strong className="text-ink-900">{visitStats.last30days.toLocaleString()}</strong>회</span>
+                    </>
+                  )}
+                  <span>📧 구독자 <strong className="text-ink-900">{subscriberCount.toLocaleString()}</strong>명</span>
                 </div>
               )}
             </div>

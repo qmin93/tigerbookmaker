@@ -64,6 +64,37 @@ export default function UserProfilePage({ params }: { params: { handle: string }
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 이메일 구독
+  const [subEmail, setSubEmail] = useState("");
+  const [subState, setSubState] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [subMessage, setSubMessage] = useState<string>("");
+
+  const submitSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (subState === "submitting") return;
+    setSubState("submitting");
+    setSubMessage("");
+    try {
+      const res = await fetch("/api/profile/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle, email: subEmail.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSubState("error");
+        setSubMessage(data?.message || "구독 실패");
+        return;
+      }
+      setSubState("success");
+      setSubMessage("구독 완료 — 새 책이 나오면 알려드릴게요.");
+      setSubEmail("");
+    } catch (e: any) {
+      setSubState("error");
+      setSubMessage(e?.message || "구독 실패");
+    }
+  };
+
   useEffect(() => {
     fetch(`/api/u/${handle}`)
       .then(async r => {
@@ -235,7 +266,43 @@ export default function UserProfilePage({ params }: { params: { handle: string }
           )}
         </section>
 
-        {/* 4. Footer */}
+        {/* 4. 이메일 구독 */}
+        <section className="mb-10">
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5">
+            <div className="text-center mb-3">
+              <div className="text-base font-bold text-gray-900">📧 새 책 나오면 알림</div>
+              <div className="text-xs text-gray-600 mt-1">
+                {data.displayName}님의 새 책이 나오면 이메일로 알려드릴게요.
+              </div>
+            </div>
+            <form onSubmit={submitSubscribe} className="flex gap-2 flex-wrap">
+              <input
+                type="email"
+                required
+                value={subEmail}
+                onChange={(e) => setSubEmail(e.target.value)}
+                placeholder="your@email.com"
+                disabled={subState === "submitting"}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-orange-500 focus:outline-none disabled:bg-gray-50"
+              />
+              <button
+                type="submit"
+                disabled={subState === "submitting" || !subEmail.trim()}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition disabled:opacity-50"
+              >
+                {subState === "submitting" ? "구독 중…" : "구독"}
+              </button>
+            </form>
+            {subState === "success" && (
+              <div className="mt-2 text-xs text-green-700">✓ {subMessage}</div>
+            )}
+            {subState === "error" && (
+              <div className="mt-2 text-xs text-red-600">✗ {subMessage}</div>
+            )}
+          </div>
+        </section>
+
+        {/* 5. Footer */}
         <footer className="text-center pt-8 pb-4 border-t border-gray-100">
           <Link
             href="/"

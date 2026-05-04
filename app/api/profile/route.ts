@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sql } from "@vercel/postgres";
 import { auth } from "@/auth";
 import { ensureProfileFor, updateProfile, isValidHandle, isHandleAvailable } from "@/lib/server/profile";
 
@@ -12,7 +13,21 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const profile = await ensureProfileFor(session.user.id, session.user.email);
-  return NextResponse.json({ profile });
+
+  // 구독자 수 (active = unsubscribed_at NULL). 테이블 없을 때 silent 0.
+  let subscriberCount = 0;
+  try {
+    const { rows } = await sql<{ c: string }>`
+      SELECT COUNT(*)::text AS c
+      FROM email_subscriptions
+      WHERE author_user_id = ${session.user.id} AND unsubscribed_at IS NULL
+    `;
+    subscriberCount = Number(rows[0]?.c ?? 0);
+  } catch {
+    // migration 미적용 환경 등에서 무시
+  }
+
+  return NextResponse.json({ profile, subscriberCount });
 }
 
 export async function PUT(req: Request) {
