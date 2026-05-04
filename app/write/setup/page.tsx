@@ -36,9 +36,10 @@ function Inner() {
   // 레퍼런스 업로드 — Phase 1
   const [references, setReferences] = useState<{ id: string; filename: string; sourceType: string; chunkCount: number; totalChars: number }[]>([]);
   const [refUploadBusy, setRefUploadBusy] = useState(false);
-  const [refUploadMode, setRefUploadMode] = useState<"none" | "pdf" | "url" | "text">("none");
+  const [refUploadMode, setRefUploadMode] = useState<"none" | "pdf" | "url" | "text" | "docx" | "youtube" | "image">("none");
   const [refUrlInput, setRefUrlInput] = useState("");
   const [refTextInput, setRefTextInput] = useState("");
+  const [refYoutubeInput, setRefYoutubeInput] = useState("");
 
   // AI 자료 분석 — Phase 2
   const [summaryBusy, setSummaryBusy] = useState(false);
@@ -149,7 +150,8 @@ function Inner() {
     await generateSummary();
   };
 
-  const uploadPdfReference = async (file: File) => {
+  // 파일 기반 업로드 (PDF / DOCX / 이미지) — 서버가 file.type/이름으로 자동 분기
+  const uploadFileReference = async (file: File) => {
     if (!projectId) return;
     setRefUploadBusy(true);
     setError(null);
@@ -164,6 +166,32 @@ function Inner() {
         id: data.id, filename: data.filename, sourceType: data.sourceType,
         chunkCount: data.chunkCount, totalChars: data.totalChars,
       }, ...prev]);
+      setRefUploadMode("none");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRefUploadBusy(false);
+    }
+  };
+
+  const uploadPdfReference = uploadFileReference;
+  const uploadDocxReference = uploadFileReference;
+  const uploadImageReference = uploadFileReference;
+
+  const uploadYoutubeReference = async () => {
+    if (!projectId || !refYoutubeInput.trim()) return;
+    setRefUploadBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reference/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, type: "youtube", url: refYoutubeInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `업로드 실패 (${res.status})`);
+      setReferences(prev => [data, ...prev]);
+      setRefYoutubeInput("");
       setRefUploadMode("none");
     } catch (e: any) {
       setError(e.message);
@@ -398,9 +426,9 @@ function Inner() {
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-ink-900">📚 참고 자료 ({references.length})</h3>
             {refUploadMode === "none" && (
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1 justify-end">
                 <label className="text-xs px-2 py-1 bg-tiger-orange text-white rounded font-bold cursor-pointer hover:bg-orange-600">
-                  PDF
+                  📄 PDF
                   <input
                     type="file"
                     accept="application/pdf"
@@ -409,13 +437,34 @@ function Inner() {
                     disabled={refUploadBusy}
                   />
                 </label>
-                <button onClick={() => setRefUploadMode("url")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">URL</button>
-                <button onClick={() => setRefUploadMode("text")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">텍스트</button>
+                <button onClick={() => setRefUploadMode("url")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">🌐 URL</button>
+                <button onClick={() => setRefUploadMode("text")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">📝 텍스트</button>
+                <label className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold cursor-pointer hover:bg-orange-100">
+                  📘 DOCX
+                  <input
+                    type="file"
+                    accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    onChange={e => e.target.files?.[0] && uploadDocxReference(e.target.files[0])}
+                    disabled={refUploadBusy}
+                  />
+                </label>
+                <button onClick={() => setRefUploadMode("youtube")} disabled={refUploadBusy} className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold hover:bg-orange-100">🎬 YouTube</button>
+                <label className="text-xs px-2 py-1 border border-tiger-orange text-tiger-orange rounded font-bold cursor-pointer hover:bg-orange-100">
+                  🖼️ 이미지
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => e.target.files?.[0] && uploadImageReference(e.target.files[0])}
+                    disabled={refUploadBusy}
+                  />
+                </label>
               </div>
             )}
           </div>
           <p className="text-xs text-gray-600 mb-3">
-            PDF·블로그 URL·메모 등을 올리면 AI가 정확히 읽고 인터뷰·목차·본문에 활용합니다. (10MB 이하 PDF, 정적 HTML URL, 50~50만자 텍스트)
+            PDF·DOCX·블로그 URL·YouTube 자막·이미지(OCR ₩30)·메모 — 모두 AI가 읽고 인터뷰·목차·본문에 활용합니다. (PDF/DOCX 10MB, 이미지 8MB, 50~50만자 텍스트)
           </p>
 
           {refUploadBusy && (
@@ -433,6 +482,20 @@ function Inner() {
               />
               <button onClick={uploadUrlReference} disabled={refUploadBusy || !refUrlInput.trim()} className="text-xs px-3 py-2 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50">가져오기</button>
               <button onClick={() => { setRefUploadMode("none"); setRefUrlInput(""); }} className="text-xs px-2 py-2 text-gray-500 hover:text-ink-900">취소</button>
+            </div>
+          )}
+
+          {refUploadMode === "youtube" && (
+            <div className="flex gap-2 mb-3">
+              <input
+                type="url"
+                value={refYoutubeInput}
+                onChange={e => setRefYoutubeInput(e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+                className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded focus:border-tiger-orange focus:outline-none"
+              />
+              <button onClick={uploadYoutubeReference} disabled={refUploadBusy || !refYoutubeInput.trim()} className="text-xs px-3 py-2 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50">자막 가져오기</button>
+              <button onClick={() => { setRefUploadMode("none"); setRefYoutubeInput(""); }} className="text-xs px-2 py-2 text-gray-500 hover:text-ink-900">취소</button>
             </div>
           )}
 
@@ -458,7 +521,12 @@ function Inner() {
               {references.map(r => (
                 <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200 text-xs">
                   <span className="text-base">
-                    {r.sourceType === "pdf" ? "📄" : r.sourceType === "url" ? "🌐" : "📝"}
+                    {r.sourceType === "pdf" ? "📄"
+                      : r.sourceType === "url" ? "🌐"
+                      : r.sourceType === "docx" ? "📘"
+                      : r.sourceType === "youtube" ? "🎬"
+                      : r.sourceType === "image" ? "🖼️"
+                      : "📝"}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-ink-900 truncate">{r.filename}</div>
