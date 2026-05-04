@@ -54,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor, marketingMeta, metaAdPackage, repurposedContent } = body ?? {};
+  const { themeColor, marketingMeta, metaAdPackage, repurposedContent, coverFromVariation, cover } = body ?? {};
 
   const projectRow = await getProject(projectId, userId);
   if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -143,12 +143,56 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     updates.repurposedContent = sanitized;
   }
 
+  // 표지 다양화 — variation idx 또는 직접 base64 받아 메인 cover로 복사.
+  // body: { coverFromVariation: number } 또는 { cover: { base64: string, vendor?: string } }
+  const wantsCoverUpdate =
+    typeof coverFromVariation === "number" ||
+    (cover && typeof cover === "object" && typeof cover.base64 === "string");
+
+  if (wantsCoverUpdate) {
+    const existingData: any = projectRow.data ?? {};
+    let pickedBase64: string | null = null;
+    let pickedVendor = "user-selected";
+
+    if (typeof coverFromVariation === "number") {
+      const variations: any[] = Array.isArray(existingData.coverVariations) ? existingData.coverVariations : [];
+      const v = variations[coverFromVariation];
+      if (!v || typeof v.base64 !== "string") {
+        return NextResponse.json({ error: "INVALID_VARIATION", message: `coverVariations[${coverFromVariation}] 없음` }, { status: 400 });
+      }
+      pickedBase64 = v.base64;
+      pickedVendor = v.vendor ?? "user-selected";
+    } else if (cover && typeof cover.base64 === "string") {
+      // base64 sanity — 너무 작거나 비어있으면 거부
+      if (cover.base64.length < 100) {
+        return NextResponse.json({ error: "INVALID_INPUT", message: "cover.base64가 비어있거나 너무 짧습니다" }, { status: 400 });
+      }
+      pickedBase64 = cover.base64;
+      if (typeof cover.vendor === "string") pickedVendor = cover.vendor;
+    }
+
+    if (pickedBase64) {
+      const existingPkg: any = existingData.kmongPackage ?? {
+        images: [],
+        copy: { kmongDescription: "", kmongHighlights: [], instagram: "", kakao: "", twitter: "", blogReview: "", youtubeDescription: "", naverCafe: "" },
+        generatedAt: Date.now(),
+        totalCostKRW: 0,
+      };
+      const others = (existingPkg.images ?? []).filter((i: any) => i.type !== "cover");
+      const newCover = { type: "cover", base64: pickedBase64, vendor: pickedVendor, generatedAt: Date.now() };
+      updates.kmongPackage = {
+        ...existingPkg,
+        images: [...others, newCover],
+      };
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "NO_UPDATES" }, { status: 400 });
   }
 
   await updateProjectData(projectId, userId, { ...(projectRow.data ?? {}), ...updates });
-  return NextResponse.json({ ok: true, updates });
+  return NextResponse.json({ ok: true, updates: { ...updates, kmongPackage: updates.kmongPackage ? { coverUpdated: true, imageCount: updates.kmongPackage.images.length } : undefined } });
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
