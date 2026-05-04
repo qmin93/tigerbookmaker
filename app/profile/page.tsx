@@ -27,6 +27,14 @@ interface VisitStats {
   last30days: number;
 }
 
+interface OwnStats {
+  bookCount: number;
+  balanceKRW: number;
+  totalCharged: number;
+  totalSpent: number;
+  totalPageViews: number;
+}
+
 type HandleStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 const MAX_LINKS = 8;
@@ -63,6 +71,9 @@ export default function ProfileEditPage() {
 
   // 구독자 수 (GET /api/profile에서 함께 받음)
   const [subscriberCount, setSubscriberCount] = useState<number>(0);
+
+  // 개인 종합 통계
+  const [ownStats, setOwnStats] = useState<OwnStats | null>(null);
 
   // 추천 통계 로드
   useEffect(() => {
@@ -137,6 +148,20 @@ export default function ProfileEditPage() {
     })();
     return () => { cancelled = true; };
   }, [router]);
+
+  // 본인 종합 통계
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/profile/stats");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setOwnStats(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // 본인 프로필 방문 통계 (originalHandle 확정 후)
   useEffect(() => {
@@ -321,6 +346,39 @@ export default function ProfileEditPage() {
                     >
                       💾 다운로드
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 📊 사용 통계 */}
+            {ownStats && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+                <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-3">사용 통계</div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📚 책 수</div>
+                    <div className="text-lg font-black text-ink-900 mt-1">{ownStats.bookCount.toLocaleString()}<span className="text-xs font-normal text-gray-500 ml-1">권</span></div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">👀 책 페이지 방문</div>
+                    <div className="text-lg font-black text-ink-900 mt-1">{ownStats.totalPageViews.toLocaleString()}<span className="text-xs font-normal text-gray-500 ml-1">회</span></div>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">💰 잔액</div>
+                    <div className="text-lg font-black text-tiger-orange mt-1">₩{ownStats.balanceKRW.toLocaleString()}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📥 누적 충전</div>
+                    <div className="text-base font-bold text-ink-900 mt-1">₩{ownStats.totalCharged.toLocaleString()}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📤 누적 사용</div>
+                    <div className="text-base font-bold text-ink-900 mt-1">₩{ownStats.totalSpent.toLocaleString()}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-gray-500">📧 구독자</div>
+                    <div className="text-base font-bold text-ink-900 mt-1">{subscriberCount.toLocaleString()}<span className="text-xs font-normal text-gray-500 ml-1">명</span></div>
                   </div>
                 </div>
               </div>
