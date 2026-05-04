@@ -169,6 +169,26 @@ function Inner() {
   const [infographicBusy, setInfographicBusy] = useState(false);
   const [infographicTemplate, setInfographicTemplate] = useState<"minimal" | "bold" | "dark">("bold");
 
+  // ─── ⚖️ A/B 테스트 (Wave B5) — 마케팅 페이지 variant ───
+  const [abTestForm, setAbTestForm] = useState<{
+    taglineA?: string;
+    taglineB?: string;
+    descriptionA?: string;
+    descriptionB?: string;
+    enabled?: boolean;
+  }>({});
+  const [abTestBusy, setAbTestBusy] = useState(false);
+  const [abTestSaved, setAbTestSaved] = useState(false);
+  const [abTestStats, setAbTestStats] = useState<Record<"A" | "B", { views24h: number; views7d: number; viewsTotal: number }> | null>(null);
+  const [abTestStatsBusy, setAbTestStatsBusy] = useState(false);
+
+  // ─── 🎬 미리보기 영상 frames (Wave B6) — 9:16 PNG 5장 ───
+  const [previewVideo, setPreviewVideo] = useState<{
+    frames: { idx: number; template: string; base64: string }[];
+    generatedAt: number;
+  } | null>(null);
+  const [previewVideoBusy, setPreviewVideoBusy] = useState(false);
+
   // ─── 📻 오디오북 (TTS, Gemini) ───
   // 책 본문 → 한국어 TTS로 챕터별 WAV → 오디오북.
   // Vercel 60s timeout 때문에 프론트가 chapterIdx 지정해 한 챕터씩 순차 호출.
@@ -296,6 +316,25 @@ function Inner() {
   // infographic sync (Wave B3)
   useEffect(() => {
     if ((project as any)?.infographic) setInfographic((project as any).infographic);
+  }, [project]);
+
+  // abTest sync (Wave B5) — 폼에 기존 값 채우고, 활성화돼있으면 stats fetch
+  useEffect(() => {
+    const ab = (project as any)?.abTest;
+    if (ab) {
+      setAbTestForm({
+        taglineA: ab.taglineA ?? "",
+        taglineB: ab.taglineB ?? "",
+        descriptionA: ab.descriptionA ?? "",
+        descriptionB: ab.descriptionB ?? "",
+        enabled: ab.enabled === true,
+      });
+    }
+  }, [project]);
+
+  // previewVideo sync (Wave B6)
+  useEffect(() => {
+    if ((project as any)?.previewVideo) setPreviewVideo((project as any).previewVideo);
   }, [project]);
 
   // audiobook sync — project이 로드/갱신될 때 동기화
@@ -1293,6 +1332,80 @@ function Inner() {
     const a = document.createElement("a");
     a.href = `data:image/png;base64,${slide.base64}`;
     a.download = `infographic-${slide.slideNum}.png`;
+    a.click();
+  };
+
+  // ─── Wave B5: A/B 테스트 ───
+  const saveAbTest = async () => {
+    if (!projectId) return;
+    setAbTestBusy(true); setError(null); setAbTestSaved(false);
+    try {
+      const res = await fetch("/api/marketing/ab", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, ...abTestForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `저장 실패 (${res.status})`);
+      setAbTestSaved(true);
+      setTimeout(() => setAbTestSaved(false), 2000);
+      // refetch project so abTest sync runs
+      const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      setProject(fresh);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setAbTestBusy(false);
+    }
+  };
+
+  const fetchAbTestStats = async () => {
+    if (!projectId) return;
+    setAbTestStatsBusy(true);
+    try {
+      const res = await fetch(`/api/marketing/ab?bookId=${projectId}`);
+      const data = await res.json();
+      if (res.ok && data.stats) setAbTestStats(data.stats);
+    } catch {
+      // silent
+    } finally {
+      setAbTestStatsBusy(false);
+    }
+  };
+
+  // ─── Wave B6: 미리보기 영상 frames 5장 (9:16) ───
+  const generatePreviewVideo = async () => {
+    if (!projectId) return;
+    setPreviewVideoBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/generate/preview-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `미리보기 영상 frame 생성 실패 (${res.status})`);
+      const next = {
+        frames: data.frames ?? [],
+        generatedAt: Date.now(),
+      };
+      setPreviewVideo(next);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setPreviewVideoBusy(false);
+    }
+  };
+
+  const downloadPreviewFrame = (frame: { idx: number; base64: string }) => {
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${frame.base64}`;
+    a.download = `preview-frame-${frame.idx + 1}.png`;
     a.click();
   };
 
@@ -2995,6 +3108,150 @@ function Inner() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* ⚖️ A/B 테스트 — 마케팅 페이지 variant (Wave B5)  */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && (
+        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-black text-ink-900">⚖️ A/B 테스트</h2>
+            <p className="text-[11px] text-gray-500">두 가지 마케팅 카피로 어느 게 잘 먹히는지 측정 (50/50 분기, cookie sticky)</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg space-y-2">
+              <div className="text-xs font-bold text-blue-700">A variant</div>
+              <input
+                type="text"
+                maxLength={200}
+                value={abTestForm.taglineA ?? ""}
+                onChange={e => setAbTestForm(f => ({ ...f, taglineA: e.target.value }))}
+                placeholder="A 한 줄 소개"
+                className="w-full text-xs px-2 py-1.5 border border-blue-200 rounded bg-white"
+              />
+              <textarea
+                maxLength={3000}
+                rows={3}
+                value={abTestForm.descriptionA ?? ""}
+                onChange={e => setAbTestForm(f => ({ ...f, descriptionA: e.target.value }))}
+                placeholder="A 상세 설명"
+                className="w-full text-xs px-2 py-1.5 border border-blue-200 rounded bg-white resize-y"
+              />
+            </div>
+            <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-lg space-y-2">
+              <div className="text-xs font-bold text-purple-700">B variant</div>
+              <input
+                type="text"
+                maxLength={200}
+                value={abTestForm.taglineB ?? ""}
+                onChange={e => setAbTestForm(f => ({ ...f, taglineB: e.target.value }))}
+                placeholder="B 한 줄 소개"
+                className="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white"
+              />
+              <textarea
+                maxLength={3000}
+                rows={3}
+                value={abTestForm.descriptionB ?? ""}
+                onChange={e => setAbTestForm(f => ({ ...f, descriptionB: e.target.value }))}
+                placeholder="B 상세 설명"
+                className="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white resize-y"
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={abTestForm.enabled === true}
+                onChange={e => setAbTestForm(f => ({ ...f, enabled: e.target.checked }))}
+              />
+              <span className="font-bold">활성화</span>
+              <span className="text-gray-500">(체크 후 저장하면 /book/{projectId} 방문자 50/50 분기)</span>
+            </label>
+
+            <button
+              onClick={saveAbTest}
+              disabled={abTestBusy}
+              className="ml-auto px-4 py-2 bg-tiger-orange text-white rounded-lg text-xs font-black hover:bg-orange-600 transition disabled:opacity-50"
+            >
+              {abTestBusy ? "저장 중..." : abTestSaved ? "✓ 저장됨" : "💾 저장"}
+            </button>
+
+            <button
+              onClick={fetchAbTestStats}
+              disabled={abTestStatsBusy}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              {abTestStatsBusy ? "조회 중..." : "📊 변형별 방문 통계"}
+            </button>
+          </div>
+
+          {abTestStats && (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {(["A", "B"] as const).map(v => (
+                <div key={v} className={`p-3 rounded-lg border ${v === "A" ? "bg-blue-50 border-blue-200" : "bg-purple-50 border-purple-200"}`}>
+                  <div className={`text-xs font-bold ${v === "A" ? "text-blue-700" : "text-purple-700"}`}>{v} variant 방문</div>
+                  <div className="text-[11px] text-gray-700 mt-1">
+                    24시간: <strong>{abTestStats[v].views24h}</strong> · 7일: <strong>{abTestStats[v].views7d}</strong> · 전체: <strong>{abTestStats[v].viewsTotal}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* 🎬 미리보기 영상 frames — 9:16 PNG 5장 (Wave B6)  */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
+        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-black text-ink-900">🎬 미리보기 영상 (5 frames)</h2>
+            <p className="text-[11px] text-gray-500">9:16 (인스타 릴스/유튜브 쇼츠) PNG 5장. 본인 영상 편집기에서 1분 영상 만들기</p>
+          </div>
+
+          <button
+            onClick={generatePreviewVideo}
+            disabled={previewVideoBusy}
+            className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
+          >
+            {previewVideoBusy ? "⏳ 5장 생성 중..." : previewVideo ? "🔄 다시 생성" : "🎬 5장 frame 생성 (~₩30)"}
+          </button>
+
+          {previewVideo && previewVideo.frames.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-ink-900">생성된 frame ({previewVideo.frames.length}장)</p>
+                <p className="text-[10px] text-gray-500">{new Date(previewVideo.generatedAt).toLocaleString("ko-KR")}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {previewVideo.frames.map(frame => (
+                  <div key={frame.idx} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`data:image/png;base64,${frame.base64}`}
+                      alt={`preview frame ${frame.idx + 1}`}
+                      className="w-full aspect-[9/16] object-cover rounded mb-2 bg-white"
+                    />
+                    <button
+                      onClick={() => downloadPreviewFrame(frame)}
+                      className="w-full px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
+                    >
+                      ⬇ {frame.idx + 1}/{previewVideo.frames.length} 다운로드
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 leading-relaxed">
+                💡 <strong>가이드:</strong> 다운받은 5장을 <strong>CapCut · 인스타 릴스 · 프리미어 프로</strong> 등에서 import → 각 frame을 12초씩 배치 + 음악·트랜지션 추가하면 1분 영상 완성.
               </div>
             </div>
           )}
