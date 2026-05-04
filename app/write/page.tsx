@@ -187,6 +187,24 @@ function Inner() {
   const [audiobookBusy, setAudiobookBusy] = useState(false);
   const [audiobookProgress, setAudiobookProgress] = useState<string | null>(null);
 
+  // ─── 강의 슬라이드 (책 → 10~20장 강사·코치용) ───
+  type CourseSlideUI = {
+    slideNum: number;
+    title: string;
+    bullets: string[];
+    notes?: string;
+    pngBase64?: string;
+  };
+  const [courseSlides, setCourseSlides] = useState<{
+    template: "minimal" | "bold" | "academic";
+    slides: CourseSlideUI[];
+    generatedAt: number;
+  } | null>(null);
+  const [courseSlidesBusy, setCourseSlidesBusy] = useState(false);
+  const [courseSlideCount, setCourseSlideCount] = useState<8 | 12 | 16 | 20>(12);
+  const [courseSlideTemplate, setCourseSlideTemplate] = useState<"minimal" | "bold" | "academic">("minimal");
+  const [courseSlideRender, setCourseSlideRender] = useState(false);
+
   // ─── 책별 매출 입력 ("이정도 번다") ───
   // 사용자가 채널별 누적 매출 직접 입력 → /profile에서 비용 vs 매출 ROI 계산.
   type RevenueChannelInput = { channel: string; label?: string; grossKRW: number; feeRate: number };
@@ -283,6 +301,11 @@ function Inner() {
   // audiobook sync — project이 로드/갱신될 때 동기화
   useEffect(() => {
     if ((project as any)?.audiobook) setAudiobook((project as any).audiobook);
+  }, [project]);
+
+  // courseSlides sync — 강의 슬라이드
+  useEffect(() => {
+    if ((project as any)?.courseSlides) setCourseSlides((project as any).courseSlides);
   }, [project]);
 
   // revenue sync — project.revenue가 있으면 입력 폼에 반영. 없는 채널은 0으로 보존.
@@ -1270,6 +1293,60 @@ function Inner() {
     const a = document.createElement("a");
     a.href = `data:image/png;base64,${slide.base64}`;
     a.download = `infographic-${slide.slideNum}.png`;
+    a.click();
+  };
+
+  // ─── 강의 슬라이드 생성 (책 → 10~20장 outline + 옵션 PNG) ───
+  const generateCourseSlides = async () => {
+    if (!projectId) return;
+    setCourseSlidesBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/generate/course-slides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          slideCount: courseSlideCount,
+          template: courseSlideTemplate,
+          renderImages: courseSlideRender,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        if (confirm("잔액 부족: 충전 페이지로 이동할까요?")) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!res.ok) throw new Error(data.message || `강의 슬라이드 생성 실패 (${res.status})`);
+      if (data.courseSlides) setCourseSlides(data.courseSlides);
+      if (typeof data.newBalance === "number") setBalance(data.newBalance);
+    } catch (e: any) {
+      if (e.message !== "잔액 부족") setError(e.message);
+    } finally {
+      setCourseSlidesBusy(false);
+    }
+  };
+
+  const copyCourseSlide = async (slide: CourseSlideUI) => {
+    const lines = [
+      `[슬라이드 ${slide.slideNum}] ${slide.title}`,
+      "",
+      ...slide.bullets.map(b => `• ${b}`),
+    ];
+    if (slide.notes) {
+      lines.push("", "[강사 노트]", slide.notes);
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+    } catch {
+      // ignore — older browsers
+    }
+  };
+
+  const downloadCourseSlidePng = (slide: CourseSlideUI) => {
+    if (!slide.pngBase64) return;
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${slide.pngBase64}`;
+    a.download = `slide-${String(slide.slideNum).padStart(2, "0")}.png`;
     a.click();
   };
 
@@ -2977,6 +3054,148 @@ function Inner() {
                 ? (audiobookProgress ?? "⏳ 생성 중...")
                 : `🎙️ 오디오북 생성 (${project.chapters.length}챕터, ~₩${project.chapters.length * 50})`}
             </button>
+          )}
+        </section>
+      )}
+
+      {/* ───────────────────────────────────────────────────── */}
+      {/* 🎓 강의 슬라이드 — 책 → 10~20장 (강사·코치용)         */}
+      {/* ───────────────────────────────────────────────────── */}
+      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
+        <section className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-black text-ink-900">🎓 강의 슬라이드</h2>
+            <p className="text-[11px] text-gray-500">책 본문 → 강사·코치용 outline (실시간 줌/오프라인 즉시 사용)</p>
+          </div>
+
+          {!courseSlides ? (
+            <>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-xs font-bold text-gray-600">슬라이드 수:</span>
+                {([8, 12, 16, 20] as const).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setCourseSlideCount(n)}
+                    disabled={courseSlidesBusy}
+                    className={`px-3 py-1 text-xs rounded-full border transition ${
+                      courseSlideCount === n
+                        ? "bg-blue-600 text-white border-blue-600 font-bold"
+                        : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
+                    }`}
+                  >
+                    {n}장
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-xs font-bold text-gray-600">템플릿:</span>
+                {([
+                  { id: "minimal" as const, label: "🤍 미니멀" },
+                  { id: "bold" as const, label: "⬛ 볼드" },
+                  { id: "academic" as const, label: "📘 아카데믹" },
+                ]).map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setCourseSlideTemplate(t.id)}
+                    disabled={courseSlidesBusy}
+                    className={`px-3 py-1 text-xs rounded-full border transition ${
+                      courseSlideTemplate === t.id
+                        ? "bg-blue-600 text-white border-blue-600 font-bold"
+                        : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <label className="flex items-center gap-2 mb-3 text-xs text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={courseSlideRender}
+                  onChange={e => setCourseSlideRender(e.target.checked)}
+                  disabled={courseSlidesBusy}
+                  className="w-4 h-4"
+                />
+                <span>
+                  🖼️ 이미지로도 렌더 <span className="text-gray-500">(+₩{courseSlideCount * 10}, 1920×1080 PNG)</span>
+                </span>
+              </label>
+
+              <button
+                onClick={generateCourseSlides}
+                disabled={courseSlidesBusy}
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-black hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {courseSlidesBusy
+                  ? "⏳ 슬라이드 생성 중..."
+                  : `🎙️ 강의 슬라이드 생성 (~₩${40 + (courseSlideRender ? courseSlideCount * 10 : 0)})`}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <p className="text-xs font-bold text-ink-900">
+                  생성된 슬라이드 ({courseSlides.slides.length}장) · 템플릿: {courseSlides.template}
+                </p>
+                <button
+                  onClick={generateCourseSlides}
+                  disabled={courseSlidesBusy}
+                  className="px-3 py-1 text-xs bg-white border border-blue-300 text-blue-700 rounded font-bold hover:bg-blue-50 transition disabled:opacity-50"
+                >
+                  {courseSlidesBusy ? "⏳ 재생성 중..." : "🔄 다시 생성"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {courseSlides.slides.map(slide => (
+                  <div
+                    key={slide.slideNum}
+                    className="bg-white rounded-lg p-3 border border-blue-100 flex flex-col gap-2"
+                  >
+                    {slide.pngBase64 && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`data:image/png;base64,${slide.pngBase64}`}
+                        alt={`슬라이드 ${slide.slideNum}`}
+                        className="w-full aspect-video object-cover rounded border border-gray-200"
+                      />
+                    )}
+                    <div className="flex items-start gap-2">
+                      <span className="text-[10px] font-mono font-bold text-blue-600 mt-0.5 shrink-0">
+                        {String(slide.slideNum).padStart(2, "0")}
+                      </span>
+                      <p className="text-xs font-bold text-ink-900 leading-snug line-clamp-2">{slide.title}</p>
+                    </div>
+                    {slide.bullets[0] && (
+                      <p className="text-[11px] text-gray-600 leading-snug line-clamp-2">• {slide.bullets[0]}</p>
+                    )}
+                    <div className="flex items-center gap-1 mt-auto">
+                      <button
+                        onClick={() => copyCourseSlide(slide)}
+                        className="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded transition"
+                        title="제목 + bullets + 노트 복사"
+                      >
+                        📋 복사
+                      </button>
+                      {slide.pngBase64 && (
+                        <button
+                          onClick={() => downloadCourseSlidePng(slide)}
+                          className="flex-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded transition"
+                          title="PNG 다운로드"
+                        >
+                          💾 다운
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[10px] text-gray-500">
+                생성: {new Date(courseSlides.generatedAt).toLocaleString("ko-KR")}
+              </p>
+            </>
           )}
         </section>
       )}
