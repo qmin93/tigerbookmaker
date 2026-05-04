@@ -196,6 +196,33 @@ export interface CourseSlides {
   generatedAt: number;
 }
 
+// Wave B5: A/B 테스트 (마케팅 페이지)
+// 같은 책에 2가지 marketing variant — /book/[id] 방문 시 cookie 기반 50/50 분기.
+// track endpoint에 variantId 같이 보내 어느 variant가 클릭률 높은지 분석.
+export interface ABTestVariant {
+  taglineA?: string;
+  taglineB?: string;
+  descriptionA?: string;
+  descriptionB?: string;
+  enabled?: boolean;       // false면 분기 비활성 (marketingMeta만 사용)
+  createdAt: number;
+  updatedAt?: number;
+}
+
+// Wave B6: 미리보기 영상 frame sequence (1080x1920, 9:16 — 인스타 릴스/유튜브 쇼츠).
+// 5장 PNG. 사용자가 본인 영상 편집기 (CapCut, 프리미어, 인스타)에 import 후 음악·트랜지션 추가.
+// FFmpeg는 Vercel serverless에서 무거움 → frame 시퀀스만 제공 (Phase 2에서 풀 영상).
+export interface PreviewVideoFrame {
+  idx: number;             // 0..4
+  template: "cover" | "excerpt" | "cta";
+  base64: string;          // 1080x1920 PNG
+}
+
+export interface PreviewVideo {
+  frames: PreviewVideoFrame[];   // 5장
+  generatedAt: number;
+}
+
 export interface BookProject {
   id: string;
   topic: string;
@@ -216,6 +243,8 @@ export interface BookProject {
   revenue?: BookRevenue;   // 책별 매출 (사용자 직접 입력) — /profile에서 ROI 계산
   audiobook?: Audiobook;   // 오디오북 — 챕터별 TTS WAV (Gemini TTS, 한국어)
   courseSlides?: CourseSlides;  // 강의 슬라이드 — 책 → 10-20장 outline (+선택적 PNG)
+  abTest?: ABTestVariant;   // Wave B5: 마케팅 페이지 A/B variant
+  previewVideo?: PreviewVideo;  // Wave B6: 미리보기 영상 5 frames (9:16 PNG)
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
   shareLinks?: {           // 공유 페이지에 보일 구매·다운로드 링크 (작가 입력)
     kmong?: string;
