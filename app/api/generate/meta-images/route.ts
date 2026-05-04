@@ -39,19 +39,43 @@ const ALL_TYPES: MetaImageType[] = ["feed", "story", "link"];
 const VALID_TEMPLATES: OverlayTemplate[] = ["minimal", "bold", "story", "quote", "cta"];
 
 function metaImagePrompt(project: any, type: MetaImageType): string {
-  const layout = type === "story" ? "세로 (9:16)" : type === "link" ? "가로 (16:9)" : "정사각 (1:1)";
-  return `한국어 책 광고 배경 이미지. ${layout} 비율.
+  const layout = type === "story"
+    ? "세로 (9:16, Instagram Story / Reels)"
+    : type === "link"
+    ? "가로 (16:9, Facebook 링크 광고)"
+    : "정사각 (1:1, Instagram Feed)";
 
-[책 정보]
+  // 장르별 시각 모티프 — generic mood 사진 방지
+  const visualHintByType: Record<string, string> = {
+    "자기계발서": "책상·노트·아침 햇살·계단·도전·성장 같은 모티프",
+    "재테크":    "차트·그래프·동전·노트북·계산기·캘린더 같은 모티프 (글자 X)",
+    "에세이":    "카페·창가·책 더미·산책길·일상의 따뜻한 풍경",
+    "매뉴얼":    "도구·체크리스트·플로우 도형 시각화 (글자 X)",
+    "실용서":    "구체적 도구·만드는 과정·완성된 결과물",
+    "웹소설":    "장면·인물 실루엣·드라마틱 라이팅·미스터리한 분위기",
+    "전문서":    "책·자료·연구실·도서관·프로페셔널 톤",
+  };
+  const visualHint = visualHintByType[project.type] ?? "책 주제와 직접 관련된 시각 요소";
+
+  return `한국어 책 광고 이미지. ${layout}.
+
+[책 정보 — 이미지가 이걸 직관적으로 보여줘야 함]
 - 주제: ${project.topic}
 - 대상: ${project.audience}
 - 유형: ${project.type}
 
-[디자인]
-- 책 표지 컨셉의 시각적 분위기 (배경)
-- 텍스트 영역 (하단 30%)은 비워둘 것 — 별도로 텍스트 합성됨
-- 색상: 따뜻하고 깔끔한 톤
-- 한국어 글자 합성하지 마세요 — 분위기와 색상만`;
+[디자인 지침 — 매우 중요]
+1. 위 주제와 직접 관련된 시각 요소 포함 (${visualHint})
+2. 단순 mood 사진 절대 X. 책 주제를 한 눈에 알 수 있어야 함
+3. Pinterest / Behance 디자인 톤. 깔끔한 모던 룩
+4. 색상 팔레트: 2~3 색으로 통일 (난잡 X)
+5. 텍스트 합성 금지 — 한국어 글자는 별도 overlay로 들어감
+
+[배치 — 텍스트 overlay 공간 확보]
+- 하단 30% 영역: 단순한 색조 또는 빈 배경 (텍스트 들어갈 곳)
+- 시각 요소: 상단 또는 중단에 배치
+- 너무 어둡지 않게 (텍스트 가독성 확보)
+- 배경에 너무 detail 많지 않게 (텍스트가 묻힐까봐)`;
 }
 
 function buildHeadline(project: any): string {
