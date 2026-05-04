@@ -149,6 +149,8 @@ function Inner() {
   const [metaImgBusy, setMetaImgBusy] = useState(false);
   // Wave 3: Sharp overlay 템플릿
   const [imageTemplate, setImageTemplate] = useState<"minimal" | "bold" | "story" | "quote" | "cta">("bold");
+  // 1-click — 카피 + 이미지 한 번에 (0=idle, 1=copy 단계, 2=image 단계)
+  const [metaAllInOneBusy, setMetaAllInOneBusy] = useState<0 | 1 | 2>(0);
 
   // ─── 콘텐츠 재가공 (Wave 1: 5채널) ───
   const [repurposed, setRepurposed] = useState<any>(null);
@@ -1031,6 +1033,50 @@ function Inner() {
     setTimeout(() => setMetaCopiedIdx(null), 1500);
   };
 
+  // ─── 1-click: 카피 + 이미지 한 번에 ───
+  const generateMetaAllInOne = async () => {
+    if (!projectId) return;
+    setMetaAllInOneBusy(1);
+    setError(null);
+    try {
+      // 카피 없으면 먼저 생성
+      if (!metaAdPackage?.headlines?.length) {
+        const r1 = await fetch("/api/generate/meta-package", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId }),
+        });
+        const d1 = await r1.json();
+        if (r1.status === 402) {
+          if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+          throw new Error("잔액 부족");
+        }
+        if (!r1.ok) throw new Error(d1.message || "카피 생성 실패");
+        setMetaAdPackage(d1.metaAdPackage);
+        if (typeof d1.newBalance === "number") setBalance(d1.newBalance);
+      }
+      setMetaAllInOneBusy(2);
+      // 이미지 생성
+      const r2 = await fetch("/api/generate/meta-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, template: imageTemplate }),
+      });
+      const d2 = await r2.json();
+      if (r2.status === 402) {
+        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        throw new Error("잔액 부족");
+      }
+      if (!r2.ok) throw new Error(d2.message || "이미지 생성 실패");
+      setMetaAdImages(d2.images || []);
+      if (typeof d2.newBalance === "number") setBalance(d2.newBalance);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setMetaAllInOneBusy(0);
+    }
+  };
+
   // ─── 콘텐츠 재가공 핸들러 (Wave 1) ───
   const generateRepurpose = async (channel: RepurposeChannel) => {
     if (!projectId) return;
@@ -1550,18 +1596,39 @@ function Inner() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-ink-900">🎯 Meta 광고</h3>
                   {metaAdPackage && (
-                    <button onClick={generateMetaPackage} disabled={metaAdBusy} className="text-[10px] text-blue-600 hover:underline">🔄 다시</button>
+                    <button onClick={generateMetaPackage} disabled={metaAdBusy || metaAllInOneBusy !== 0} className="text-[10px] text-blue-600 hover:underline">🔄 다시</button>
                   )}
                 </div>
 
-                {!metaAdPackage && !metaAdBusy && (
-                  <button
-                    onClick={generateMetaPackage}
-                    disabled={metaAdBusy}
-                    className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
-                  >
-                    🎯 Meta 광고 카피 생성 (~₩40)
-                  </button>
+                {/* 1-click — 카피 + 이미지 한 번에 (큰 버튼) */}
+                <button
+                  onClick={generateMetaAllInOne}
+                  disabled={metaAllInOneBusy !== 0 || metaAdBusy || metaImgBusy}
+                  className="w-full px-3 py-3 mb-2 bg-gradient-to-r from-tiger-orange to-orange-600 text-white rounded-lg font-bold hover:from-orange-600 hover:to-orange-700 disabled:opacity-60 text-sm shadow-glow-orange-sm transition"
+                >
+                  {metaAllInOneBusy === 0 && (
+                    metaAdPackage && metaAdImages.length > 0
+                      ? "🔄 둘 다 다시 생성 (~₩130)"
+                      : metaAdPackage
+                        ? "⚡ 1-click — 이미지만 생성 (~₩90)"
+                        : "⚡ 1-click — 카피 + 이미지 한 번에 (~₩130)"
+                  )}
+                  {metaAllInOneBusy === 1 && "⏳ 1/2 카피 생성 중..."}
+                  {metaAllInOneBusy === 2 && "⏳ 2/2 이미지 생성 중... (약 30초)"}
+                </button>
+
+                {/* 또는 개별 생성 — 기존 카피만 버튼 */}
+                {!metaAdPackage && !metaAdBusy && metaAllInOneBusy === 0 && (
+                  <>
+                    <div className="text-[10px] text-gray-500 text-center mb-1">또는 개별 생성</div>
+                    <button
+                      onClick={generateMetaPackage}
+                      disabled={metaAdBusy || metaAllInOneBusy !== 0}
+                      className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
+                    >
+                      🎯 Meta 광고 카피만 생성 (~₩40)
+                    </button>
+                  </>
                 )}
 
                 {metaAdBusy && (
@@ -1656,17 +1723,20 @@ function Inner() {
                     </div>
                   </div>
 
-                  {metaAdImages.length === 0 && !metaImgBusy && (
-                    <button
-                      onClick={() => generateMetaImages()}
-                      disabled={metaImgBusy}
-                      className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
-                    >
-                      🎨 광고 이미지 3장 생성 (~₩90)
-                    </button>
+                  {metaAdImages.length === 0 && !metaImgBusy && metaAllInOneBusy === 0 && (
+                    <>
+                      <div className="text-[10px] text-gray-500 text-center mb-1">또는 개별 생성</div>
+                      <button
+                        onClick={() => generateMetaImages()}
+                        disabled={metaImgBusy || metaAllInOneBusy !== 0}
+                        className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
+                      >
+                        🎨 광고 이미지 3장만 생성 (~₩90)
+                      </button>
+                    </>
                   )}
 
-                  {metaImgBusy && (
+                  {(metaImgBusy || metaAllInOneBusy === 2) && (
                     <div className="text-xs text-blue-700 text-center py-3">
                       ⏳ 이미지 생성 중... (약 30초)
                       <span className="inline-block ml-1 animate-pulse">···</span>
