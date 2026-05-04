@@ -44,6 +44,14 @@ export interface MarketingMeta {
   generatedAt?: number;
 }
 
+export interface MetaAdImage {
+  type: "feed" | "story" | "link";
+  aspectRatio: "1:1" | "9:16" | "16:9";
+  base64: string;
+  vendor: string;
+  generatedAt: number;
+}
+
 export interface MetaAdPackage {
   headlines: string[];          // 3개, 각 ≤40자
   primaryTexts: string[];       // 3개, 각 ≤125자
@@ -69,6 +77,7 @@ export interface BookProject {
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
   marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
   metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
+  metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)
   referencesSummary?: ReferencesSummary;  // Phase 2: 참고자료 요약 (RAG)
   toneSetting?: ToneSetting;  // Phase 4: 톤 매칭 설정
   shareEnabled?: boolean;  // true면 /share/[id] public 접근 가능 (로그인 X)
