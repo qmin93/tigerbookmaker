@@ -1,4 +1,6 @@
 import type { BookProject } from "./storage";
+import { getTemplate } from "./templates";
+import { getTheme } from "./theme-colors";
 
 function stripMarkdown(text: string): string {
   return text
@@ -41,6 +43,9 @@ export async function generatePdf(project: BookProject) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) { alert("팝업이 차단됐습니다. 팝업 허용 후 다시 시도해주세요."); return; }
 
+  const tpl = getTemplate(project.template);
+  const theme = getTheme(project.themeColor);
+
   const stripChapterPrefix = (title: string): string =>
     title.replace(/^\s*\d+\s*장[\s.,:·—-]*/u, "").trim();
 
@@ -50,7 +55,10 @@ export async function generatePdf(project: BookProject) {
 
   const chaptersHtml = project.chapters
     .filter(ch => ch.content)
-    .map((ch, i) => `
+    .map((ch, i) => {
+      const chapterInner = renderBody(ch.content, ch.images);
+      const wrappedBody = tpl.pdfHtmlWrapper(chapterInner, theme);
+      return `
       <div class="chapter-divider">
         <div class="chapter-num-big">${String(i + 1).padStart(2, "0")}</div>
         <div class="chapter-content">
@@ -61,9 +69,10 @@ export async function generatePdf(project: BookProject) {
         </div>
       </div>
       <div class="chapter-body">
-        ${renderBody(ch.content, ch.images)}
+        ${wrappedBody}
       </div>
-    `).join("\n");
+    `;
+    }).join("\n");
 
   const tocHtml = project.chapters
     .filter(ch => ch.content)
@@ -327,6 +336,9 @@ body {
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* === Template-specific CSS (${tpl.key}) === */
+${tpl.epubCss}
 </style>
 </head>
 <body>
