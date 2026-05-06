@@ -159,6 +159,7 @@ export default function PricingPage() {
                 <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">📝 책 본문 (필수)</div>
                 <PriceRow label="본문 1챕터 자동 집필" cost="₩300" note="12챕터 → ₩3,600" />
                 <PriceRow label="표지 이미지 1장" cost="₩400" note="Imagen 4 Fast (한국어 정확)" />
+                <PriceRow label="AI 챕터 수정 (자연어 지시)" cost="₩50~150" note='"결말 더 강하게" 등 자연어로 부분 수정' />
               </div>
 
               {/* RAG / 인터뷰 */}

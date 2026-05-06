@@ -1209,6 +1209,10 @@ function Inner() {
 
   const copyMarketingUrl = async () => {
     if (!projectId) return;
+    if (!marketingMeta?.tagline && !marketingMeta?.description) {
+      const ok = confirm("⚠️ 마케팅 카피가 없습니다.\n\n방문자에게 책 소개·후킹이 보이지 않아 빈 페이지처럼 보일 수 있습니다.\n\n그래도 URL을 복사할까요? (먼저 '🤖 AI가 마케팅 카피 생성'을 권장합니다)");
+      if (!ok) return;
+    }
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/book/${projectId}`);
       setCopyConfirm(true);
@@ -1937,7 +1941,7 @@ function Inner() {
                     disabled={marketingBusy || !!loading}
                     className="w-full px-2 py-1.5 border border-tiger-orange/40 text-tiger-orange rounded-lg text-[11px] font-bold hover:bg-orange-50 transition disabled:opacity-50"
                   >
-                    {marketingBusy ? "AI 카피 생성 중..." : "🤖 AI가 마케팅 카피 생성"}
+                    {marketingBusy ? "AI 카피 생성 중..." : "🤖 AI가 마케팅 카피 생성 (~₩500)"}
                   </button>
                 ) : (
                   <>
@@ -4041,6 +4045,7 @@ function Inner() {
             <div>
               <h3 className="text-xl font-black tracking-tight text-ink-900">💬 AI 수정 요청</h3>
               <p className="text-xs text-gray-500 mt-1">{editChat.chapterIdx + 1}장 — {project.chapters[editChat.chapterIdx]?.title}</p>
+              <p className="text-[10px] text-tiger-orange font-bold mt-1">💰 수정안 요청 1회 ≈ ₩50~150 (챕터 길이·티어 기준)</p>
             </div>
             {!editChat.busy && <button onClick={() => setEditChat(null)} className="text-2xl text-gray-400 hover:text-ink-900">×</button>}
           </div>
@@ -4063,7 +4068,7 @@ function Inner() {
                 disabled={editChat.busy || editChat.instruction.trim().length < 5 || editChat.instruction.length > 500}
                 className="px-4 py-1.5 bg-tiger-orange text-white rounded-lg text-xs font-bold hover:bg-orange-600 disabled:opacity-50"
               >
-                {editChat.busy ? "AI 작업 중..." : "✨ 수정안 요청"}
+                {editChat.busy ? "AI 작업 중..." : "✨ 수정안 요청 (~₩50)"}
               </button>
             </div>
           </div>

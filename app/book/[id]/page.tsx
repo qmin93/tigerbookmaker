@@ -272,17 +272,37 @@ export default function BookPage({ params }: { params: { id: string } }) {
         </div>
       </section>
 
-      {/* 4. 설명 section */}
-      <section className="max-w-3xl mx-auto px-4 py-12">
-        <h2 className={`text-2xl font-bold mb-4 border-l-4 pl-3 ${theme.accentBorder}`}>책 소개</h2>
-        {description ? (
+      {/* 4. 설명 section — 설명이 있을 때만 노출. 없으면 본문으로 바로 안내. */}
+      {description ? (
+        <section className="max-w-3xl mx-auto px-4 py-12">
+          <h2 className={`text-2xl font-bold mb-4 border-l-4 pl-3 ${theme.accentBorder}`}>책 소개</h2>
           <p className="text-gray-700 leading-relaxed whitespace-pre-line text-base md:text-lg">
             {description}
           </p>
-        ) : (
-          <p className="text-gray-400 italic">곧 광고 카피가 추가됩니다.</p>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="max-w-3xl mx-auto px-4 py-10">
+          <div className={`rounded-2xl border ${theme.accentBorder} ${theme.bg} p-6 md:p-8 text-center`}>
+            <div className="text-3xl mb-3">📖</div>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-2">
+              {data.audience} 대상 {data.type}
+            </h2>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              {data.chapters.length > 0
+                ? `${data.chapters.length}장 본문이 준비되어 있습니다. 직접 읽어보시고 판단해주세요.`
+                : "본문이 곧 추가됩니다. 잠시 후 다시 확인해주세요."}
+            </p>
+            {data.chapters.length > 0 && (
+              <Link
+                href={`/share/${id}`}
+                className={`inline-block ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} font-bold text-sm px-5 py-2.5 rounded-lg shadow transition`}
+              >
+                📖 본문 바로 읽기 →
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 5. 목차 section */}
       {data.chapters.length > 0 && (
