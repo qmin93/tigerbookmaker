@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/db";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { generateImagePromptAI } from "@/lib/server/image-prompt-ai";
+import { getTemplate } from "@/lib/templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -68,6 +69,7 @@ async function getSmartCoverPrompt(
       chapterExcerpt,
       referenceChunks,
       headline: styleHint,  // style hint를 headline 슬롯에 — context로만 들어감
+      templateHint: getTemplate((project as any)?.template).coverStyleHint,
     });
     // styleHint를 prompt 끝에 붙여 다양성 보존
     return `${r.prompt}\n\n${styleHint}`;
