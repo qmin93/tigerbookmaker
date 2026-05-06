@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { sql } from "@vercel/postgres";
 import { chargeBalance } from "@/lib/server/db";
 import { sendReceiptEmail } from "@/lib/server/email";
+import { notifyOwnerPayment } from "@/lib/server/notify-owner";
 
 export const runtime = "nodejs";
 
@@ -102,6 +103,22 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.error("[confirm] receipt email failed", e);
+  }
+
+  // 운영자 본인 알림 — 텔레그램·이메일. 실패해도 결제는 성공 처리.
+  try {
+    await notifyOwnerPayment({
+      amountKRW: payment.amount_krw,
+      bonusKRW: payment.bonus_krw,
+      totalCreditKRW: payment.amount_krw + payment.bonus_krw,
+      newBalanceKRW: newBalance,
+      userEmail: session.user?.email ?? null,
+      userId,
+      orderId,
+      method: tossData.method ?? null,
+    });
+  } catch (e) {
+    console.error("[confirm] owner notify failed", e);
   }
 
   return NextResponse.json({

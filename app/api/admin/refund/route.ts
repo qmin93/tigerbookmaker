@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@vercel/postgres";
 import { sendRefundEmail } from "@/lib/server/email";
+import { notifyOwnerRefund } from "@/lib/server/notify-owner";
 
 export const runtime = "nodejs";
 
@@ -100,6 +101,21 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("[refund] email failed", e);
+  }
+
+  // 운영자 본인 알림 — 텔레그램·이메일.
+  try {
+    await notifyOwnerRefund({
+      refundAmountKRW,
+      bonusReclaimKRW: bonusReclaim,
+      newBalanceKRW: newBalance,
+      userEmail: payment.user_email,
+      userId: payment.user_id,
+      orderId,
+      reason: reason ?? null,
+    });
+  } catch (e) {
+    console.error("[refund] owner notify failed", e);
   }
 
   return NextResponse.json({
