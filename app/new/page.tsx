@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
 import type { ThemeColorKey } from "@/lib/storage";
+import type { BookType } from "@/lib/templates";
 
 interface TierInfo {
   id: "basic" | "pro" | "premium";
@@ -21,7 +22,7 @@ export default function NewProjectPage() {
   const r = useRouter();
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
-  const [type, setType] = useState<"자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서">("실용서");
+  const [type, setType] = useState<BookType>("실용서");
   const [targetPages, setTargetPages] = useState(120);
   const [tier, setTier] = useState<"basic" | "pro" | "premium">("pro");
   const [tiers, setTiers] = useState<TierInfo[]>([]);

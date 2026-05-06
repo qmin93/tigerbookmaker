@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getTheme } from "@/lib/theme-colors";
+import { getTemplate, type TemplateKey } from "@/lib/templates";
 import type { ThemeColorKey } from "@/lib/storage";
 
 interface Chapter {
@@ -28,6 +29,7 @@ interface ShareData {
     custom?: { label: string; url: string }[];
   };
   themeColor?: ThemeColorKey;
+  template?: TemplateKey;
   createdAt: string;
 }
 
@@ -238,6 +240,11 @@ function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme
 
   if (page.type === "body" && typeof page.chapterIdx === "number") {
     const c = book.chapters[page.chapterIdx];
+    const tpl = getTemplate((book as { template?: TemplateKey }).template);
+    const Render = tpl.Render;
+    // 본문 페이지는 splitToPages가 잘라낸 page.text만 그리되, 챕터 메타(title/subtitle)는
+    // chapter-start 페이지에서 이미 보여주므로 빈 값으로 넘김. images도 페이지 단위로 분리되어 있지 않아 생략.
+    const pageChapter = { title: "", subtitle: "", content: page.text || "", images: c.images };
     return (
       <div className="w-full h-full bg-stone-50 flex flex-col">
         <div className="px-8 md:px-12 pt-6 md:pt-8 pb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 flex justify-between">
@@ -245,14 +252,7 @@ function PageContent({ page, book, theme }: { page: Page; book: ShareData; theme
           <span className="text-tiger-orange">TIGERBOOKMAKER</span>
         </div>
         <div className="flex-1 px-8 md:px-12 py-4 md:py-6 overflow-y-auto">
-          <div className="text-[13px] leading-[1.75] text-ink-800 whitespace-pre-wrap break-keep" style={{ wordBreak: "keep-all" }}>
-            {(page.text || "").split("\n").map((line, i) => {
-              if (line.startsWith("## ")) return <h3 key={i} className="text-base font-bold text-ink-900 mt-4 mb-2">{line.slice(3)}</h3>;
-              if (line.startsWith("### ")) return <h4 key={i} className="text-sm font-bold text-ink-900 mt-3 mb-1">{line.slice(4)}</h4>;
-              if (!line.trim()) return <div key={i} className="h-2" />;
-              return <p key={i} className="mb-2.5">{line}</p>;
-            })}
-          </div>
+          <Render chapter={pageChapter} theme={theme} />
         </div>
       </div>
     );

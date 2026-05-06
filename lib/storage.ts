@@ -1,4 +1,5 @@
 import type { AIConfig, Provider } from "./ai";
+import type { TemplateKey, BookType } from "./templates";
 
 export interface BookChapter {
   id: string;
@@ -34,6 +35,8 @@ export interface ToneSetting {
 }
 
 export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
+
+export type { TemplateKey, BookType };
 
 export interface MarketingMeta {
   tagline?: string;
@@ -237,12 +240,13 @@ export interface BookProject {
   id: string;
   topic: string;
   audience: string;
-  type: "자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서";
+  type: BookType;
   targetPages: number;
   translations?: BookTranslation[];   // Wave C2 — 책 번역 (영어/일본어)
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
+  template?: TemplateKey;  // 레이아웃 템플릿 (default 'minimal')
   marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
   metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
   metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)

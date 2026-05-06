@@ -18,6 +18,7 @@ import {
 import { rateLimit } from "@/lib/server/rate-limit";
 import { overlayTextOnImage, type OverlayTemplate } from "@/lib/server/image-overlay";
 import { generateImagePromptAI, type ImagePurpose } from "@/lib/server/image-prompt-ai";
+import { getTemplate } from "@/lib/templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -148,6 +149,7 @@ async function getSmartPromptForType(
       chapterExcerpt,
       referenceChunks,
       headline,
+      templateHint: getTemplate((project as any)?.template).coverStyleHint,
     });
     return r.prompt;
   } catch (e: any) {

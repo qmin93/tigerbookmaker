@@ -8,6 +8,7 @@ import { sql } from "@vercel/postgres";
 import { auth } from "@/auth";
 import { callImageGeneration, type AspectRatio } from "@/lib/server/ai-server";
 import { generateImagePromptAI, type ImagePurpose } from "@/lib/server/image-prompt-ai";
+import { getTemplate } from "@/lib/templates";
 import { getUser, getProject, deductBalance, logAIUsage, USD_TO_KRW } from "@/lib/server/db";
 import { rateLimit } from "@/lib/server/rate-limit";
 
@@ -134,6 +135,7 @@ export async function POST(req: Request) {
       referenceChunks,
       feedback: feedback.trim(),
       previousPrompt: currentPrompt,
+      templateHint: getTemplate((project as any)?.template).coverStyleHint,
     });
 
     // Generate image

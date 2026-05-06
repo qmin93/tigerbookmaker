@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getProject } from "@/lib/server/db";
+import { getTemplate } from "@/lib/templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -52,11 +53,14 @@ async function buildEpubBuffer(projectId: string, userId: string) {
   if (!projectRow) throw new Error("PROJECT_NOT_FOUND");
   const project = projectRow.data;
 
+  const tpl = getTemplate((project as any)?.template);
+  const wrapperClass = `tpl-${tpl.key}`;
+
   const chapters = project.chapters
     .filter((ch: any) => ch.content)
     .map((ch: any, i: number) => ({
       title: `${i + 1}장. ${ch.title}`,
-      content: `${ch.subtitle ? `<p style="font-style:italic;color:#666;margin-bottom:1.5em">${escapeHtml(ch.subtitle)}</p>` : ""}${renderChapterHtml(ch.content, ch.images || [])}`,
+      content: `<div class="${wrapperClass}">${ch.subtitle ? `<p class="subtitle" style="font-style:italic;color:#666;margin-bottom:1.5em">${escapeHtml(ch.subtitle)}</p>` : ""}${renderChapterHtml(ch.content, ch.images || [])}</div>`,
     }));
   if (chapters.length === 0) throw new Error("NO_CONTENT");
 
@@ -75,11 +79,12 @@ async function buildEpubBuffer(projectId: string, userId: string) {
     publisher: "Tigerbookmaker",
     cover: coverDataUrl,
     css: `
-      body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
+      body { margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
       h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; }
       h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
       h4 { font-size: 1.1em; margin-top: 1.2em; }
       p { margin-bottom: 1em; text-align: justify; word-break: keep-all; }
+      ${tpl.epubCss}
     `.trim(),
   };
 
@@ -130,11 +135,14 @@ export async function POST(req: Request) {
     if (!projectRow) return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
     const project = projectRow.data;
 
+    const tpl = getTemplate((project as any)?.template);
+    const wrapperClass = `tpl-${tpl.key}`;
+
     const chapters = project.chapters
       .filter((ch: any) => ch.content)
       .map((ch: any, i: number) => ({
         title: `${i + 1}장. ${ch.title}`,
-        content: `${ch.subtitle ? `<p style="font-style:italic;color:#666;margin-bottom:1.5em">${escapeHtml(ch.subtitle)}</p>` : ""}${renderChapterHtml(ch.content, ch.images || [])}`,
+        content: `<div class="${wrapperClass}">${ch.subtitle ? `<p class="subtitle" style="font-style:italic;color:#666;margin-bottom:1.5em">${escapeHtml(ch.subtitle)}</p>` : ""}${renderChapterHtml(ch.content, ch.images || [])}</div>`,
       }));
 
     if (chapters.length === 0) {
@@ -157,11 +165,12 @@ export async function POST(req: Request) {
       publisher: "Tigerbookmaker",
       cover: coverDataUrl,
       css: `
-        body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
+        body { margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
         h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; }
         h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
         h4 { font-size: 1.1em; margin-top: 1.2em; }
         p { margin-bottom: 1em; text-align: justify; word-break: keep-all; }
+        ${tpl.epubCss}
       `.trim(),
     };
 

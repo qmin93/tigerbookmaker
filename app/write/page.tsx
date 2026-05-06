@@ -4,6 +4,9 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { ImageRefineButton } from "@/components/ImageRefineButton";
+import { TemplateSelector } from "@/components/TemplateSelector";
+import { TemplatePreviewModal } from "@/components/TemplatePreviewModal";
+import type { TemplateKey } from "@/lib/templates";
 import type { MetaAdImage } from "@/lib/storage";
 
 type BatchState =
@@ -106,6 +109,7 @@ function Inner() {
     proposal: string | null;
     busy: boolean;
   } | null>(null);
+  const [previewModal, setPreviewModal] = useState<{ chapterIdx: number } | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   // ConfirmModal — 모바일/Telegram 내장 브라우저가 native confirm() 차단해서 React 모달로 대체
@@ -1925,6 +1929,16 @@ function Inner() {
                 />
               </div>
 
+              {/* 레이아웃 템플릿 — 4개 thumbnail 선택 */}
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <TemplateSelector
+                  projectId={projectId!}
+                  current={(project as any)?.template}
+                  onChange={(newKey) => setProject(p => p ? ({ ...p, template: newKey } as any) : p)}
+                  disabled={!!loading}
+                />
+              </div>
+
               {/* 마케팅 페이지 — AI 카피 + 편집 + URL 복사 */}
               <div className="mt-2 pt-2 border-t border-gray-100 px-2 pb-1">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -2943,6 +2957,14 @@ function Inner() {
               <div className="flex items-center gap-2 flex-wrap">
                 {active.content && editingContent === null && (
                   <>
+                    <button
+                      onClick={() => setPreviewModal({ chapterIdx: activeIdx })}
+                      disabled={!active?.content}
+                      className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
+                      title="현재 선택된 템플릿으로 이 챕터를 미리보기"
+                    >
+                      👁 결과 미리보기
+                    </button>
                     <button
                       onClick={() => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false })}
                       disabled={!!loading}
@@ -4213,6 +4235,19 @@ function Inner() {
           </div>
         </div>
       </div>
+    )}
+
+    {/* 레이아웃 템플릿 미리보기 모달 */}
+    {previewModal && project && (
+      <TemplatePreviewModal
+        open
+        onClose={() => setPreviewModal(null)}
+        templateKey={(project as any).template}
+        themeColor={(project as any).themeColor}
+        chapter={project.chapters[previewModal.chapterIdx]}
+        chapterIdx={previewModal.chapterIdx}
+        totalChapters={project.chapters.length}
+      />
     )}
     </main>
     </>

@@ -30,6 +30,7 @@ export interface ImagePromptOptions {
   previousPrompt?: string;     // 이전 prompt (refinement 시)
   // Misc
   headline?: string;           // 텍스트 합성용 헤드라인 (이미지엔 안 그려짐 — context로만)
+  templateHint?: string;       // 레이아웃 template의 coverStyleHint
 }
 
 export interface ImagePromptResult {
@@ -44,6 +45,10 @@ export async function generateImagePromptAI(opts: ImagePromptOptions): Promise<I
 
   const refinementBlock = opts.feedback && opts.previousPrompt
     ? `\n[PREVIOUS PROMPT — DO NOT REPEAT, IMPROVE IT]\n${opts.previousPrompt}\n\n[USER FEEDBACK ON THE PREVIOUS RESULT]\n${opts.feedback}\n\nGenerate a NEW prompt addressing this feedback specifically.`
+    : "";
+
+  const templateBlock = opts.templateHint
+    ? `\n[TEMPLATE STYLE GUIDANCE — keep the cover consistent with this style direction]\n${opts.templateHint}`
     : "";
 
   const systemPrompt = `You are an expert at writing image generation prompts for Imagen 4 / Flux. You MUST write the prompt in ENGLISH (image models don't understand Korean well). Output ONLY the prompt — no explanations, no JSON, no quotes. Just the prompt as plain text.
@@ -66,6 +71,7 @@ ${opts.headline ? `Headline (for context only, NOT to render): "${opts.headline}
 
 [IMAGE PURPOSE]
 ${purposeHint}
+${templateBlock}
 
 ${ragContext}
 ${refinementBlock}
