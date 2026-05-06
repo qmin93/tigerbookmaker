@@ -72,16 +72,16 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
   return (
     <header className={headerCls}>
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link href="/" className={`flex items-center gap-2 ${brandCls}`}>
+        <Link href="/" className={`flex items-center gap-2 py-2 -my-2 ${brandCls}`}>
           <span className="text-2xl">🐯</span>
           <span className="font-black tracking-tight">Tigerbookmaker</span>
         </Link>
 
         <nav className="flex items-center gap-2 sm:gap-4 text-sm">
-          <Link href="/pricing" className={`hidden sm:inline ${linkCls}`}>가격</Link>
+          <Link href="/pricing" className={`hidden sm:inline py-2 ${linkCls}`}>가격</Link>
           {loggedIn ? (
             <>
-              <Link href="/projects" className={`hidden sm:inline font-bold ${linkCls}`}>
+              <Link href="/projects" className={`hidden sm:inline py-2 font-bold ${linkCls}`}>
                 내 책
               </Link>
               <Link href="/billing" className={dark
@@ -128,9 +128,9 @@ export function Header({ variant = "default" }: { variant?: "default" | "minimal
           ) : (
             <>
               {(variant === "default" || dark) && (
-                <Link href="/#samples" className={`hidden sm:inline ${linkCls}`}>샘플</Link>
+                <Link href="/#samples" className={`hidden sm:inline py-2 ${linkCls}`}>샘플</Link>
               )}
-              <Link href="/login" className={`font-bold ${linkCls}`}>로그인</Link>
+              <Link href="/login" className={`py-2 px-2 -mx-2 font-bold ${linkCls}`}>로그인</Link>
               <Link href="/login" className={ctaCls}>
                 시작하기
               </Link>

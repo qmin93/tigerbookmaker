@@ -204,15 +204,15 @@ export default function LoginPage() {
 
         <div className="text-center text-xs text-gray-500 mt-5">
           {mode === "magiclink" ? (
-            <button onClick={() => setMode("password")} className="hover:text-tiger-orange">
+            <button onClick={() => setMode("password")} className="block w-full py-2.5 hover:text-tiger-orange">
               ← 비밀번호 로그인으로 돌아가기
             </button>
           ) : (
-            <div className="space-y-1">
-              <Link href="/reset-password" className="block hover:text-tiger-orange">
+            <div>
+              <Link href="/reset-password" className="block w-full py-2.5 hover:text-tiger-orange">
                 비밀번호를 잊으셨나요?
               </Link>
-              <button onClick={() => { setMode("magiclink"); setError(null); }} className="hover:text-tiger-orange">
+              <button onClick={() => { setMode("magiclink"); setError(null); }} className="block w-full py-2.5 hover:text-tiger-orange">
                 또는 이메일 링크로 로그인
               </button>
             </div>

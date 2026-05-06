@@ -299,14 +299,14 @@ export default function PricingPage() {
           <span className="font-mono text-xs uppercase tracking-wider">
             🐯 Tigerbookmaker · 본문 12pt · 줄간격 1.5
           </span>
-          <nav className="flex items-center gap-5 text-xs">
-            <Link href="/legal/terms" className="hover:text-ink-900">
+          <nav className="flex items-center gap-3 sm:gap-5 text-xs">
+            <Link href="/legal/terms" className="py-2 px-1 hover:text-ink-900">
               이용약관
             </Link>
-            <Link href="/legal/privacy" className="hover:text-ink-900">
+            <Link href="/legal/privacy" className="py-2 px-1 hover:text-ink-900">
               개인정보처리방침
             </Link>
-            <Link href="/legal/refund" className="hover:text-ink-900">
+            <Link href="/legal/refund" className="py-2 px-1 hover:text-ink-900">
               환불 정책
             </Link>
           </nav>
