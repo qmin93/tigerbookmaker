@@ -1,4 +1,5 @@
 import type { AIConfig, Provider } from "./ai";
+import type { TemplateKey } from "./templates";
 
 export interface BookChapter {
   id: string;
@@ -35,8 +36,7 @@ export interface ToneSetting {
 
 export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
 
-// 임시 (Task 2에서 lib/templates/index.ts로 이전)
-export type TemplateKey = 'minimal' | 'editorial' | 'classic' | 'practical';
+export type { TemplateKey };
 
 export interface MarketingMeta {
   tagline?: string;
