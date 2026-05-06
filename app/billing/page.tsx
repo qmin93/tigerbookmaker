@@ -88,7 +88,7 @@ export default function BillingPage() {
     <main className="min-h-screen bg-[#fafafa]">
       <Header />
       <div className="max-w-3xl mx-auto px-6 py-12 md:py-16">
-        <Link href="/projects" className="text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책</Link>
+        <Link href="/projects" className="inline-block py-2 text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책</Link>
         <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">잔액 충전</p>
         <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">충전한 만큼만.</h1>
         <p className="text-gray-600 mb-6">사용 안 한 잔액은 7일 내 100% 환불.</p>

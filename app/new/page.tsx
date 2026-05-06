@@ -62,7 +62,7 @@ export default function NewProjectPage() {
     <main className="min-h-screen bg-[#fafafa]">
     <Header />
     <div className="max-w-2xl mx-auto px-6 py-16">
-      <Link href="/projects" className="text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책 목록</Link>
+      <Link href="/projects" className="inline-block py-2 text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책 목록</Link>
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">새 프로젝트</p>
       <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">새 책 시작.</h1>
       <p className="text-gray-600 mb-6">기본 정보 입력 → 다음 단계에서 자료 업로드 + AI 인터뷰.</p>

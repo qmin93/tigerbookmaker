@@ -315,9 +315,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-gray-500">
           <span className="font-mono text-xs uppercase tracking-wider">🐯 Tigerbookmaker · 본문 12pt · 줄간격 1.5</span>
           <nav className="flex items-center gap-3 sm:gap-5 text-xs">
-            <Link href="/legal/terms" className="py-2 px-1 hover:text-ink-900">이용약관</Link>
-            <Link href="/legal/privacy" className="py-2 px-1 hover:text-ink-900">개인정보처리방침</Link>
-            <Link href="/legal/refund" className="py-2 px-1 hover:text-ink-900">환불 정책</Link>
+            <Link href="/legal/terms" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">이용약관</Link>
+            <Link href="/legal/privacy" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">개인정보처리방침</Link>
+            <Link href="/legal/refund" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">환불 정책</Link>
           </nav>
         </div>
       </footer>
