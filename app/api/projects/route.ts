@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@vercel/postgres";
+import { suggestTemplate, isValidTemplateKey, type TemplateKey } from "@/lib/templates";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ export async function GET() {
       favorite: r.data?.favorite === true,
       archived: r.data?.archived === true,
       themeColor: r.data?.themeColor ?? "orange",
+      template: r.data?.template ?? "minimal",
       hasCover: ((r.data?.kmongPackage?.images ?? []).find((i: any) => i.type === "cover")?.base64) ? true : false,
       updatedAt: r.updated_at,
     })),
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
-  const { topic, audience, type, targetPages = 120, tier, noImages, themeColor } = await req.json().catch(() => ({}));
+  const { topic, audience, type, targetPages = 120, tier, noImages, themeColor, template } = await req.json().catch(() => ({}));
   if (!topic || !audience || !type) {
     return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
@@ -50,7 +52,11 @@ export async function POST(req: Request) {
   const safeThemeColor: typeof VALID_THEMES[number] =
     VALID_THEMES.includes(themeColor) ? themeColor : "orange";
 
-  const data = { topic, audience, type, targetPages, tier: safeTier, noImages: !!noImages, themeColor: safeThemeColor, chapters: [] };
+  const safeTemplate: TemplateKey = isValidTemplateKey(template)
+    ? template
+    : suggestTemplate(type);
+
+  const data = { topic, audience, type, targetPages, tier: safeTier, noImages: !!noImages, themeColor: safeThemeColor, template: safeTemplate, chapters: [] };
   const { rows } = await sql<{ id: string }>`
     INSERT INTO book_projects (user_id, topic, audience, type, target_pages, data)
     VALUES (${session.user.id}, ${topic}, ${audience}, ${type}, ${targetPages}, ${JSON.stringify(data)})
