@@ -87,7 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login", verifyRequest: "/login?check=email" },
   events: {
     async createUser({ user }) {
-      // 회원가입 시 1,000원 크레딧 자동 지급
+      // 회원가입 시 SIGNUP_BONUS_KRW (₩5,000) 크레딧 자동 지급
       if (!user.id) return;
       try {
         await db.update(users)

@@ -198,7 +198,7 @@ export default function LoginPage() {
             disabled={!canSubmit || busy}
             className="w-full py-3 bg-ink-900 text-white font-bold rounded-lg hover:bg-tiger-orange transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {busy ? "처리 중..." : mode === "register" ? "회원가입 + 1,000원 받기" : mode === "magiclink" ? "로그인 링크 받기" : "로그인"}
+            {busy ? "처리 중..." : mode === "register" ? "회원가입 + 5,000원 받기" : mode === "magiclink" ? "로그인 링크 받기" : "로그인"}
           </button>
         </form>
 
