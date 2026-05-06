@@ -96,8 +96,11 @@ export async function POST(req: Request) {
     // 4.5. RAG 자동 주입 — references 있으면 챕터 제목 기반으로 관련 청크 검색
     // (ReadableStream 밖에서 실행해 controller 에러를 회피, 결과는 closure로 전달)
     let chapterChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    let ragHadReferences = false;
+    let ragFailed = false;
     try {
-      if (await hasReferences(projectId)) {
+      ragHadReferences = await hasReferences(projectId);
+      if (ragHadReferences) {
         chapterChunks = await ragSearch({
           projectId,
           query: `${ch.title}${ch.subtitle ? " — " + ch.subtitle : ""}`,
@@ -106,7 +109,9 @@ export async function POST(req: Request) {
         });
       }
     } catch (e: any) {
-      console.warn("[chapter] RAG search failed:", e?.message);
+      // 자료가 있는데 RAG가 실패 — 본문 생성은 진행하되 사용자/Vercel 로그에 명시
+      ragFailed = true;
+      console.error("[chapter] RAG search FAILED — chapter will be generic, not using user references:", { projectId, chapterIdx, error: e?.message });
     }
 
     const toneSetting = (project as any).toneSetting ?? undefined;
@@ -116,6 +121,10 @@ export async function POST(req: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         const send = (obj: any) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+        // RAG 실패 경고 — 자료 있었는데 검색 실패한 경우 사용자에게 알림
+        if (ragFailed && ragHadReferences) {
+          send({ type: "warning", code: "RAG_FAILED", message: "자료 검색이 실패해 일반 본문이 생성됩니다. 잠시 후 다시 시도하면 자료가 반영됩니다." });
+        }
         let fullText = "";
         let bodyUsage: any = null;
         let actualModel: AIModel = candidates[0];

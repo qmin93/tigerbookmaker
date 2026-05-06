@@ -8,13 +8,19 @@ export interface YoutubeTranscript {
   text: string;
 }
 
-export async function extractYoutubeTranscript(url: string): Promise<YoutubeTranscript> {
+export async function extractYoutubeTranscript(url: string, timeoutMs = 20000): Promise<YoutubeTranscript> {
   const videoId = parseVideoId(url);
   if (!videoId) throw new Error("YouTube URL에서 video ID를 찾을 수 없습니다.");
 
-  // YouTube 페이지 HTML에서 captionTracks 추출
+  // YouTube 페이지 HTML에서 captionTracks 추출 — 20초 timeout (Vercel 60초 제한 안에서 여유)
   const ytPage = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Tigerbookmaker/1.0)" },
+    signal: AbortSignal.timeout(timeoutMs),
+  }).catch((e: Error) => {
+    if (e.name === "TimeoutError" || e.name === "AbortError") {
+      throw new Error("YouTube 응답이 너무 느립니다. 영상이 길거나 일시 장애일 수 있어요. 다시 시도해 주세요.");
+    }
+    throw e;
   });
   if (!ytPage.ok) throw new Error(`YouTube 페이지 로드 실패: ${ytPage.status}`);
   const html = await ytPage.text();
@@ -34,8 +40,15 @@ export async function extractYoutubeTranscript(url: string): Promise<YoutubeTran
   const track = ko || en || tracks[0];
   if (!track) throw new Error("사용 가능한 자막이 없습니다.");
 
-  // baseUrl로 자막 XML fetch
-  const captionRes = await fetch(track.baseUrl);
+  // baseUrl로 자막 XML fetch — 자막이 매우 길 수 있으므로 timeoutMs 그대로 사용
+  const captionRes = await fetch(track.baseUrl, {
+    signal: AbortSignal.timeout(timeoutMs),
+  }).catch((e: Error) => {
+    if (e.name === "TimeoutError" || e.name === "AbortError") {
+      throw new Error("자막 다운로드가 너무 오래 걸립니다. 영상이 매우 긴 경우 발생합니다.");
+    }
+    throw e;
+  });
   if (!captionRes.ok) throw new Error("자막 다운로드 실패");
   const captionXml = await captionRes.text();
 

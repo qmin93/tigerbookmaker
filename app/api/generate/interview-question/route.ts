@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     const ragQuery = lastAnswer && lastAnswer.trim().length > 20 ? lastAnswer : project.topic;
 
     let ragChunks: Awaited<ReturnType<typeof ragSearch>> = [];
+    let ragWarning: string | null = null;
     try {
       ragChunks = await ragSearch({
         projectId,
@@ -62,8 +63,9 @@ export async function POST(req: Request) {
         maxDistance: 0.7,
       });
     } catch (e: any) {
-      console.warn("[interview-question] RAG search failed:", e?.message);
-      // RAG 실패해도 인터뷰는 진행 (degraded mode)
+      // 자료가 있는데 RAG가 실패 — 사용자 입장에서는 "자료 안 반영됨" 경험. degraded mode로 진행하되 알림.
+      console.error("[interview-question] RAG search FAILED — proceeding without context:", { projectId, error: e?.message });
+      ragWarning = "자료 검색이 일시적으로 실패해 일반 질문이 생성되었습니다. 잠시 후 다시 시도하세요.";
     }
 
     // 진짜 fallback chain — 첫 candidate 실패 시 다음 vendor로
@@ -130,6 +132,7 @@ export async function POST(req: Request) {
       ...parsed,
       newBalance,
       costKRW,
+      ragWarning,
     });
   } catch (e: any) {
     console.error("[/api/generate/interview-question] uncaught:", e);

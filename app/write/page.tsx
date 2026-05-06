@@ -537,6 +537,9 @@ function Inner() {
             doneMsg = msg;
           } else if (msg.type === "error") {
             throw new Error(msg.message || "AI 응답 실패");
+          } else if (msg.type === "warning") {
+            // 서버가 보낸 경고 (예: RAG 실패) — 사용자에게 알림으로 띄움
+            setError(`⚠️ ${msg.message || msg.code || "경고"}`);
           }
         }
       }
