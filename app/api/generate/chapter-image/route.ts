@@ -5,7 +5,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callImageGeneration, callAIServer, type AIModel } from "@/lib/server/ai-server";
-import { getModelChain, type Tier } from "@/lib/tiers";
 import {
   getUser, getProject, updateProjectData,
   deductBalance, logAIUsage, USD_TO_KRW,
@@ -50,28 +49,26 @@ export async function POST(req: Request) {
     // placeholder에서 caption 추출
     const caption = placeholder.replace(/^\[IMAGE:\s*/, "").replace(/\]$/, "").trim();
 
-    // 한국어 caption을 영어 image prompt로 변환 (Pollinations Flux는 영어만 잘 처리)
+    // 한국어 caption을 영어 image prompt로 변환
+    // 모델 강제: gemini-flash-latest (사용자 tier와 무관하게 항상 한국어 잘 이해하는 모델 사용)
+    // 이전엔 basic tier 사용자에게 Flash Lite가 적용되어 프롬프트 품질이 떨어졌음.
     let englishPrompt = caption;
     try {
-      const tier: Tier = (project as any).tier ?? "basic";
-      const candidates = getModelChain(tier);
-      if (candidates.length > 0) {
-        const promptResult = await callAIServer({
-          model: candidates[0],
-          system: "You convert Korean illustration descriptions into concise English Stable Diffusion prompts. Focus on the actual visual subject (people, objects, scenes). Never include words like 'book', 'document', 'page' unless the subject IS literally a book.",
-          user: `Context (book topic, for understanding only — DO NOT include 'book' in output): ${project.topic}\n\nIllustration to draw (Korean): ${caption}\n\nConvert to a single concise English image prompt focused on the actual visual subject. Just the subject + setting, no style words. Output ONLY the prompt, one line.`,
-          maxTokens: 256,
-          temperature: 0.5,
-          timeoutMs: 10000,
-          retries: 1,
-        });
-        englishPrompt = promptResult.text.trim().replace(/^["']|["']$/g, "");
-      }
+      const promptResult = await callAIServer({
+        model: "gemini-flash-latest",
+        system: "You convert Korean illustration descriptions into specific, vivid English image generation prompts (for Imagen 4 / Flux). Focus on the actual visual subject — concrete people/objects/scenes, never the book medium itself. Be visually descriptive: mention specific colors, lighting, composition, mood. NEVER output words like 'book', 'document', 'page', 'reading', 'literature' unless the subject literally IS a book on a shelf.",
+        user: `[BOOK CONTEXT — for theme understanding only, NEVER mention 'book' in your output]\nTopic: ${project.topic}\nGenre: ${(project as any).type ?? "unknown"}\nAudience: ${(project as any).audience ?? "general"}\n\n[ILLUSTRATION TO DRAW (Korean)]\n${caption}\n\n[YOUR TASK]\nWrite a single vivid English image prompt (60–100 words) for the actual visual subject described above. Include: specific subject, setting, lighting, color palette, composition, art style. Output ONLY the prompt as one line — no preamble, no quotes, no explanation.`,
+        maxTokens: 400,
+        temperature: 0.6,
+        timeoutMs: 15000,
+        retries: 1,
+      });
+      englishPrompt = promptResult.text.trim().replace(/^["']|["']$/g, "");
     } catch {
-      // 번역 실패하면 한국어 caption 그대로 사용 (fallback)
+      // 번역 실패하면 한국어 caption 그대로 사용 (fallback) — 화질 떨어지지만 동작은 유지
     }
 
-    const prompt = `${englishPrompt}. Style: clean modern magazine illustration, professional, minimalist, single clear subject. NO books, NO documents, NO text, NO captions, NO labels, NO writing. White background. Square 1:1.`;
+    const prompt = `${englishPrompt}. Editorial magazine illustration, clean modern composition, single clear focal subject, professional lighting, minimalist negative space. Style: Behance / Pinterest editorial design quality. STRICT: NO books, NO documents, NO papers, NO text of any kind, NO letters, NO numbers, NO Korean characters, NO English words, NO captions, NO labels, NO writing, NO speech bubbles, NO logos, NO watermarks. Plain white or theme-colored background. Square 1:1 aspect ratio.`;
 
     let img;
     try {
