@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getTheme } from "@/lib/theme-colors";
+import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import type { ThemeColorKey, MarketingMeta } from "@/lib/storage";
 
 interface ChapterMeta {
@@ -36,6 +37,7 @@ interface BookData {
   cover?: { base64: string } | null;
   chapters: ChapterMeta[];
   themeColor?: ThemeColorKey;
+  template?: TemplateKey;
   marketingMeta?: MarketingMeta | null;
   kmongCopy?: KmongCopy | null;
   abTest?: ABTestPublic | null;
@@ -214,6 +216,12 @@ export default function BookPage({ params }: { params: { id: string } }) {
               </span>
             </div>
 
+            {data.template && TEMPLATES[data.template] && (
+              <div className={`inline-block text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded ${theme.bg} ${theme.accent.split(" ")[0]} mt-2`}>
+                📐 {TEMPLATES[data.template].label}
+              </div>
+            )}
+
             <h1 className="text-3xl md:text-5xl font-extrabold leading-tight mb-4 text-gray-900">
               {data.topic}
             </h1>
@@ -308,21 +316,61 @@ export default function BookPage({ params }: { params: { id: string } }) {
       {data.chapters.length > 0 && (
         <section className="max-w-3xl mx-auto px-4 py-12 border-t border-gray-100">
           <h2 className={`text-2xl font-bold mb-6 border-l-4 pl-3 ${theme.accentBorder}`}>목차</h2>
-          <ol className="space-y-3">
-            {data.chapters.map((c, i) => (
-              <li key={c.id ?? i} className="flex gap-4 items-start py-2 border-b border-gray-50 last:border-0">
-                <span className={`flex-shrink-0 w-8 h-8 rounded-full ${theme.bg} ${theme.accent.split(" ")[0]} font-bold flex items-center justify-center text-sm`}>
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900">{c.title}</div>
-                  {c.subtitle && (
-                    <div className="text-sm text-gray-500 mt-0.5">{c.subtitle}</div>
-                  )}
+          {(() => {
+            const t = data.template ?? "minimal";
+            if (t === "practical") {
+              return (
+                <ul className="space-y-2.5">
+                  {data.chapters.map((c, i) => (
+                    <li key={c.id ?? i} className="flex gap-3 items-start py-1.5">
+                      <span className={`flex-shrink-0 mt-0.5 inline-block w-5 h-5 border-2 ${theme.accentBorder.replace("border-l-", "border-")} rounded-sm`}></span>
+                      <span className="text-gray-900">{c.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            }
+            if (t === "classic") {
+              return (
+                <ol className="space-y-3" style={{ fontFamily: "'Noto Serif KR', Georgia, serif" }}>
+                  {data.chapters.map((c, i) => (
+                    <li key={c.id ?? i} className="flex justify-between py-2 border-b border-dotted border-gray-300">
+                      <span>{c.title}</span>
+                      <span className="text-gray-400 text-sm">CH {i + 1}</span>
+                    </li>
+                  ))}
+                </ol>
+              );
+            }
+            if (t === "editorial") {
+              return (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {data.chapters.map((c, i) => (
+                    <div key={c.id ?? i} className={`p-4 rounded-lg ${theme.bg}`}>
+                      <div className={`text-[10px] font-mono uppercase tracking-widest ${theme.accent.split(" ")[0]} font-bold mb-1`}>ISSUE {i + 1}</div>
+                      <div className="font-bold text-gray-900">{c.title}</div>
+                      {c.subtitle && <div className="text-xs text-gray-600 mt-1">{c.subtitle}</div>}
+                    </div>
+                  ))}
                 </div>
-              </li>
-            ))}
-          </ol>
+              );
+            }
+            return (
+              <ol className="space-y-3">
+                {data.chapters.map((c, i) => (
+                  <li key={c.id ?? i} className="flex gap-4 items-start py-2 border-b border-gray-50 last:border-0">
+                    <span className={`flex-shrink-0 w-8 h-8 rounded-full ${theme.bg} ${theme.accent.split(" ")[0]} font-bold flex items-center justify-center text-sm`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900">{c.title}</div>
+                      {c.subtitle && <div className="text-sm text-gray-500 mt-0.5">{c.subtitle}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            );
+          })()}
         </section>
       )}
 
