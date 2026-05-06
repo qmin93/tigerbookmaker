@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@vercel/postgres";
 import { getProject, updateProjectData } from "@/lib/server/db";
+import { isValidTemplateKey } from "@/lib/templates";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     shareLinks: p.data?.shareLinks,
     noImages: p.data?.noImages === true,
     themeColor: p.data?.themeColor ?? "orange",
+    template: p.data?.template ?? "minimal",
     marketingMeta: p.data?.marketingMeta,
     metaAdPackage: p.data?.metaAdPackage,
     repurposedContent: p.data?.repurposedContent,
@@ -57,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor, marketingMeta, metaAdPackage, repurposedContent, coverFromVariation, cover } = body ?? {};
+  const { themeColor, template, marketingMeta, metaAdPackage, repurposedContent, coverFromVariation, cover } = body ?? {};
 
   const projectRow = await getProject(projectId, userId);
   if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -69,6 +71,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: "INVALID_THEME", message: "themeColor must be one of: " + VALID_THEME_COLORS.join(", ") }, { status: 400 });
     }
     updates.themeColor = themeColor as ThemeColorKey;
+  }
+
+  if (template !== undefined) {
+    if (!isValidTemplateKey(template)) {
+      return NextResponse.json({ error: "INVALID_TEMPLATE", message: "template must be one of: minimal, editorial, classic, practical" }, { status: 400 });
+    }
+    updates.template = template;
   }
 
   if (marketingMeta !== undefined) {
