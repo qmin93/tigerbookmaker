@@ -35,6 +35,9 @@ export interface ToneSetting {
 
 export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
 
+// 임시 (Task 2에서 lib/templates/index.ts로 이전)
+export type TemplateKey = 'minimal' | 'editorial' | 'classic' | 'practical';
+
 export interface MarketingMeta {
   tagline?: string;
   description?: string;
@@ -243,6 +246,7 @@ export interface BookProject {
   tier?: "basic" | "pro" | "premium";
   noImages?: boolean;  // true면 본문 [IMAGE: ...] placeholder 생성 X
   themeColor?: ThemeColorKey;  // 책별 색상 테마 (default "orange")
+  template?: TemplateKey;  // 레이아웃 템플릿 (default 'minimal')
   marketingMeta?: MarketingMeta;  // Sub-project 3: /book/[id] 마케팅 페이지용 메타
   metaAdPackage?: MetaAdPackage;  // Sub-project 5: Meta(FB/IG) Ads Manager 카피 패키지
   metaAdImages?: MetaAdImage[];   // Part A: Meta 광고 이미지 3비율 (피드/스토리/링크)
