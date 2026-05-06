@@ -6,8 +6,8 @@ export const classic: BookTemplate = {
   description: "serif, 챕터 시작 큰 첫글자",
   thumbnailSvg: "",
   suggestedFor: ["에세이", "웹소설"],
-  Render: () => null as any,
+  Render: () => <></>,
   epubCss: "",
-  pdfHtmlWrapper: (inner) => inner,
+  pdfHtmlWrapper: (inner, _theme) => inner,
   coverStyleHint: "",
 };

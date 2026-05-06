@@ -1,5 +1,5 @@
 import type { AIConfig, Provider } from "./ai";
-import type { TemplateKey } from "./templates";
+import type { TemplateKey, BookType } from "./templates";
 
 export interface BookChapter {
   id: string;
@@ -36,7 +36,7 @@ export interface ToneSetting {
 
 export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
 
-export type { TemplateKey };
+export type { TemplateKey, BookType };
 
 export interface MarketingMeta {
   tagline?: string;
@@ -240,7 +240,7 @@ export interface BookProject {
   id: string;
   topic: string;
   audience: string;
-  type: "자기계발서" | "실용서" | "에세이" | "매뉴얼" | "재테크" | "웹소설" | "전문서";
+  type: BookType;
   targetPages: number;
   translations?: BookTranslation[];   // Wave C2 — 책 번역 (영어/일본어)
   tier?: "basic" | "pro" | "premium";

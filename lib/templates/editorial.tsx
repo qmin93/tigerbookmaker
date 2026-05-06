@@ -6,8 +6,8 @@ export const editorial: BookTemplate = {
   description: "1단형, 큰 이미지, 인용 박스 강조",
   thumbnailSvg: "",
   suggestedFor: ["전문서"],
-  Render: () => null as any,
+  Render: () => <></>,
   epubCss: "",
-  pdfHtmlWrapper: (inner) => inner,
+  pdfHtmlWrapper: (inner, _theme) => inner,
   coverStyleHint: "",
 };

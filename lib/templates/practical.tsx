@@ -6,8 +6,8 @@ export const practical: BookTemplate = {
   description: "체크리스트·인용 박스 강조",
   thumbnailSvg: "",
   suggestedFor: ["매뉴얼"],
-  Render: () => null as any,
+  Render: () => <></>,
   epubCss: "",
-  pdfHtmlWrapper: (inner) => inner,
+  pdfHtmlWrapper: (inner, _theme) => inner,
   coverStyleHint: "",
 };
