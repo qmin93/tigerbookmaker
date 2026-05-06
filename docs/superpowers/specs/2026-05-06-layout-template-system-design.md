@@ -348,5 +348,19 @@ EPUB은 뷰어 width가 제각각이라 모든 이미지·박스가 자연스럽
 ## 12. 승인
 
 - [x] 사용자 승인 (2026-05-06): "A — 그대로 진행"
-- [ ] 구현 계획(plan) 작성 완료
-- [ ] 구현 시작
+- [x] 사용자 승인 (2026-05-06): rev 2 — "ㄱㄱ"
+- [x] 구현 계획(plan) 작성 완료 (2026-05-06)
+- [x] 구현 완료 (2026-05-06) — 19 commits on `feat/layout-templates` branch
+- [ ] 통합 smoke test (사용자 manual QA 대기 중)
+- [ ] main에 merge
+
+### 구현 요약 (2026-05-06)
+- Phase A — Foundation (4 tasks): BookProject template 필드, registry, API 자동매칭/PATCH
+- Phase B — 4 templates: Modern Minimal, Editorial Magazine (1단형), Classic Book, Practical Guide
+- Phase C — UI 컴포넌트: TemplateSelector, TemplatePreviewModal
+- Phase D — UI 통합: /write 사이드바+미리보기 버튼, /share 본문 분기, /book TOC+배지
+- Phase E — Export: EPUB epubCss 임베드, PDF pdfHtmlWrapper
+- Phase F — Cover prompts: generateImagePromptAI에 templateHint 옵션 + 3개 라우트 통합
+
+### 알려진 후속 작업
+- `app/api/generate/kmong-package/route.ts`는 `imagePrompt` (kmong-prompts.ts)를 사용 — `generateImagePromptAI` 경로 외라 templateHint 미적용. 필요 시 별도 sub-task로 처리.
