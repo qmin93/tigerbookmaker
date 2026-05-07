@@ -137,7 +137,7 @@ export default function NewProjectPage() {
         </Field>
         <Field label="책 유형">
           <div className="flex gap-2 flex-wrap">
-            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서"] as const).map(t => (
+            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서", "요리책", "여행기", "매거진", "인터뷰집", "포트폴리오", "강의노트", "동화"] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setType(t)}
