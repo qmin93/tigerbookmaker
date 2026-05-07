@@ -3,6 +3,7 @@
 // 어울리는 책: 비즈니스·전문서·트렌드·인터뷰
 
 import type { BookTemplate, TemplateProps } from "./index";
+import { parseMultimedia, renderMultimediaToken } from "./_multimedia";
 
 const THUMBNAIL_SVG = `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="80" height="100" fill="#fff" rx="4" stroke="#e5e7eb"/>
@@ -46,35 +47,49 @@ function renderContentWithImages(
   images: TemplateProps["chapter"]["images"],
   theme: TemplateProps["theme"]
 ) {
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
-  return parts.map((part, i) => {
-    if (part.startsWith("[IMAGE:")) {
-      const matched = images?.find(img => img.placeholder === part);
-      if (!matched?.dataUrl) return null;
-      return (
-        <figure key={i} className="my-10 -mx-4 md:-mx-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={matched.dataUrl} alt={matched.alt ?? ""} className="block w-full aspect-[16/9] object-cover" />
-          {matched.caption && (
-            <figcaption className={`mt-3 mx-4 md:mx-6 pl-3 border-l-4 ${theme.accentBorder} text-sm font-bold ${theme.accent.split(" ")[0]}`}>
-              {matched.caption}
-            </figcaption>
-          )}
-        </figure>
+  const segments = parseMultimedia(content);
+  const accentText = theme.accent.split(" ")[0];
+  return segments.map((seg, segIdx) => {
+    if (typeof seg !== "string") {
+      return renderMultimediaToken(
+        seg,
+        `mm-${segIdx}`,
+        "editorial",
+        accentText,
+        theme.accentBorder,
+        theme.bg,
       );
     }
-    return part.split("\n\n").map((para, j) => {
-      if (!para.trim()) return null;
-      const trimmed = para.trim();
-      if (trimmed.startsWith(">") || trimmed.startsWith("❝") || trimmed.startsWith('"')) {
-        const text = trimmed.replace(/^>\s?|^❝\s?|^"|"$/g, "");
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map((part, i) => {
+      if (part.startsWith("[IMAGE:")) {
+        const matched = images?.find(img => img.placeholder === part);
+        if (!matched?.dataUrl) return null;
         return (
-          <blockquote key={`${i}-${j}`} className={`my-6 pl-5 border-l-4 ${theme.accentBorder} ${theme.accent.split(" ")[0]} text-xl md:text-2xl font-bold leading-snug`} style={{ fontFamily: "'Noto Serif KR', Georgia, serif" }}>
-            "{text}"
-          </blockquote>
+          <figure key={`${segIdx}-${i}`} className="my-10 -mx-4 md:-mx-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={matched.dataUrl} alt={matched.alt ?? ""} className="block w-full aspect-[16/9] object-cover" />
+            {matched.caption && (
+              <figcaption className={`mt-3 mx-4 md:mx-6 pl-3 border-l-4 ${theme.accentBorder} text-sm font-bold ${theme.accent.split(" ")[0]}`}>
+                {matched.caption}
+              </figcaption>
+            )}
+          </figure>
         );
       }
-      return <p key={`${i}-${j}`} className="mb-5">{para}</p>;
+      return part.split("\n\n").map((para, j) => {
+        if (!para.trim()) return null;
+        const trimmed = para.trim();
+        if (trimmed.startsWith(">") || trimmed.startsWith("❝") || trimmed.startsWith('"')) {
+          const text = trimmed.replace(/^>\s?|^❝\s?|^"|"$/g, "");
+          return (
+            <blockquote key={`${segIdx}-${i}-${j}`} className={`my-6 pl-5 border-l-4 ${theme.accentBorder} ${theme.accent.split(" ")[0]} text-xl md:text-2xl font-bold leading-snug`} style={{ fontFamily: "'Noto Serif KR', Georgia, serif" }}>
+              "{text}"
+            </blockquote>
+          );
+        }
+        return <p key={`${segIdx}-${i}-${j}`} className="mb-5">{para}</p>;
+      });
     });
   });
 }

@@ -3,6 +3,7 @@
 // 어울리는 책: 매뉴얼·요리·여행·튜토리얼
 
 import type { BookTemplate, TemplateProps } from "./index";
+import { parseMultimedia, renderMultimediaToken } from "./_multimedia";
 
 const THUMBNAIL_SVG = `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="80" height="100" fill="#fff7ed" rx="4"/>
@@ -55,48 +56,62 @@ function renderContentWithImages(
   theme: TemplateProps["theme"]
 ) {
   let figureCount = 0;
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
-  return parts.map((part, i) => {
-    if (part.startsWith("[IMAGE:")) {
-      const matched = images?.find(img => img.placeholder === part);
-      if (!matched?.dataUrl) return null;
-      figureCount += 1;
-      const num = figureCount;
-      return (
-        <figure key={i} className={`my-6 border-2 ${theme.accentBorder.replace("border-l-", "border-")} rounded-lg overflow-hidden`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={matched.dataUrl} alt={matched.alt ?? ""} className="block w-full" />
-          <figcaption className={`px-3 py-2 text-sm ${theme.bg} text-gray-700`}>
-            <b>그림 {num}.</b> {matched.caption ?? matched.alt ?? ""}
-          </figcaption>
-        </figure>
+  const segments = parseMultimedia(content);
+  const accentText = theme.accent.split(" ")[0];
+  return segments.map((seg, segIdx) => {
+    if (typeof seg !== "string") {
+      return renderMultimediaToken(
+        seg,
+        `mm-${segIdx}`,
+        "practical",
+        accentText,
+        theme.accentBorder,
+        theme.bg,
       );
     }
-    return part.split("\n\n").map((para, j) => {
-      if (!para.trim()) return null;
-      const trimmed = para.trim();
-      if (trimmed.startsWith("💡") || /^TIP[:.]/i.test(trimmed)) {
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map((part, i) => {
+      if (part.startsWith("[IMAGE:")) {
+        const matched = images?.find(img => img.placeholder === part);
+        if (!matched?.dataUrl) return null;
+        figureCount += 1;
+        const num = figureCount;
         return (
-          <div key={`${i}-${j}`} className={`my-4 px-4 py-3 ${theme.bg} border-l-4 ${theme.accentBorder} rounded`}>
-            <p className="font-semibold">{trimmed}</p>
-          </div>
+          <figure key={`${segIdx}-${i}`} className={`my-6 border-2 ${theme.accentBorder.replace("border-l-", "border-")} rounded-lg overflow-hidden`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={matched.dataUrl} alt={matched.alt ?? ""} className="block w-full" />
+            <figcaption className={`px-3 py-2 text-sm ${theme.bg} text-gray-700`}>
+              <b>그림 {num}.</b> {matched.caption ?? matched.alt ?? ""}
+            </figcaption>
+          </figure>
         );
       }
-      const lines = trimmed.split("\n").filter(l => l.trim());
-      const isChecklist = lines.length > 0 && lines.every(line => /^[-*]\s\[\s?\]/.test(line) || /^✓\s/.test(line));
-      if (isChecklist) {
-        return (
-          <ul key={`${i}-${j}`} className="my-4 space-y-2">
-            {lines.map((line, k) => (
-              <li key={k} className="flex items-start gap-2">
-                <span className={`flex-shrink-0 mt-1 inline-block w-4 h-4 border-2 ${theme.accentBorder.replace("border-l-", "border-")} rounded-sm`}></span>
-                <span>{line.replace(/^[-*]\s\[\s?\]\s*|^✓\s*/, "")}</span>
-              </li>
-            ))}
-          </ul>
-        );
-      }
-      return <p key={`${i}-${j}`} className="mb-4">{para}</p>;
+      return part.split("\n\n").map((para, j) => {
+        if (!para.trim()) return null;
+        const trimmed = para.trim();
+        if (trimmed.startsWith("💡") || /^TIP[:.]/i.test(trimmed)) {
+          return (
+            <div key={`${segIdx}-${i}-${j}`} className={`my-4 px-4 py-3 ${theme.bg} border-l-4 ${theme.accentBorder} rounded`}>
+              <p className="font-semibold">{trimmed}</p>
+            </div>
+          );
+        }
+        const lines = trimmed.split("\n").filter(l => l.trim());
+        const isChecklist = lines.length > 0 && lines.every(line => /^[-*]\s\[\s?\]/.test(line) || /^✓\s/.test(line));
+        if (isChecklist) {
+          return (
+            <ul key={`${segIdx}-${i}-${j}`} className="my-4 space-y-2">
+              {lines.map((line, k) => (
+                <li key={k} className="flex items-start gap-2">
+                  <span className={`flex-shrink-0 mt-1 inline-block w-4 h-4 border-2 ${theme.accentBorder.replace("border-l-", "border-")} rounded-sm`}></span>
+                  <span>{line.replace(/^[-*]\s\[\s?\]\s*|^✓\s*/, "")}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={`${segIdx}-${i}-${j}`} className="mb-4">{para}</p>;
+      });
     });
   });
 }

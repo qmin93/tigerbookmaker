@@ -3,6 +3,7 @@
 // 어울리는 책: 자기계발서·실용서·재테크
 
 import type { BookTemplate, TemplateProps } from "./index";
+import { parseMultimedia, renderMultimediaToken } from "./_multimedia";
 
 const THUMBNAIL_SVG = `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="80" height="100" fill="#fafafa" rx="4"/>
@@ -31,29 +32,47 @@ function MinimalRender({ chapter, theme, chapterIdx, totalChapters }: TemplatePr
         <p className="text-lg text-gray-500 mb-10 leading-relaxed">{chapter.subtitle}</p>
       )}
       <div className={`prose prose-lg prose-gray max-w-none ${theme.accent.split(" ")[0]}`}>
-        {renderContentWithImages(chapter.content, chapter.images)}
+        {renderContentWithImages(chapter.content, chapter.images, theme)}
       </div>
     </article>
   );
 }
 
-function renderContentWithImages(content: string, images: TemplateProps["chapter"]["images"]) {
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
-  return parts.map((part, i) => {
-    if (part.startsWith("[IMAGE:")) {
-      const matched = images?.find(img => img.placeholder === part);
-      if (!matched?.dataUrl) return null;
-      return (
-        <figure key={i} className="my-10 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={matched.dataUrl} alt={matched.alt ?? ""} className="mx-auto max-w-[70%] rounded-md" />
-          {matched.caption && <figcaption className="mt-3 text-sm text-gray-500">{matched.caption}</figcaption>}
-        </figure>
+function renderContentWithImages(
+  content: string,
+  images: TemplateProps["chapter"]["images"],
+  theme: TemplateProps["theme"],
+) {
+  const segments = parseMultimedia(content);
+  const accentText = theme.accent.split(" ")[0];
+  return segments.map((seg, segIdx) => {
+    if (typeof seg !== "string") {
+      return renderMultimediaToken(
+        seg,
+        `mm-${segIdx}`,
+        "minimal",
+        accentText,
+        theme.accentBorder,
+        theme.bg,
       );
     }
-    return part.split("\n\n").map((para, j) => (
-      para.trim() ? <p key={`${i}-${j}`} className="leading-loose text-gray-800 mb-5">{para}</p> : null
-    ));
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map((part, i) => {
+      if (part.startsWith("[IMAGE:")) {
+        const matched = images?.find(img => img.placeholder === part);
+        if (!matched?.dataUrl) return null;
+        return (
+          <figure key={`${segIdx}-${i}`} className="my-10 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={matched.dataUrl} alt={matched.alt ?? ""} className="mx-auto max-w-[70%] rounded-md" />
+            {matched.caption && <figcaption className="mt-3 text-sm text-gray-500">{matched.caption}</figcaption>}
+          </figure>
+        );
+      }
+      return part.split("\n\n").map((para, j) => (
+        para.trim() ? <p key={`${segIdx}-${i}-${j}`} className="leading-loose text-gray-800 mb-5">{para}</p> : null
+      ));
+    });
   });
 }
 

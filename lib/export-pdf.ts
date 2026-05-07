@@ -1,6 +1,7 @@
 import type { BookProject } from "./storage";
 import { getTemplate } from "./templates";
 import { getTheme } from "./theme-colors";
+import { parseMultimedia, multimediaTokenToEpubHtml } from "./templates/_multimedia";
 
 function stripMarkdown(text: string): string {
   return text
@@ -17,24 +18,31 @@ function escapeHtml(s: string) {
 }
 
 function renderBody(content: string, images: BookProject["chapters"][0]["images"]): string {
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
-  return parts.map(part => {
-    if (part.startsWith("[IMAGE:")) {
-      const img = images.find(i => i.placeholder === part);
-      if (img?.dataUrl) {
-        return `<div class="img-block"><img src="${img.dataUrl}" />${img.caption ? `<p class="caption">${escapeHtml(img.caption)}</p>` : ""}</div>`;
-      }
-      return "";
+  // PDF는 video/audio iframe 불가 → link fallback (EPUB과 동일)
+  const segments = parseMultimedia(content);
+  return segments.map(seg => {
+    if (typeof seg !== "string") {
+      return multimediaTokenToEpubHtml(seg);
     }
-    const cleaned = stripMarkdown(part);
-    return cleaned.split("\n").map(rawLine => {
-      const line = rawLine.trim();
-      if (!line) return "";
-      if (line.startsWith("## ")) return `<h3>${escapeHtml(line.slice(3))}</h3>`;
-      if (line.startsWith("### ")) return `<h4>${escapeHtml(line.slice(4))}</h4>`;
-      if (line.startsWith("- ") || line.startsWith("* ")) return `<p class="bullet">· ${escapeHtml(line.slice(2))}</p>`;
-      if (/^\d+\.\s/.test(line)) return `<p class="bullet">${escapeHtml(line)}</p>`;
-      return `<p>${escapeHtml(line)}</p>`;
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map(part => {
+      if (part.startsWith("[IMAGE:")) {
+        const img = images.find(i => i.placeholder === part);
+        if (img?.dataUrl) {
+          return `<div class="img-block"><img src="${img.dataUrl}" />${img.caption ? `<p class="caption">${escapeHtml(img.caption)}</p>` : ""}</div>`;
+        }
+        return "";
+      }
+      const cleaned = stripMarkdown(part);
+      return cleaned.split("\n").map(rawLine => {
+        const line = rawLine.trim();
+        if (!line) return "";
+        if (line.startsWith("## ")) return `<h3>${escapeHtml(line.slice(3))}</h3>`;
+        if (line.startsWith("### ")) return `<h4>${escapeHtml(line.slice(4))}</h4>`;
+        if (line.startsWith("- ") || line.startsWith("* ")) return `<p class="bullet">· ${escapeHtml(line.slice(2))}</p>`;
+        if (/^\d+\.\s/.test(line)) return `<p class="bullet">${escapeHtml(line)}</p>`;
+        return `<p>${escapeHtml(line)}</p>`;
+      }).join("\n");
     }).join("\n");
   }).join("\n");
 }
