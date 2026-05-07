@@ -88,6 +88,9 @@ function Inner() {
   const router = useRouter();
   const projectId = params.get("id");
 
+  // ─── 4-tab 레이아웃 hooks (early return 전 호출 — Rules of Hooks) ───
+  const { tab, setTab } = useTabState();
+
   const [project, setProject] = useState<Project | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState<string>("");
@@ -1827,11 +1830,8 @@ function Inner() {
     return sum + phs.filter(ph => !c.images?.find(i => i.placeholder === ph)?.dataUrl).length;
   }, 0);
 
-  // ─── 4-tab 레이아웃 hooks ───
-  const { tab, setTab } = useTabState();
-  const showPublishHint = usePublishHint(project as any);
-
   // 빈 책: 목차 생성 안내 (4-tab 레이아웃 진입 전)
+  // NOTE: useTabState/usePublishHint hooks는 컴포넌트 최상단으로 이동됨 (line ~85 근처) — Rules of Hooks 준수.
   if (project.chapters.length === 0) {
     return (
       <>
@@ -1859,6 +1859,8 @@ function Inner() {
   }
 
   // ─── 4-tab 레이아웃 슬롯 변수 (return 전 정의) ───
+  // usePublishHint는 실제 hook 아닌 pure function이라 여기서 호출 OK
+  const showPublishHint = usePublishHint(project as any);
 
   // ChapterList(New) chapter mini 데이터
   const chapterListChapters = project.chapters.map((c) => ({
