@@ -36,6 +36,9 @@ interface BookData {
   type: string;
   cover?: { base64: string } | null;
   chapters: ChapterMeta[];
+  firstChapterPreview?: string | null;
+  firstChapterTitle?: string | null;
+  firstChapterSubtitle?: string | null;
   themeColor?: ThemeColorKey;
   template?: TemplateKey;
   marketingMeta?: MarketingMeta | null;
@@ -308,6 +311,30 @@ export default function BookPage({ params }: { params: { id: string } }) {
                 📖 본문 바로 읽기 →
               </Link>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* 4.5. 1장 미리보기 section — 본문 sample (600자) + /share/[id] CTA */}
+      {data.firstChapterPreview && (
+        <section className="max-w-3xl mx-auto px-4 py-12 border-t border-gray-100">
+          <h2 className={`text-2xl font-bold mb-4 border-l-4 pl-3 ${theme.accentBorder}`}>📖 1장 미리보기</h2>
+          {data.firstChapterTitle && (
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{data.firstChapterTitle}</h3>
+          )}
+          {data.firstChapterSubtitle && (
+            <p className="text-sm text-gray-500 mb-4">{data.firstChapterSubtitle}</p>
+          )}
+          <div className="prose prose-base max-w-none text-gray-800 leading-relaxed whitespace-pre-line">
+            {data.firstChapterPreview}
+          </div>
+          <div className="mt-6 text-center">
+            <Link
+              href={`/share/${id}`}
+              className={`inline-block ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} font-bold text-sm px-6 py-3 rounded-lg shadow transition`}
+            >
+              📖 전체 본문 읽으러 가기 →
+            </Link>
           </div>
         </section>
       )}

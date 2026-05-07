@@ -38,6 +38,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     subtitle: c.subtitle,
   }));
 
+  // 1장 본문 미리보기 (600자 — 마케팅 페이지에서 sample 표시, 전체는 /share/[id])
+  const firstChapter = (p.data?.chapters ?? [])[0];
+  const firstChapterContentRaw = firstChapter?.content ? String(firstChapter.content) : "";
+  const firstChapterPreview = firstChapterContentRaw
+    ? firstChapterContentRaw.slice(0, 600).trim() + (firstChapterContentRaw.length > 600 ? "…" : "")
+    : null;
+  const firstChapterTitle = firstChapter?.title ?? null;
+  const firstChapterSubtitle = firstChapter?.subtitle ?? null;
+
   // 표지: base64만 (메타 제외)
   const coverImg = p.data?.kmongPackage?.images?.find((i: any) => i.type === "cover");
   const cover = coverImg ? { base64: coverImg.base64 } : null;
@@ -49,6 +58,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     type: p.type,
     cover,
     chapters,
+    firstChapterPreview,
+    firstChapterTitle,
+    firstChapterSubtitle,
     themeColor: p.data?.themeColor ?? "orange",
     marketingMeta: p.data?.marketingMeta ?? null,
     kmongCopy: p.data?.kmongPackage?.copy ?? null,

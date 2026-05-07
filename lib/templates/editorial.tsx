@@ -101,7 +101,7 @@ export const editorial: BookTemplate = {
   label: "에디토리얼 매거진",
   description: "1단 + 큰 이미지 풀폭 + 인라인 인용 박스, 매거진 분위기",
   thumbnailSvg: THUMBNAIL_SVG,
-  suggestedFor: ["전문서"],
+  suggestedFor: ["전문서", "매거진", "인터뷰집", "포트폴리오"],
   Render: EditorialRender,
   epubCss: EPUB_CSS,
   pdfHtmlWrapper,

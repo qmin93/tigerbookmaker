@@ -18,6 +18,34 @@ interface TierInfo {
   reason?: string;
 }
 
+// Wave 2: hex 입력 → 가장 가까운 preset 자동 매핑
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex);
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+function colorDistance(a: [number, number, number], b: [number, number, number]): number {
+  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+}
+
+function findClosestPreset(hex: string): ThemeColorKey | null {
+  const target = hexToRgb(hex);
+  if (!target) return null;
+  let bestKey: ThemeColorKey | null = null;
+  let bestDist = Infinity;
+  for (const [key, preset] of Object.entries(THEME_COLOR_PRESETS) as Array<[ThemeColorKey, { hex: string }]>) {
+    const presetRgb = hexToRgb(preset.hex);
+    if (!presetRgb) continue;
+    const d = colorDistance(target, presetRgb);
+    if (d < bestDist) {
+      bestDist = d;
+      bestKey = key;
+    }
+  }
+  return bestKey;
+}
+
 export default function NewProjectPage() {
   const r = useRouter();
   const [topic, setTopic] = useState("");
@@ -109,7 +137,7 @@ export default function NewProjectPage() {
         </Field>
         <Field label="책 유형">
           <div className="flex gap-2 flex-wrap">
-            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서"] as const).map(t => (
+            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서", "요리책", "여행기", "매거진", "인터뷰집", "포트폴리오", "강의노트", "동화"] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setType(t)}
@@ -154,6 +182,28 @@ export default function NewProjectPage() {
                 </button>
               );
             })}
+          </div>
+          {/* 사용자 정의 hex 입력 — best-effort: 가장 가까운 preset 자동 매칭 */}
+          <div className="mt-3">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+              또는 직접 입력 (#rrggbb)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={THEME_COLOR_PRESETS[themeColor]?.hex ?? "#f97316"}
+                onChange={e => {
+                  const hex = e.target.value;
+                  const closest = findClosestPreset(hex);
+                  if (closest) setThemeColor(closest);
+                }}
+                className="w-12 h-9 border border-gray-300 rounded cursor-pointer"
+                title="HTML5 color picker — 가장 가까운 preset에 자동 매핑됨"
+              />
+              <span className="text-xs text-gray-500 flex items-center">
+                현재 매핑: <span className="ml-1 font-bold">{THEME_COLOR_PRESETS[themeColor].label}</span>
+              </span>
+            </div>
           </div>
         </div>
 
