@@ -465,7 +465,25 @@ function Inner() {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data }),
     });
-    if (!res.ok) throw new Error("저장 실패");
+    if (!res.ok) {
+      // 정확한 status + 본문 로그 → 환경별 원인 진단
+      let detail = "";
+      try {
+        const errBody = await res.json();
+        detail = errBody?.message || errBody?.error || JSON.stringify(errBody).slice(0, 100);
+      } catch {
+        detail = await res.text().then(t => t.slice(0, 100)).catch(() => "");
+      }
+      if (res.status === 401) {
+        // 세션 만료 — 로그인으로 자동 안내
+        if (confirm("로그인 세션이 만료되었습니다. 다시 로그인 페이지로 이동할까요?")) {
+          router.push(`/login?redirect=/write?id=${projectId}`);
+        }
+        throw new Error("로그인 만료 — 다시 로그인해주세요");
+      }
+      console.error("[saveProject] PUT failed", { status: res.status, detail });
+      throw new Error(`저장 실패 (${res.status}) ${detail}`);
+    }
     setProject(next);
   };
 
