@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Header } from "@/components/Header";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { getTheme } from "@/lib/theme-colors";
 import type { ThemeColorKey } from "@/lib/storage";
 
@@ -20,6 +22,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -49,6 +52,7 @@ export default function ProjectsPage() {
 
   const activeCount = projects.filter(p => !p.archived).length;
   const archivedCount = projects.filter(p => p.archived).length;
+  const hasExistingBooks = projects.length > 0;
 
   const togglePartial = async (id: string, patch: Partial<Project>) => {
     setProjects(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -74,6 +78,10 @@ export default function ProjectsPage() {
   return (
     <main className="min-h-screen bg-[#fafafa]">
       <Header />
+      <OnboardingTour
+        hasExistingBooks={hasExistingBooks}
+        userEmail={session?.user?.email}
+      />
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
         <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
           <div>
