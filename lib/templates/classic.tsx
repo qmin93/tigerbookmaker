@@ -92,7 +92,7 @@ export const classic: BookTemplate = {
   label: "클래식 도서",
   description: "serif (Noto Serif KR), 1단, 큰 첫글자, 종이책 느낌",
   thumbnailSvg: THUMBNAIL_SVG,
-  suggestedFor: ["에세이", "웹소설"],
+  suggestedFor: ["에세이", "웹소설", "여행기", "동화"],
   Render: ClassicRender,
   epubCss: EPUB_CSS,
   pdfHtmlWrapper,

@@ -125,7 +125,7 @@ export const practical: BookTemplate = {
   label: "실용 가이드",
   description: "체크리스트·인용 박스·표 강조, 행동 지향",
   thumbnailSvg: THUMBNAIL_SVG,
-  suggestedFor: ["매뉴얼"],
+  suggestedFor: ["매뉴얼", "요리책", "강의노트"],
   Render: PracticalRender,
   epubCss: EPUB_CSS,
   pdfHtmlWrapper,
