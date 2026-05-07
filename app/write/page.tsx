@@ -8,6 +8,20 @@ import { TemplateSelector } from "@/components/TemplateSelector";
 import { TemplatePreviewModal } from "@/components/TemplatePreviewModal";
 import type { TemplateKey } from "@/lib/templates";
 import type { MetaAdImage } from "@/lib/storage";
+import { RepurposeBox } from "./_components/sections/RepurposeBox";
+import { MetaAdsBox } from "./_components/sections/MetaAdsBox";
+import { MarketingPageBox } from "./_components/sections/MarketingPageBox";
+import { useTabState } from "./_hooks/useTabState";
+import { usePublishHint } from "./_hooks/usePublishHint";
+import { TopHeader } from "./_components/TopHeader";
+import { WritePageLayout } from "./_components/WritePageLayout";
+import { MobileBottomNav } from "./_components/MobileBottomNav";
+import { ChapterList as ChapterListNew } from "./_components/ChapterList";
+import { ChapterContent as ChapterContentNew } from "./_components/ChapterContent";
+import { WritingTab } from "./_components/tabs/WritingTab";
+import { PublishTab } from "./_components/tabs/PublishTab";
+import { ExtrasTab } from "./_components/tabs/ExtrasTab";
+import { OpsTab } from "./_components/tabs/OpsTab";
 
 type BatchState =
   | { status: "idle" }
@@ -135,19 +149,12 @@ function Inner() {
     authorBio?: string;
   } | null>(null);
   const [marketingBusy, setMarketingBusy] = useState(false);
-  const [marketingEditOpen, setMarketingEditOpen] = useState(false);
-  const [marketingForm, setMarketingForm] = useState<{
-    tagline?: string;
-    description?: string;
-    authorName?: string;
-    authorBio?: string;
-  }>({});
-  const [copyConfirm, setCopyConfirm] = useState(false);
+  // marketingEditOpen / marketingForm / copyConfirm — UI-only, MarketingPageBox로 이동됨
 
   // ─── Meta(FB/IG) 광고 패키지 (Sub-project 5) ───
   const [metaAdPackage, setMetaAdPackage] = useState<any>(null);
   const [metaAdBusy, setMetaAdBusy] = useState(false);
-  const [metaCopiedIdx, setMetaCopiedIdx] = useState<string | null>(null);
+  // metaCopiedIdx — UI-only, MetaAdsBox로 이동됨
 
   // ─── Meta 광고 이미지 (Part A — 3 비율) ───
   const [metaAdImages, setMetaAdImages] = useState<MetaAdImage[]>([]);
@@ -158,11 +165,10 @@ function Inner() {
   const [metaAllInOneBusy, setMetaAllInOneBusy] = useState<0 | 1 | 2>(0);
 
   // ─── 콘텐츠 재가공 (Wave 1: 5채널) ───
+  // 데이터/생성 상태만 page.tsx 보존 — Bundle/funnel/sync에서 참조.
+  // UI 상태(active tab, 복사 표시, 블로그 펼침)는 RepurposeBox 내부.
   const [repurposed, setRepurposed] = useState<any>(null);
-  const [activeRepurposeTab, setActiveRepurposeTab] = useState<RepurposeChannel>("instagram");
   const [repurposeBusy, setRepurposeBusy] = useState<RepurposeChannel | null>(null);
-  const [repurposeCopiedKey, setRepurposeCopiedKey] = useState<string | null>(null);
-  const [expandedBlogPost, setExpandedBlogPost] = useState<number | null>(null);
 
   // ─── 패키지 funnel + 1-click bundle (Wave B1) ───
   type BundleLevel = "publish" | "growth" | "full";
@@ -1185,47 +1191,49 @@ function Inner() {
     }
   };
 
-  const openMarketingEditor = () => {
-    setMarketingForm({ ...(marketingMeta ?? {}) });
-    setMarketingEditOpen(true);
-  };
+  // openMarketingEditor — MarketingPageBox 내부로 이동됨
 
-  const saveMarketingMeta = async () => {
-    if (!projectId) return;
+  // saveMarketingMeta — form을 인자로 받도록 변경 (MarketingPageBox에서 호출).
+  // 반환값: true = 저장 성공(편집 폼 닫음), false = 실패.
+  const saveMarketingMeta = async (form: any): Promise<boolean> => {
+    if (!projectId) return false;
     setMarketingBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marketingMeta: marketingForm }),
+        body: JSON.stringify({ marketingMeta: form }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || `저장 실패 (${res.status})`);
-      const merged = data.updates?.marketingMeta ?? { ...(marketingMeta ?? {}), ...marketingForm };
+      const merged = data.updates?.marketingMeta ?? { ...(marketingMeta ?? {}), ...form };
       setMarketingMeta(merged);
-      setMarketingEditOpen(false);
       const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
       setProject(fresh);
+      return true;
     } catch (e: any) {
       setError(e.message);
+      return false;
     } finally {
       setMarketingBusy(false);
     }
   };
 
-  const copyMarketingUrl = async () => {
-    if (!projectId) return;
+  // copyMarketingUrl — clipboard 쓰기만 수행, copyConfirm 토스트는 MarketingPageBox 내부에서 관리.
+  // 반환값: true = 복사 성공(박스가 토스트 표시), false = 사용자 취소·복사 실패.
+  const copyMarketingUrl = async (): Promise<boolean> => {
+    if (!projectId) return false;
     if (!marketingMeta?.tagline && !marketingMeta?.description) {
       const ok = confirm("⚠️ 마케팅 카피가 없습니다.\n\n방문자에게 책 소개·후킹이 보이지 않아 빈 페이지처럼 보일 수 있습니다.\n\n그래도 URL을 복사할까요? (먼저 '🤖 AI가 마케팅 카피 생성'을 권장합니다)");
-      if (!ok) return;
+      if (!ok) return false;
     }
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/book/${projectId}`);
-      setCopyConfirm(true);
-      setTimeout(() => setCopyConfirm(false), 2000);
+      return true;
     } catch (e: any) {
       setError(`URL 복사 실패: ${e.message}`);
+      return false;
     }
   };
 
@@ -1250,11 +1258,7 @@ function Inner() {
     }
   };
 
-  const copyMetaItem = async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setMetaCopiedIdx(key);
-    setTimeout(() => setMetaCopiedIdx(null), 1500);
-  };
+  // copyMetaItem — UI-only, MetaAdsBox로 이동됨
 
   // ─── 1-click: 카피 + 이미지 한 번에 ───
   const generateMetaAllInOne = async () => {
@@ -1322,12 +1326,6 @@ function Inner() {
     }
   };
 
-  const copyRepurpose = async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setRepurposeCopiedKey(key);
-    setTimeout(() => setRepurposeCopiedKey(null), 1500);
-  };
-
   // ─── Meta 광고 이미지 (Part A) — 3 비율 자동 생성 ───
   const generateMetaImages = async (regenerateOnly?: ("feed" | "story" | "link")[]) => {
     if (!projectId) return;
@@ -1362,15 +1360,7 @@ function Inner() {
     }
   };
 
-  const downloadMetaImage = (img: MetaAdImage) => {
-    const a = document.createElement("a");
-    a.href = `data:image/png;base64,${img.base64}`;
-    a.download = `meta-${img.type}-${img.aspectRatio.replace(":", "x")}.png`;
-    a.click();
-  };
-
-  const metaImageLabel = (type: MetaAdImage["type"]) =>
-    type === "feed" ? "피드" : type === "story" ? "스토리" : "링크";
+  // downloadMetaImage / metaImageLabel — UI-only, MetaAdsBox로 이동됨
 
   // ─── Wave B3: 카드뉴스 인포그래픽 5장 자동 생성 ───
   const generateInfographic = async () => {
@@ -1836,1897 +1826,1175 @@ function Inner() {
     return sum + phs.filter(ph => !c.images?.find(i => i.placeholder === ph)?.dataUrl).length;
   }, 0);
 
-  return (
-    <>
-    <Header />
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-32">
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div className="min-w-0 flex-1">
-          <Link href="/projects" className="text-sm text-gray-500 hover:text-tiger-orange">← 내 책</Link>
-          <h1 className="text-lg sm:text-xl font-black mt-1 line-clamp-2 break-keep">{project.topic}</h1>
-          <p className="text-xs text-gray-500">
-            {project.audience} · {project.type} · {project.targetPages}쪽
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link href={`/export?id=${projectId}`} className="px-4 py-2 bg-ink-900 text-white rounded-lg font-bold text-sm">내보내기 →</Link>
-        </div>
+  // ─── 4-tab 레이아웃 hooks ───
+  const { tab, setTab } = useTabState();
+  const showPublishHint = usePublishHint(project as any);
+
+  // 빈 책: 목차 생성 안내 (4-tab 레이아웃 진입 전)
+  if (project.chapters.length === 0) {
+    return (
+      <>
+        <Header />
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="mb-6">
+            <Link href="/projects" className="text-sm text-gray-500 hover:text-tiger-orange">← 내 책</Link>
+            <h1 className="text-lg sm:text-xl font-black mt-1 line-clamp-2 break-keep">{project.topic}</h1>
+            <p className="text-xs text-gray-500">
+              {project.audience} · {project.type} · {project.targetPages}쪽
+            </p>
+          </div>
+          {error && (
+            <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          )}
+          <div className="bg-white p-10 rounded-xl border border-gray-200 text-center">
+            <p className="mb-5 text-gray-600">아직 목차가 없습니다. AI가 12개 챕터를 제안합니다.</p>
+            <button onClick={generateToc} disabled={!!loading} className="px-6 py-3 bg-tiger-orange text-white rounded-lg font-bold disabled:opacity-50">
+              {loading || "목차 생성"}
+            </button>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  // ─── 4-tab 레이아웃 슬롯 변수 (return 전 정의) ───
+
+  // ChapterList(New) chapter mini 데이터
+  const chapterListChapters = project.chapters.map((c) => ({
+    id: c.id,
+    title: c.title,
+    subtitle: c.subtitle,
+    hasContent: (c.content?.length ?? 0) > 100,
+    charCount: c.content?.length ?? 0,
+  }));
+
+  // === 본문 탭 슬롯 ===
+  // 일괄 집필 + 챕터 추가/목차 재생성 + 본문 이미지 일괄
+  // (크몽 패키지 버튼은 kmongPackageBox로 분리됨)
+  const bulkWritingControls = (
+    <div className="space-y-1">
+      <button
+        onClick={() => startBatch(0)}
+        disabled={!!loading || batch.status === "running"}
+        className="w-full px-3 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-50 disabled:shadow-none"
+      >
+        {batch.status === "running"
+          ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
+          : "⚡ 전체 일괄 집필"}
+      </button>
+      <div className="grid grid-cols-2 gap-1">
+        <button onClick={() => setAddChapterOpen(true)} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
+          + 챕터 추가
+        </button>
+        <button onClick={generateToc} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
+          목차 재생성
+        </button>
       </div>
+    </div>
+  );
 
-      {error && (
-        <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+  const bulkImageControls = (
+    <>
+      {missingImageCount > 0 ? (
+        <button
+          onClick={generateAllChapterImages}
+          disabled={!!loading || !!imageGenBusy || batch.status === "running"}
+          className="w-full px-3 py-2 bg-orange-50 border border-tiger-orange/40 text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-100 transition disabled:opacity-50"
+          title={`본문에 누락된 이미지 ${missingImageCount}개를 한 번에 생성`}
+        >
+          {imageGenBusy.startsWith("[IMAGE:") ? `🖼️ ${imageGenBusy}` : `🖼️ 본문 이미지 일괄 (${missingImageCount}개)`}
+        </button>
+      ) : (
+        <p className="text-[11px] text-gray-500 px-1">누락된 본문 이미지 없음.</p>
       )}
+    </>
+  );
 
-      {project.chapters.length === 0 ? (
-        <div className="bg-white p-10 rounded-xl border border-gray-200 text-center">
-          <p className="mb-5 text-gray-600">아직 목차가 없습니다. AI가 12개 챕터를 제안합니다.</p>
-          <button onClick={generateToc} disabled={!!loading} className="px-6 py-3 bg-tiger-orange text-white rounded-lg font-bold disabled:opacity-50">
-            {loading || "목차 생성"}
+  // 표지 다양화는 크몽 모달 안에 깊이 nested돼 있어 쉽게 분리 어려움 — 모달에서 그대로 호출.
+  // 본문 탭 슬롯에는 안내만 노출.
+  const coverVariationsControls = (
+    <p className="text-[11px] text-gray-500 px-1">
+      📦 [크몽 패키지] 모달에서 ✨ 표지 5장 후보 / 🎨 표지 다양화 (3~5종) 사용 가능.
+    </p>
+  );
+
+  const templateSelectorBox = (
+    <TemplateSelector
+      projectId={projectId!}
+      current={(project as any)?.template}
+      onChange={(newKey) => setProject(p => p ? ({ ...p, template: newKey } as any) : p)}
+      disabled={!!loading}
+    />
+  );
+
+  // === 출간 탭 슬롯 ===
+  const marketingPageBoxSlot = (
+    <MarketingPageBox
+      projectId={projectId}
+      project={project}
+      marketingMeta={marketingMeta}
+      marketingBusy={marketingBusy}
+      loading={loading}
+      onGenerate={generateMarketingMeta}
+      onSave={saveMarketingMeta}
+      onCopyUrl={copyMarketingUrl}
+    />
+  );
+
+  const metaAdsBoxSlot = (
+    <MetaAdsBox
+      projectId={projectId}
+      metaAdPackage={metaAdPackage}
+      metaAdImages={metaAdImages}
+      metaAdBusy={metaAdBusy}
+      metaImgBusy={metaImgBusy}
+      metaAllInOneBusy={metaAllInOneBusy}
+      imageTemplate={imageTemplate}
+      setImageTemplate={setImageTemplate}
+      onGeneratePackage={generateMetaPackage}
+      onGenerateAllInOne={generateMetaAllInOne}
+      onGenerateImages={generateMetaImages}
+      onSetMetaAdImages={setMetaAdImages}
+      onSetBalance={setBalance}
+    />
+  );
+
+  // 패키지 추천 funnel + 1-click bundle (Wave B1)
+  const packageRecommendationBox = (() => {
+    const bookDone = project.chapters.length > 0 && project.chapters.every(c => c.content);
+    const marketingDone = !!(project as any).marketingMeta?.tagline;
+    const metaDone = !!(project as any).metaAdPackage || (Array.isArray((project as any).metaAdImages) && (project as any).metaAdImages.length > 0);
+    const repurposeDone = !!(project as any).repurposedContent && Object.keys((project as any).repurposedContent).length > 0;
+
+    const dots: { label: string; done: boolean; key: string }[] = [
+      { key: "book", label: "책 완성", done: bookDone },
+      { key: "marketing", label: "마케팅 페이지", done: marketingDone },
+      { key: "meta", label: "Meta 광고", done: metaDone },
+      { key: "repurpose", label: "콘텐츠 재가공", done: repurposeDone },
+    ];
+    const nextStep = dots.find(d => !d.done);
+    const allDone = !nextStep;
+
+    const bundleCard = (
+      level: BundleLevel,
+      title: string,
+      priceLabel: string,
+      desc: string,
+      gradient: string,
+      tag?: string,
+    ) => {
+      const isBusy = bundleBusy === level;
+      const otherBusy = bundleBusy && bundleBusy !== level;
+      return (
+        <div className={`relative p-4 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg`}>
+          {tag && (
+            <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-white text-tiger-orange text-[10px] font-black rounded-full shadow">{tag}</div>
+          )}
+          <div className="text-sm font-black mb-1">{title}</div>
+          <div className="text-[11px] opacity-90 mb-3 leading-relaxed break-keep">{desc}</div>
+          <div className="text-lg font-black mb-3">{priceLabel}</div>
+          <button
+            onClick={() => runBundle(level)}
+            disabled={!!bundleBusy || !!loading}
+            className="w-full px-3 py-2 bg-white/95 text-ink-900 rounded-lg text-xs font-black hover:bg-white transition disabled:opacity-50"
+          >
+            {isBusy
+              ? (bundleProgress ? `⏳ ${bundleProgress.step}/${bundleProgress.total} ${bundleProgress.label}...` : "⏳ 진행 중...")
+              : otherBusy ? "다른 패키지 진행 중" : "🚀 한 번에 만들기"}
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 lg:gap-6">
-          {/* 사이드바 */}
-          <aside className="bg-white rounded-xl border border-gray-200 p-3 h-fit">
-            {/* 액션 버튼 그룹 — 위에 sticky로 항상 보이게 */}
-            <div className="space-y-1 mb-3 pb-3 border-b border-gray-200">
-              <button
-                onClick={() => startBatch(0)}
-                disabled={!!loading || batch.status === "running"}
-                className="w-full px-3 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-50 disabled:shadow-none"
-              >
-                {batch.status === "running"
-                  ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
-                  : "⚡ 전체 일괄 집필"}
-              </button>
-              <div className="grid grid-cols-2 gap-1">
-                <button onClick={() => setAddChapterOpen(true)} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
-                  + 챕터 추가
-                </button>
-                <button onClick={generateToc} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
-                  목차 재생성
-                </button>
-              </div>
-              <button
-                onClick={generateFullKmongPackage}
-                disabled={!!loading || !!kmongBusy || batch.status === "running"}
-                className="w-full px-3 py-2 mt-1 border-2 border-tiger-orange text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-50 transition disabled:opacity-50"
-              >
-                {kmongBusy || ((project as any).kmongPackage ? "📦 크몽 패키지 (재생성)" : "📦 크몽 패키지 생성")}
-              </button>
-              {missingImageCount > 0 && (
-                <button
-                  onClick={generateAllChapterImages}
-                  disabled={!!loading || !!imageGenBusy || batch.status === "running"}
-                  className="w-full px-3 py-2 mt-1 bg-orange-50 border border-tiger-orange/40 text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-100 transition disabled:opacity-50"
-                  title={`본문에 누락된 이미지 ${missingImageCount}개를 한 번에 생성`}
-                >
-                  {imageGenBusy.startsWith("[IMAGE:") ? `🖼️ ${imageGenBusy}` : `🖼️ 본문 이미지 일괄 (${missingImageCount}개)`}
-                </button>
-              )}
-              {(project as any).kmongPackage && (
-                <button
-                  onClick={() => setKmongModalOpen(true)}
-                  className="w-full px-3 py-1 text-xs text-tiger-orange hover:underline"
-                >
-                  크몽 패키지 다시 보기
-                </button>
-              )}
-              {/* 공유 링크 토글 — 책 자랑·홍보용 */}
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <ShareToggle
-                  projectId={projectId!}
-                  enabled={(project as any).shareEnabled === true}
-                  shareLinks={(project as any).shareLinks ?? {}}
-                  onChange={async (patch) => {
-                    setProject({ ...(project as any), ...patch });
-                    await fetch(`/api/projects/${projectId}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ data: patch }),
-                    }).catch(() => {});
-                  }}
-                />
-              </div>
+      );
+    };
 
-              {/* 레이아웃 템플릿 — 4개 thumbnail 선택 */}
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <TemplateSelector
-                  projectId={projectId!}
-                  current={(project as any)?.template}
-                  onChange={(newKey) => setProject(p => p ? ({ ...p, template: newKey } as any) : p)}
-                  disabled={!!loading}
-                />
-              </div>
-
-              {/* 마케팅 페이지 — AI 카피 + 편집 + URL 복사 */}
-              <div className="mt-2 pt-2 border-t border-gray-100 px-2 pb-1">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-xs font-bold text-ink-900">🔗 마케팅 페이지</span>
-                  <a
-                    href={`/book/${projectId}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-xs text-tiger-orange hover:underline"
-                  >
-                    미리보기 →
-                  </a>
+    return (
+      <div className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200">
+        <div className="mb-3 p-3 bg-gradient-to-r from-orange-50 via-yellow-50 to-pink-50 rounded-xl border border-tiger-orange/20">
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {dots.map((d, i) => (
+              <div key={d.key} className="flex items-center gap-1.5">
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold ${
+                  d.done ? "bg-green-100 text-green-700" : "bg-white text-gray-500 border border-gray-200"
+                }`}>
+                  <span>{d.done ? "✅" : "⬜"}</span>
+                  <span>{d.label}</span>
                 </div>
-                {!marketingMeta ? (
-                  <button
-                    onClick={generateMarketingMeta}
-                    disabled={marketingBusy || !!loading}
-                    className="w-full px-2 py-1.5 border border-tiger-orange/40 text-tiger-orange rounded-lg text-[11px] font-bold hover:bg-orange-50 transition disabled:opacity-50"
-                  >
-                    {marketingBusy ? "AI 카피 생성 중..." : "🤖 AI가 마케팅 카피 생성 (~₩500)"}
-                  </button>
-                ) : (
-                  <>
-                    {marketingMeta.tagline && (
-                      <p className="text-[11px] text-gray-700 truncate mb-1.5" title={marketingMeta.tagline}>
-                        📌 {marketingMeta.tagline}
-                      </p>
-                    )}
-                    <div className="flex gap-1 text-[11px]">
-                      <button
-                        onClick={openMarketingEditor}
-                        disabled={marketingBusy}
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded hover:bg-gray-50 transition disabled:opacity-50"
-                      >
-                        편집
-                      </button>
-                      <button
-                        onClick={copyMarketingUrl}
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded hover:bg-gray-50 transition"
-                      >
-                        {copyConfirm ? "✓ 복사됨" : "URL 복사"}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {/* 📦 크몽 등록 가이드 (정적, AI 호출 X) */}
-                <KmongGuideBox project={project} />
-                {marketingEditOpen && (
-                  <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">한 줄 소개 (tagline)</label>
-                      <input
-                        type="text"
-                        maxLength={200}
-                        value={marketingForm.tagline ?? ""}
-                        onChange={e => setMarketingForm(f => ({ ...f, tagline: e.target.value }))}
-                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
-                        placeholder="이 책을 한 줄로"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">상세 설명 (description)</label>
-                      <textarea
-                        maxLength={3000}
-                        rows={4}
-                        value={marketingForm.description ?? ""}
-                        onChange={e => setMarketingForm(f => ({ ...f, description: e.target.value }))}
-                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded resize-y"
-                        placeholder="책 소개를 자세히"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">저자 이름</label>
-                      <input
-                        type="text"
-                        maxLength={50}
-                        value={marketingForm.authorName ?? ""}
-                        onChange={e => setMarketingForm(f => ({ ...f, authorName: e.target.value }))}
-                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 mb-0.5">저자 소개</label>
-                      <input
-                        type="text"
-                        maxLength={300}
-                        value={marketingForm.authorBio ?? ""}
-                        onChange={e => setMarketingForm(f => ({ ...f, authorBio: e.target.value }))}
-                        className="w-full text-xs px-2 py-1 border border-gray-200 rounded"
-                      />
-                    </div>
-                    <div className="flex gap-1 pt-1">
-                      <button
-                        onClick={() => setMarketingEditOpen(false)}
-                        disabled={marketingBusy}
-                        className="flex-1 px-2 py-1 text-[11px] border border-gray-200 rounded hover:bg-white transition disabled:opacity-50"
-                      >
-                        취소
-                      </button>
-                      <button
-                        onClick={saveMarketingMeta}
-                        disabled={marketingBusy}
-                        className="flex-1 px-2 py-1 text-[11px] bg-tiger-orange text-white font-bold rounded hover:bg-orange-600 transition disabled:opacity-50"
-                      >
-                        {marketingBusy ? "저장 중..." : "저장"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Meta(FB/IG) 광고 패키지 — Sub-project 5 */}
-              <div className="mb-3 p-3 bg-blue-50/50 border border-blue-300/40 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-ink-900">🎯 Meta 광고</h3>
-                  {metaAdPackage && (
-                    <button onClick={generateMetaPackage} disabled={metaAdBusy || metaAllInOneBusy !== 0} className="text-[10px] text-blue-600 hover:underline">🔄 다시</button>
-                  )}
-                </div>
-
-                {/* 1-click — 카피 + 이미지 한 번에 (큰 버튼) */}
-                <button
-                  onClick={generateMetaAllInOne}
-                  disabled={metaAllInOneBusy !== 0 || metaAdBusy || metaImgBusy}
-                  className="w-full px-3 py-3 mb-2 bg-gradient-to-r from-tiger-orange to-orange-600 text-white rounded-lg font-bold hover:from-orange-600 hover:to-orange-700 disabled:opacity-60 text-sm shadow-glow-orange-sm transition"
-                >
-                  {metaAllInOneBusy === 0 && (
-                    metaAdPackage && metaAdImages.length > 0
-                      ? "🔄 둘 다 다시 생성 (~₩2,000)"
-                      : metaAdPackage
-                        ? "⚡ 1-click — 이미지만 생성 (~₩1,500)"
-                        : "⚡ 1-click — 카피 + 이미지 한 번에 (~₩2,000)"
-                  )}
-                  {metaAllInOneBusy === 1 && "⏳ 1/2 카피 생성 중..."}
-                  {metaAllInOneBusy === 2 && "⏳ 2/2 이미지 생성 중... (약 30초)"}
-                </button>
-
-                {/* 또는 개별 생성 — 기존 카피만 버튼 */}
-                {!metaAdPackage && !metaAdBusy && metaAllInOneBusy === 0 && (
-                  <>
-                    <div className="text-[10px] text-gray-500 text-center mb-1">또는 개별 생성</div>
-                    <button
-                      onClick={generateMetaPackage}
-                      disabled={metaAdBusy || metaAllInOneBusy !== 0}
-                      className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
-                    >
-                      🎯 Meta 광고 카피만 생성 (~₩500)
-                    </button>
-                  </>
-                )}
-
-                {metaAdBusy && (
-                  <div className="text-xs text-blue-700 text-center py-2">⏳ AI 카피 생성 중...</div>
-                )}
-
-                {metaAdPackage && (
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <div className="font-bold text-ink-900 mb-1">📰 헤드라인 (≤40자)</div>
-                      {metaAdPackage.headlines.map((h: string, i: number) => (
-                        <div key={i} className="flex items-center gap-2 p-2 bg-white rounded mb-1">
-                          <span className="flex-1 break-all">{h}</span>
-                          <button onClick={() => copyMetaItem(h, `h${i}`)} className="text-[10px] text-blue-600 hover:underline shrink-0">
-                            {metaCopiedIdx === `h${i}` ? "✓ 복사됨" : "복사"}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <div className="font-bold text-ink-900 mb-1">📝 본문 (≤125자)</div>
-                      {metaAdPackage.primaryTexts.map((p: string, i: number) => (
-                        <div key={i} className="flex items-start gap-2 p-2 bg-white rounded mb-1">
-                          <span className="flex-1 break-all whitespace-pre-wrap">{p}</span>
-                          <button onClick={() => copyMetaItem(p, `p${i}`)} className="text-[10px] text-blue-600 hover:underline shrink-0">
-                            {metaCopiedIdx === `p${i}` ? "✓ 복사됨" : "복사"}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <div className="font-bold text-ink-900 mb-1">🔘 CTA 버튼</div>
-                      <div className="flex flex-wrap gap-1">
-                        {metaAdPackage.ctaButtons.map((c: string, i: number) => (
-                          <span key={i} className="px-2 py-1 bg-blue-100 text-blue-800 rounded">{c}</span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="font-bold text-ink-900 mb-1">🎯 타겟팅 추천</div>
-                      <div className="p-2 bg-white rounded space-y-1">
-                        <div>나이: {metaAdPackage.audienceSuggestion?.ageMin}~{metaAdPackage.audienceSuggestion?.ageMax}세</div>
-                        <div>관심사: {metaAdPackage.audienceSuggestion?.interests?.join(", ")}</div>
-                        <div>지역: {metaAdPackage.audienceSuggestion?.locations?.join(", ")}</div>
-                        <button
-                          onClick={() => copyMetaItem(JSON.stringify(metaAdPackage.audienceSuggestion, null, 2), "aud")}
-                          className="text-[10px] text-blue-600 hover:underline"
-                        >
-                          {metaCopiedIdx === "aud" ? "✓ 복사됨" : "JSON 복사"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Meta 광고 이미지 (Part A) — 3 비율 자동 생성 */}
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-bold text-ink-900">🖼️ 광고 이미지 (3 비율)</div>
-                    {metaAdImages.length > 0 && !metaImgBusy && (
-                      <button
-                        onClick={() => generateMetaImages()}
-                        className="text-[10px] text-blue-600 hover:underline"
-                      >
-                        🔄 전체 다시
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Wave 3: 디자인 템플릿 picker */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-bold text-ink-900 mb-1">디자인 템플릿</div>
-                    <div className="flex gap-1 flex-wrap">
-                      {[
-                        { key: "minimal", label: "🤍 미니멀" },
-                        { key: "bold", label: "🔥 강조" },
-                        { key: "story", label: "📱 스토리" },
-                        { key: "quote", label: "💬 인용" },
-                        { key: "cta", label: "🎯 CTA" },
-                      ].map(t => (
-                        <button
-                          key={t.key}
-                          onClick={() => setImageTemplate(t.key as any)}
-                          className={`text-[10px] px-2 py-1 rounded font-bold ${imageTemplate === t.key ? "bg-blue-500 text-white" : "bg-white border border-blue-200 text-blue-700 hover:border-blue-400"}`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {metaAdImages.length === 0 && !metaImgBusy && metaAllInOneBusy === 0 && (
-                    <>
-                      <div className="text-[10px] text-gray-500 text-center mb-1">또는 개별 생성</div>
-                      <button
-                        onClick={() => generateMetaImages()}
-                        disabled={metaImgBusy || metaAllInOneBusy !== 0}
-                        className="w-full px-3 py-2 bg-blue-500 text-white rounded font-bold hover:bg-blue-600 disabled:opacity-50 text-xs"
-                      >
-                        🎨 광고 이미지 3장만 생성 (~₩1,500)
-                      </button>
-                    </>
-                  )}
-
-                  {(metaImgBusy || metaAllInOneBusy === 2) && (
-                    <div className="text-xs text-blue-700 text-center py-3">
-                      ⏳ 이미지 생성 중... (약 30초)
-                      <span className="inline-block ml-1 animate-pulse">···</span>
-                    </div>
-                  )}
-
-                  {metaAdImages.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["feed", "story", "link"] as const).map((type) => {
-                        const img = metaAdImages.find((i) => i.type === type);
-                        const refineImageType = type === "feed" ? "meta-feed" : type === "story" ? "meta-story" : "meta-link";
-                        const refineAr = type === "feed" ? "1:1" : type === "story" ? "9:16" : "16:9";
-                        return (
-                          <div key={type} className="bg-white rounded border border-blue-200 p-1.5 flex flex-col relative">
-                            <div className="text-[10px] font-bold text-ink-900 mb-1 text-center">
-                              {metaImageLabel(type)}{" "}
-                              <span className="font-normal text-gray-500">
-                                {type === "feed" ? "1:1" : type === "story" ? "9:16" : "16:9"}
-                              </span>
-                            </div>
-                            {img ? (
-                              <>
-                                <img
-                                  src={`data:image/png;base64,${img.base64}`}
-                                  alt={`Meta ${type}`}
-                                  className="w-full max-h-[150px] object-contain bg-gray-50 rounded"
-                                />
-                                <div className="flex gap-1 mt-1 items-center">
-                                  <button
-                                    onClick={() => downloadMetaImage(img)}
-                                    className="flex-1 text-[10px] px-1 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                                  >
-                                    💾 다운로드
-                                  </button>
-                                  <button
-                                    onClick={() => generateMetaImages([type])}
-                                    disabled={metaImgBusy}
-                                    className="flex-1 text-[10px] px-1 py-0.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
-                                  >
-                                    🔄 다시
-                                  </button>
-                                  {projectId && (
-                                    <ImageRefineButton
-                                      projectId={projectId}
-                                      imageType={refineImageType}
-                                      aspectRatio={refineAr}
-                                      onRefined={(b64) => {
-                                        setMetaAdImages(prev => prev.map(p =>
-                                          p.type === type ? { ...p, base64: b64, generatedAt: Date.now() } : p
-                                        ));
-                                      }}
-                                      onBalanceChange={setBalance}
-                                    />
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center py-3 text-[10px] text-gray-400">
-                                <span>없음</span>
-                                <button
-                                  onClick={() => generateMetaImages([type])}
-                                  disabled={metaImgBusy}
-                                  className="mt-1 text-blue-600 hover:underline"
-                                >
-                                  생성
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 콘텐츠 재가공 — Wave 1 (5채널) */}
-              <div className="mb-3 p-3 bg-pink-50/50 border border-pink-300/40 rounded-lg">
-                <h3 className="text-sm font-bold text-ink-900 mb-2">📢 콘텐츠 재가공</h3>
-                <p className="text-[10px] text-gray-600 mb-3">책 1권 → 5채널 자동 생성</p>
-
-                {/* 5 tabs */}
-                <div className="flex gap-1 mb-3 overflow-x-auto">
-                  {(["instagram", "youtube", "blog", "email", "kakao"] as RepurposeChannel[]).map(ch => (
-                    <button
-                      key={ch}
-                      onClick={() => setActiveRepurposeTab(ch)}
-                      className={`px-2 py-1 text-[11px] rounded font-bold whitespace-nowrap ${
-                        activeRepurposeTab === ch
-                          ? "bg-pink-500 text-white"
-                          : "bg-white border border-pink-200 text-pink-700 hover:border-pink-400"
-                      }`}
-                    >
-                      {REPURPOSE_EMOJI[ch]} {REPURPOSE_LABEL[ch]}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Active tab content */}
-                <div>
-                  {(!repurposed || !repurposed[activeRepurposeTab]) && repurposeBusy !== activeRepurposeTab && (
-                    <button
-                      onClick={() => generateRepurpose(activeRepurposeTab)}
-                      className="w-full px-3 py-2 bg-pink-500 text-white rounded text-xs font-bold hover:bg-pink-600"
-                    >
-                      {REPURPOSE_LABEL[activeRepurposeTab]} 생성 ({REPURPOSE_COST[activeRepurposeTab]})
-                    </button>
-                  )}
-                  {repurposeBusy === activeRepurposeTab && (
-                    <div className="text-xs text-pink-700 text-center py-2">⏳ 생성 중... (10-20초)</div>
-                  )}
-                  {repurposed?.[activeRepurposeTab] && (
-                    <div>
-                      {/* ── Instagram ── */}
-                      {activeRepurposeTab === "instagram" && (() => {
-                        const ig = repurposed.instagram;
-                        return (
-                          <div className="space-y-3 text-xs">
-                            <div className="grid grid-cols-2 gap-2">
-                              {(ig.cards ?? []).map((card: any, i: number) => {
-                                const cardKey = `instagram-card-${i}`;
-                                const cardText = `${card.title}\n\n${card.body}`;
-                                return (
-                                  <div key={i} className="p-2 bg-white rounded border border-pink-200">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-bold text-pink-700">slide {card.slideNum ?? i + 1}</span>
-                                      <button onClick={() => copyRepurpose(cardText, cardKey)} className="text-[10px] text-pink-600 hover:underline">
-                                        {repurposeCopiedKey === cardKey ? "✓ 복사됨" : "복사"}
-                                      </button>
-                                    </div>
-                                    <div className="font-bold text-ink-900 break-words">{card.title}</div>
-                                    <div className="text-[11px] text-gray-700 mt-1 whitespace-pre-wrap break-words">{card.body}</div>
-                                    {card.designNote && (
-                                      <div className="text-[9px] text-gray-400 mt-1 italic">🎨 {card.designNote}</div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            {ig.caption && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">📝 캡션</div>
-                                  <button onClick={() => copyRepurpose(ig.caption, "instagram-caption")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "instagram-caption" ? "✓ 복사됨" : "복사"}
-                                  </button>
-                                </div>
-                                <div className="whitespace-pre-wrap break-words text-gray-700">{ig.caption}</div>
-                              </div>
-                            )}
-                            {ig.hashtags && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">#️⃣ 해시태그</div>
-                                  <button onClick={() => copyRepurpose(Array.isArray(ig.hashtags) ? ig.hashtags.join(" ") : String(ig.hashtags), "instagram-hashtags")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "instagram-hashtags" ? "✓ 복사됨" : "복사"}
-                                  </button>
-                                </div>
-                                <div className="break-words text-pink-700">
-                                  {Array.isArray(ig.hashtags) ? ig.hashtags.join(" ") : String(ig.hashtags)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* ── YouTube ── */}
-                      {activeRepurposeTab === "youtube" && (() => {
-                        const yt = repurposed.youtube;
-                        return (
-                          <div className="space-y-3 text-xs">
-                            {yt.title && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">🎬 제목</div>
-                                  <button onClick={() => copyRepurpose(yt.title, "youtube-title")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "youtube-title" ? "✓ 복사됨" : "복사"}
-                                  </button>
-                                </div>
-                                <div className="text-sm font-bold text-ink-900 break-words">{yt.title}</div>
-                              </div>
-                            )}
-                            {yt.script && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">📋 대본</div>
-                                  <button onClick={() => copyRepurpose(yt.script, "youtube-script")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "youtube-script" ? "✓ 복사됨" : "📋 대본 복사"}
-                                  </button>
-                                </div>
-                                <div className="max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words text-gray-700 text-[11px]">{yt.script}</div>
-                              </div>
-                            )}
-                            {yt.thumbnailConcept && (
-                              <div className="p-2 bg-gray-100 rounded">
-                                <div className="font-bold text-ink-900 mb-1">🖼️ 썸네일 컨셉</div>
-                                <div className="whitespace-pre-wrap break-words text-gray-700">{yt.thumbnailConcept}</div>
-                              </div>
-                            )}
-                            {Array.isArray(yt.chapterMarkers) && yt.chapterMarkers.length > 0 && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="font-bold text-ink-900 mb-1">⏱️ 챕터 마커</div>
-                                <div className="space-y-0.5">
-                                  {yt.chapterMarkers.map((m: any, i: number) => (
-                                    <div key={i} className="font-mono text-[11px]">
-                                      <span className="text-pink-600">{m.time ?? m.timestamp ?? "00:00"}</span>
-                                      <span className="text-gray-400"> → </span>
-                                      <span className="text-gray-800">{m.label ?? m.title ?? ""}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {yt.description && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">📝 설명</div>
-                                  <button onClick={() => copyRepurpose(yt.description, "youtube-desc")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "youtube-desc" ? "✓ 복사됨" : "복사"}
-                                  </button>
-                                </div>
-                                <div className="whitespace-pre-wrap break-words text-gray-700">{yt.description}</div>
-                              </div>
-                            )}
-                            {yt.tags && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="font-bold text-ink-900">🏷️ 태그</div>
-                                  <button onClick={() => copyRepurpose(Array.isArray(yt.tags) ? yt.tags.join(", ") : String(yt.tags), "youtube-tags")} className="text-[10px] text-pink-600 hover:underline">
-                                    {repurposeCopiedKey === "youtube-tags" ? "✓ 복사됨" : "복사"}
-                                  </button>
-                                </div>
-                                <div className="break-words text-gray-700">
-                                  {Array.isArray(yt.tags) ? yt.tags.join(", ") : String(yt.tags)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* ── Blog ── */}
-                      {activeRepurposeTab === "blog" && (() => {
-                        const bl = repurposed.blog;
-                        const posts = (bl.posts ?? []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-                        return (
-                          <div className="space-y-2 text-xs">
-                            {bl.seriesTitle && (
-                              <div className="p-2 bg-white rounded border border-pink-200">
-                                <div className="text-[10px] text-gray-500">시리즈 제목</div>
-                                <div className="font-bold text-ink-900 break-words">{bl.seriesTitle}</div>
-                              </div>
-                            )}
-                            {posts.map((post: any, i: number) => {
-                              const isOpen = expandedBlogPost === i;
-                              const postKey = `blog-post-${i}`;
-                              return (
-                                <div key={i} className="bg-white rounded border border-pink-200">
-                                  <button
-                                    onClick={() => setExpandedBlogPost(isOpen ? null : i)}
-                                    className="w-full p-2 text-left flex items-start justify-between gap-2"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-[10px] text-pink-700 font-bold">Post {post.order ?? i + 1}</div>
-                                      <div className="font-bold text-ink-900 break-words">{post.title}</div>
-                                    </div>
-                                    <span className="text-pink-600 shrink-0">{isOpen ? "▼" : "▶"}</span>
-                                  </button>
-                                  {isOpen && (
-                                    <div className="px-2 pb-2 space-y-2">
-                                      {post.excerpt && (
-                                        <div className="text-[11px] italic text-gray-600 border-l-2 border-pink-300 pl-2">{post.excerpt}</div>
-                                      )}
-                                      {Array.isArray(post.tags) && post.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1">
-                                          {post.tags.map((t: string, ti: number) => (
-                                            <span key={ti} className="text-[10px] px-1.5 py-0.5 bg-pink-100 text-pink-800 rounded">#{t}</span>
-                                          ))}
-                                        </div>
-                                      )}
-                                      {post.body && (
-                                        <div>
-                                          <div className="flex items-center justify-between mb-1">
-                                            <div className="text-[10px] font-bold text-ink-900">본문</div>
-                                            <button onClick={() => copyRepurpose(post.body, postKey)} className="text-[10px] text-pink-600 hover:underline">
-                                              {repurposeCopiedKey === postKey ? "✓ 복사됨" : "📋 본문 복사"}
-                                            </button>
-                                          </div>
-                                          <div className="max-h-[240px] overflow-y-auto whitespace-pre-wrap break-words text-[11px] text-gray-700 bg-gray-50 p-2 rounded">{post.body}</div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-
-                      {/* ── Email ── */}
-                      {activeRepurposeTab === "email" && (() => {
-                        const em = repurposed.email;
-                        const series = (em.series ?? []).slice().sort((a: any, b: any) => (a.day ?? 0) - (b.day ?? 0));
-                        return (
-                          <div className="space-y-2 text-xs">
-                            {series.map((mail: any, i: number) => {
-                              const mailKey = `email-${i}`;
-                              const fullText = `제목: ${mail.subject}\n프리헤더: ${mail.preheader}\n\n${mail.body}\n\nCTA: ${mail.cta}`;
-                              return (
-                                <div key={i} className="p-2 bg-white rounded border border-pink-200">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="text-[10px] font-bold text-pink-700">Day {mail.day ?? i + 1}</div>
-                                    <button onClick={() => copyRepurpose(fullText, mailKey)} className="text-[10px] text-pink-600 hover:underline">
-                                      {repurposeCopiedKey === mailKey ? "✓ 복사됨" : "📋 복사"}
-                                    </button>
-                                  </div>
-                                  {mail.subject && <div className="font-bold text-ink-900 break-words">{mail.subject}</div>}
-                                  {mail.preheader && <div className="text-[10px] text-gray-500 italic break-words mt-0.5">{mail.preheader}</div>}
-                                  {mail.body && <div className="text-[11px] text-gray-700 whitespace-pre-wrap break-words mt-2">{mail.body}</div>}
-                                  {mail.cta && (
-                                    <div className="mt-2 inline-block px-2 py-1 bg-pink-100 text-pink-800 rounded text-[11px] font-bold">{mail.cta}</div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-
-                      {/* ── Kakao ── */}
-                      {activeRepurposeTab === "kakao" && (() => {
-                        const kk = repurposed.kakao;
-                        const messages = (kk.messages ?? []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-                        // Wave C3: 카카오 비즈니스 채널 양식 (단일 .txt) 다운로드
-                        const downloadKakaoBizFormat = () => {
-                          const lines: string[] = [
-                            "[카카오 비즈니스 채널 알림톡]",
-                            "",
-                            `책 주제: ${project?.topic ?? ""}`,
-                            `대상 독자: ${project?.audience ?? ""}`,
-                            "",
-                            "─────────────────────────",
-                            "",
-                          ];
-                          messages.forEach((m: any, i: number) => {
-                            lines.push(`== 메시지 ${m.order ?? i + 1} ==`);
-                            lines.push(`hook: ${m.hook ?? ""}`);
-                            lines.push(`body: ${m.body ?? ""}`);
-                            lines.push(`cta: ${m.cta ?? ""}`);
-                            lines.push("");
-                          });
-                          lines.push("─────────────────────────");
-                          lines.push("※ 카카오 비즈니스 채널 관리자 페이지 → 알림톡 → 새 메시지에 위 내용을 그대로 복사·붙여넣기 하세요.");
-                          const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `kakao-biz-messages-${(project?.topic ?? "book").slice(0, 20).replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}.txt`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        };
-                        return (
-                          <div className="space-y-2 text-xs">
-                            {messages.length > 0 && (
-                              <button
-                                onClick={downloadKakaoBizFormat}
-                                className="w-full px-2 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 text-[11px] font-bold rounded border border-yellow-300"
-                                title="5개 메시지를 단일 .txt 파일로 export"
-                              >
-                                📥 카카오 비즈 양식 다운로드 (.txt)
-                              </button>
-                            )}
-                            {messages.map((msg: any, i: number) => {
-                              const msgKey = `kakao-${i}`;
-                              const fullText = `${msg.hook}\n\n${msg.body}\n\n${msg.cta}`;
-                              return (
-                                <div key={i} className="p-2 bg-white rounded border border-pink-200">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="text-[10px] font-bold text-pink-700">메시지 {msg.order ?? i + 1}</div>
-                                    <button onClick={() => copyRepurpose(fullText, msgKey)} className="text-[10px] text-pink-600 hover:underline">
-                                      {repurposeCopiedKey === msgKey ? "✓ 복사됨" : "📋 복사"}
-                                    </button>
-                                  </div>
-                                  {msg.hook && <div className="text-sm font-bold text-ink-900 break-words">{msg.hook}</div>}
-                                  {msg.body && <div className="text-[11px] text-gray-700 whitespace-pre-wrap break-words mt-1">{msg.body}</div>}
-                                  {msg.cta && (
-                                    <div className="mt-2 inline-block px-2 py-1 bg-pink-100 text-pink-800 rounded text-[11px] font-bold">{msg.cta}</div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-
-                      <button
-                        onClick={() => generateRepurpose(activeRepurposeTab)}
-                        className="mt-2 text-[10px] text-pink-600 hover:underline"
-                      >
-                        🔄 다시 생성
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 🌐 책 번역 — Wave C2 (영어/일본어 KDP 진출용) */}
-            <div className="mb-3 p-3 bg-indigo-50/60 border border-indigo-300/50 rounded-lg">
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <h3 className="text-sm font-bold text-ink-900">🌐 책 번역</h3>
-                <span className="text-[10px] text-indigo-700">~₩2,000/책 (전체)</span>
-              </div>
-              <p className="text-[10px] text-gray-600 mb-2">한국어 책 → 영어 또는 일본어 한 번에 번역. KDP/Amazon 글로벌 진출용.</p>
-
-              <div className="flex gap-1.5 mb-2">
-                {(["en", "ja"] as TranslationLang[]).map(lang => {
-                  const label = lang === "en" ? "🇺🇸 영어" : "🇯🇵 일본어";
-                  const active = translateLang === lang;
-                  return (
-                    <button
-                      key={lang}
-                      onClick={() => setTranslateLang(lang)}
-                      disabled={translateBusy}
-                      className={`flex-1 px-2 py-1 text-[11px] rounded font-bold border ${
-                        active
-                          ? "bg-indigo-500 text-white border-indigo-500"
-                          : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400"
-                      } disabled:opacity-50`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => handleTranslate(translateLang)}
-                disabled={translateBusy || !project?.chapters?.length}
-                className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded disabled:opacity-50"
-              >
-                {translateBusy ? "⏳ 번역 중..." : `🌐 책 전체 번역 (~₩2,000)`}
-              </button>
-
-              {translateMsg && (
-                <div className="mt-2 text-[11px] text-indigo-800 bg-white border border-indigo-200 rounded p-2">
-                  {translateMsg}
-                </div>
-              )}
-
-              {translations.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  <div className="text-[10px] font-bold text-indigo-900">완료된 번역</div>
-                  {translations.map(t => {
-                    const flag = t.language === "en" ? "🇺🇸" : "🇯🇵";
-                    const langLabel = t.language === "en" ? "영어" : "일본어";
-                    const completed = t.chapters?.filter((c: any) => c?.content).length ?? 0;
-                    const total = project?.chapters?.length ?? 0;
-                    const isOpen = translatePreviewLang === t.language;
-                    return (
-                      <div key={t.language} className="bg-white border border-indigo-200 rounded p-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-[11px] font-bold text-indigo-900">
-                            {flag} {langLabel} — {completed}/{total} 챕터
-                          </div>
-                          <button
-                            onClick={() => setTranslatePreviewLang(isOpen ? null : t.language)}
-                            className="text-[10px] text-indigo-600 hover:underline"
-                          >
-                            {isOpen ? "접기" : "미리보기"}
-                          </button>
-                        </div>
-                        {isOpen && (
-                          <div className="mt-2 max-h-60 overflow-y-auto text-[11px] text-gray-800 space-y-2 border-t border-indigo-100 pt-2">
-                            <div><b>Title:</b> {t.topic}</div>
-                            <div><b>Audience:</b> {t.audience}</div>
-                            {(t.chapters ?? []).slice(0, 3).map((c: any, i: number) => (
-                              c?.title ? (
-                                <div key={i} className="border-t border-gray-100 pt-1">
-                                  <div className="font-bold">Ch{i + 1}: {c.title}</div>
-                                  {c.content && <div className="whitespace-pre-wrap line-clamp-4 text-gray-600">{c.content.slice(0, 400)}...</div>}
-                                </div>
-                              ) : null
-                            ))}
-                            {(t.chapters?.length ?? 0) > 3 && (
-                              <div className="text-[10px] text-gray-500">… ({(t.chapters?.length ?? 0) - 3}개 챕터 더)</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <p className="text-[10px] text-gray-500">PDF/EPUB 다운로드는 추후 추가 예정.</p>
-                </div>
-              )}
-            </div>
-
-            {/* 💰 매출 입력 ("이정도 번다") — 사용자가 채널별 매출 직접 입력 → /profile에서 ROI 계산 */}
-            <div className="mb-3 p-3 bg-green-50/60 border border-green-300/50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-ink-900">💰 매출 입력</h3>
-                {(() => {
-                  const net = revenueChannels.reduce(
-                    (sum, c) => sum + Math.floor((Number(c.grossKRW) || 0) * (1 - (Number(c.feeRate) || 0))),
-                    0,
-                  );
-                  return (
-                    <span className="text-[11px] font-mono text-green-700 font-bold">
-                      순매출 ₩{net.toLocaleString()}
-                    </span>
-                  );
-                })()}
-              </div>
-              <div className="space-y-1.5">
-                {revenueChannels.map((row, i) => {
-                  const labelMap: Record<string, string> = {
-                    kmong: "크몽", ridi: "리디", kyobo: "교보", aladdin: "알라딘",
-                    direct: "직접", other: "기타",
-                  };
-                  return (
-                    <div key={`${row.channel}-${i}`} className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-gray-700 w-10 shrink-0">
-                        {labelMap[row.channel] ?? row.channel}
-                      </span>
-                      <div className="flex items-center gap-0.5 flex-1 min-w-0">
-                        <span className="text-[10px] text-gray-400">₩</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100_000_000}
-                          step={1000}
-                          value={row.grossKRW || ""}
-                          onChange={e => updateRevenueChannel(i, { grossKRW: Number(e.target.value) || 0 })}
-                          placeholder="0"
-                          className="flex-1 min-w-0 text-[11px] px-1.5 py-1 border border-gray-200 rounded font-mono focus:border-tiger-orange focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={Math.round((Number(row.feeRate) || 0) * 100)}
-                          onChange={e => updateRevenueChannel(i, { feeRate: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })}
-                          className="w-10 text-[11px] px-1 py-1 border border-gray-200 rounded font-mono text-right focus:border-tiger-orange focus:outline-none"
-                          title="채널 수수료 %"
-                        />
-                        <span className="text-[10px] text-gray-400">%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                onClick={saveRevenue}
-                disabled={revenueBusy}
-                className="w-full mt-2 px-2 py-1.5 bg-green-600 text-white rounded text-[11px] font-bold hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {revenueBusy ? "저장 중..." : revenueSavedFlash ? "✓ 저장됨" : "💾 저장"}
-              </button>
-              <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed">
-                직접 입력. 자동 추적은 추후 추가 예정.
-              </p>
-            </div>
-
-            <p className="text-xs font-bold text-gray-500 px-2 py-2 flex items-center justify-between">
-              <span>목차 ({project.chapters.length})</span>
-              <span className="lg:hidden text-[10px] font-mono text-gray-400">↕ 스크롤</span>
-            </p>
-            <div className="max-h-[40vh] lg:max-h-none overflow-y-auto -mx-1 px-1">
-              {/* 모바일: 본문 빠르게 보이게 챕터 목록만 max-h. lg+에선 풀 표시 */}
-            {project.chapters.map((c, i) => (
-              <div
-                key={i}
-                draggable
-                onDragStart={handleDragStart(i)}
-                onDragOver={handleDragOver(i)}
-                onDragLeave={() => setDragOverIdx(null)}
-                onDragEnd={handleDragEnd}
-                onDrop={handleDrop(i)}
-                className={`relative group rounded-lg mb-1 transition ${
-                  i === activeIdx ? "bg-tiger-orange text-white" : "hover:bg-gray-100"
-                } ${dragIdx === i ? "opacity-40" : ""} ${
-                  dragOverIdx === i ? "ring-2 ring-tiger-orange ring-offset-1" : ""
-                }`}
-              >
-                <button onClick={() => {
-                  if (editingContent !== null && i !== activeIdx && !confirm("편집 중인 내용이 있습니다. 저장 안 하고 다른 챕터로 이동할까요?")) return;
-                  if (i !== activeIdx) setEditingContent(null);
-                  setActiveIdx(i);
-                }} className="w-full text-left px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs cursor-grab opacity-30 group-hover:opacity-70 transition ${i === activeIdx ? "text-white/70" : "text-gray-400"}`} title="드래그로 순서 변경">⋮⋮</span>
-                    <span className="font-bold">{i + 1}.</span>
-                    <span className="truncate flex-1">{c.title}</span>
-                    {c.content && <span className="text-xs">✓</span>}
-                  </div>
-                </button>
-                <div className={`flex gap-1 px-2 pb-2 text-xs ${i === activeIdx ? "text-white/80" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
-                  <button onClick={() => moveChapter(i, -1)} disabled={i === 0} className="hover:underline disabled:opacity-30">↑</button>
-                  <button onClick={() => moveChapter(i, 1)} disabled={i === project.chapters.length - 1} className="hover:underline disabled:opacity-30">↓</button>
-                  <button onClick={() => startEditTitle(i)} className="hover:underline">수정</button>
-                  {/* 챕터별 사용된 chunks 표시 — references 있을 때만 */}
-                  {!!((project as any).referencesSummary?.keyPoints?.length) && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); loadChunkUsage(i); }}
-                      className={`hover:underline ${i === activeIdx ? "text-white" : "hover:text-tiger-orange"}`}
-                      title="이 챕터 주제와 의미적으로 가까운 자료 chunks (근사)"
-                      disabled={chunkUsageBusy === i}
-                    >
-                      {chunkUsageBusy === i ? "⏳" : `📚${chunkUsageData[i] ? ` ${chunkUsageData[i].length}` : ""}`}
-                    </button>
-                  )}
-                  <button onClick={() => deleteChapter(i)} className="hover:underline ml-auto">삭제</button>
-                </div>
-                {/* 사용된 chunks inline expand */}
-                {chunkUsageOpen === i && chunkUsageData[i] && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className={`px-2 pb-2 ${i === activeIdx ? "text-white/90" : "text-ink-900"}`}
-                  >
-                    <div className={`rounded-lg border p-2 text-[11px] space-y-1.5 ${
-                      i === activeIdx ? "bg-white/10 border-white/20" : "bg-gray-50 border-gray-200"
-                    }`}>
-                      <div className={`text-[10px] italic ${i === activeIdx ? "text-white/70" : "text-gray-500"}`}>
-                        ❓ 챕터 주제와 의미적으로 가까운 chunk입니다 (실제 본문 인용 여부는 별도 검증 필요)
-                      </div>
-                      {chunkUsageData[i].length === 0 ? (
-                        <div className={i === activeIdx ? "text-white/80" : "text-gray-500"}>
-                          관련 자료를 찾지 못했습니다 (거리 임계값 0.7 초과).
-                        </div>
-                      ) : (
-                        chunkUsageData[i].map((cu, ci) => {
-                          // distance 0(완벽 일치) ~ 0.7(임계). similarity bar 0~1로 변환.
-                          const sim = Math.max(0, Math.min(1, 1 - cu.distance));
-                          const snippet = cu.content.length > 200 ? cu.content.slice(0, 200) + "…" : cu.content;
-                          return (
-                            <div key={ci} className={`rounded p-1.5 ${i === activeIdx ? "bg-white/10" : "bg-white border border-gray-100"}`}>
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <span className={`font-mono text-[10px] truncate ${i === activeIdx ? "text-white/90" : "text-gray-700"}`} title={`${cu.filename} #${cu.chunkIdx + 1}`}>
-                                  {cu.filename} #{cu.chunkIdx + 1}
-                                </span>
-                                <div className="flex items-center gap-1 shrink-0" title={`유사도 ${(sim * 100).toFixed(0)}% (distance ${cu.distance.toFixed(3)})`}>
-                                  <div className={`w-12 h-1 rounded-full overflow-hidden ${i === activeIdx ? "bg-white/20" : "bg-gray-200"}`}>
-                                    <div
-                                      className={`h-full ${i === activeIdx ? "bg-white" : "bg-tiger-orange"}`}
-                                      style={{ width: `${(sim * 100).toFixed(0)}%` }}
-                                    />
-                                  </div>
-                                  <span className={`text-[9px] font-mono ${i === activeIdx ? "text-white/80" : "text-gray-500"}`}>{(sim * 100).toFixed(0)}%</span>
-                                </div>
-                              </div>
-                              <div className={`text-[10px] leading-snug whitespace-pre-wrap break-keep ${i === activeIdx ? "text-white/85" : "text-gray-700"}`}>
-                                {snippet}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setChunkUsageOpen(null); }}
-                        className={`text-[10px] underline ${i === activeIdx ? "text-white/70 hover:text-white" : "text-gray-500 hover:text-tiger-orange"}`}
-                      >
-                        닫기
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {/* hover tooltip — 챕터 요약 */}
-                {(c.subtitle || (c as any).summary) && (
-                  <div className="absolute left-full ml-3 top-0 w-72 p-3.5 bg-ink-900 text-white text-xs rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[60] hidden lg:block">
-                    <div className="font-bold mb-1.5 text-tiger-orange text-[10px] uppercase tracking-wider">{i + 1}장 — {c.content ? "집필 완료" : "미집필"}</div>
-                    {c.subtitle && <div className="text-white/80 italic mb-2 text-[11px]">{c.subtitle}</div>}
-                    {(c as any).summary && (
-                      <>
-                        <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1">요약</div>
-                        <div className="text-white/90 leading-relaxed line-clamp-6">{(c as any).summary}</div>
-                      </>
-                    )}
-                    {!c.content && !(c as any).summary && (
-                      <div className="text-white/50 italic text-[11px]">아직 본문 작성 안 됨</div>
-                    )}
-                    {/* tooltip 화살표 */}
-                    <div className="absolute -left-1.5 top-3 w-3 h-3 bg-ink-900 rotate-45" />
-                  </div>
-                )}
+                {i < dots.length - 1 && <span className="text-gray-300">→</span>}
               </div>
             ))}
+          </div>
+          {!allDone && nextStep && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs text-ink-900">
+                <span className="text-tiger-orange font-bold">다음:</span> {nextStep.label}
+              </div>
+              <button
+                onClick={() => {
+                  if (nextStep.key === "marketing") generateMarketingMeta();
+                  else if (nextStep.key === "meta") {
+                    if (!(project as any).metaAdPackage) generateMetaPackage();
+                    else generateMetaImages();
+                  } else if (nextStep.key === "repurpose") {
+                    const channels: RepurposeChannel[] = ["instagram", "youtube", "blog", "email", "kakao"];
+                    const existing: any = (project as any).repurposedContent ?? {};
+                    const firstNeed = channels.find(ch => !existing[ch]) ?? "instagram";
+                    generateRepurpose(firstNeed);
+                  }
+                }}
+                disabled={!!bundleBusy || !!loading || nextStep.key === "book"}
+                className="px-3 py-1.5 bg-tiger-orange text-white rounded-lg text-xs font-black hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                → 다음: {nextStep.label}
+              </button>
             </div>
-            {/* + 챕터 추가 inline form */}
-            {addChapterOpen ? (
-              <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-                <input
-                  type="text"
-                  autoFocus
-                  value={addChapterDraft.title}
-                  onChange={e => setAddChapterDraft(d => ({ ...d, title: e.target.value }))}
-                  onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
-                  placeholder="챕터 제목 *"
-                  maxLength={100}
-                  className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-tiger-orange focus:outline-none"
+          )}
+          {allDone && (
+            <div className="text-xs text-green-700 font-bold">🎉 모든 단계 완료! 풀 패키지 준비됐습니다.</div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          {bundleCard("publish", "🎯 출간 패키지", "약 ₩900", "표지 + EPUB + 마케팅 카피", "from-tiger-orange to-orange-600")}
+          {bundleCard("growth", "📈 성장 패키지", "약 ₩2,500", "출간 + Meta 광고 카피·이미지 + 마케팅 페이지", "from-blue-500 to-blue-700", "추천")}
+          {bundleCard("full", "🚀 풀 패키지", "약 ₩6,300", "성장 + 5채널 재가공 (인스타·유튜브·블로그·이메일·카톡)", "from-pink-500 to-purple-600")}
+        </div>
+
+        {bundleBusy && bundleProgress && (
+          <div className="mt-3 p-2.5 bg-orange-50 border border-tiger-orange/30 rounded-lg text-xs text-ink-900">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-bold">⏳ {bundleProgress.label}</span>
+              <span className="font-mono text-gray-500">{bundleProgress.step}/{bundleProgress.total}</span>
+            </div>
+            <div className="h-1.5 bg-white rounded-full overflow-hidden">
+              <div className="h-full bg-tiger-orange transition-all" style={{ width: `${(bundleProgress.step / bundleProgress.total) * 100}%` }} />
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1.5">완료된 항목은 자동 스킵.</p>
+          </div>
+        )}
+      </div>
+    );
+  })();
+
+  // 카드뉴스 인포그래픽 — Wave B3
+  const infographicBox = (
+    <div className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200">
+      {!(project as any).referencesSummary?.keyPoints?.length && (
+        <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-800">
+          ⚠️ 먼저{" "}
+          <Link href={`/write/setup?id=${projectId}`} className="text-tiger-orange font-bold hover:underline">자료 분석</Link>
+          이 필요합니다.
+        </div>
+      )}
+      <p className="text-[11px] text-gray-500 mb-2">책의 핵심 5가지 → 1080×1080 PNG 5장</p>
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="text-[11px] font-bold text-gray-600">템플릿:</span>
+        {(["minimal", "bold", "dark"] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setInfographicTemplate(t)}
+            disabled={infographicBusy}
+            className={`px-2 py-0.5 text-[11px] rounded-full border transition ${
+              infographicTemplate === t
+                ? "bg-tiger-orange text-white border-tiger-orange font-bold"
+                : "bg-white border-gray-200 text-gray-700 hover:border-tiger-orange"
+            }`}
+          >
+            {t === "minimal" ? "🤍 미니멀" : t === "bold" ? "🟧 볼드" : "⬛ 다크"}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={generateInfographic}
+        disabled={infographicBusy || !((project as any).referencesSummary?.keyPoints?.length)}
+        className="w-full px-3 py-2 bg-tiger-orange text-white rounded text-xs font-black hover:bg-orange-600 transition disabled:opacity-50"
+      >
+        {infographicBusy ? "⏳ 5장 생성 중..." : infographic ? "🔄 다시 생성" : "✨ 5장 생성 (~₩1,000)"}
+      </button>
+      {infographic && infographic.slides.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] text-gray-500 mb-1.5">{infographic.template} · {new Date(infographic.generatedAt).toLocaleString("ko-KR")}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {infographic.slides.map(slide => (
+              <div key={slide.slideNum} className="bg-[#fafafa] rounded p-1 border border-gray-200 relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:image/png;base64,${slide.base64}`}
+                  alt={`infographic ${slide.slideNum}`}
+                  className="w-full aspect-square object-cover rounded mb-1"
                 />
-                <input
-                  type="text"
-                  value={addChapterDraft.subtitle}
-                  onChange={e => setAddChapterDraft(d => ({ ...d, subtitle: e.target.value }))}
-                  onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
-                  placeholder="부제 (선택)"
-                  maxLength={150}
-                  className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded focus:border-tiger-orange focus:outline-none"
-                />
-                <div className="flex gap-1">
+                <div className="flex gap-0.5 items-center">
                   <button
-                    onClick={submitAddChapter}
-                    disabled={!addChapterDraft.title.trim() || !!loading}
-                    className="flex-1 px-2 py-1.5 bg-tiger-orange text-white rounded text-xs font-bold hover:bg-orange-600 transition disabled:opacity-50"
+                    onClick={() => downloadInfographicSlide(slide)}
+                    className="flex-1 px-1 py-0.5 bg-ink-900 text-white text-[9px] font-bold rounded hover:bg-black transition"
                   >
-                    추가
+                    ⬇{slide.slideNum}
                   </button>
-                  <button
-                    onClick={() => { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); }}
-                    className="px-2 py-1.5 border border-gray-200 rounded text-xs hover:bg-white transition"
-                  >
-                    취소
-                  </button>
+                  {projectId && (
+                    <ImageRefineButton
+                      projectId={projectId}
+                      imageType="infographic"
+                      aspectRatio="1:1"
+                      onRefined={(b64) => {
+                        setInfographic(prev => prev ? {
+                          ...prev,
+                          slides: prev.slides.map(s =>
+                            s.slideNum === slide.slideNum ? { ...s, base64: b64 } : s
+                          ),
+                        } : prev);
+                      }}
+                      onBalanceChange={setBalance}
+                    />
+                  )}
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={() => setAddChapterOpen(true)}
-                disabled={!!loading}
-                className="mt-2 w-full px-2 py-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:bg-[#fafafa] hover:border-tiger-orange hover:text-tiger-orange transition"
-              >
-                + 챕터 추가
-              </button>
-            )}
-          </aside>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
-          {/* 본문 */}
-          <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 min-h-[500px]">
+  // 미리보기 영상 frames — Wave B6
+  const previewVideoBox = (
+    <div className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200">
+      <p className="text-[11px] text-gray-500 mb-2">9:16 PNG 5장 (인스타 릴스 / 유튜브 쇼츠)</p>
+      {!project.chapters.some(c => c.content) ? (
+        <p className="text-[11px] text-gray-400 italic px-1">먼저 챕터를 1개 이상 집필하세요.</p>
+      ) : (
+        <button
+          onClick={generatePreviewVideo}
+          disabled={previewVideoBusy}
+          className="w-full px-3 py-2 bg-tiger-orange text-white rounded text-xs font-black hover:bg-orange-600 transition disabled:opacity-50"
+        >
+          {previewVideoBusy ? "⏳ 5장 생성 중..." : previewVideo ? "🔄 다시 생성" : "🎬 5장 frame 생성 (~₩500)"}
+        </button>
+      )}
+      {previewVideo && previewVideo.frames.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] text-gray-500 mb-1.5">{new Date(previewVideo.generatedAt).toLocaleString("ko-KR")}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {previewVideo.frames.map(frame => (
+              <div key={frame.idx} className="bg-[#fafafa] rounded p-1 border border-gray-200 relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:image/png;base64,${frame.base64}`}
+                  alt={`preview frame ${frame.idx + 1}`}
+                  className="w-full aspect-[9/16] object-cover rounded mb-1 bg-white"
+                />
+                <div className="flex gap-0.5 items-center">
+                  <button
+                    onClick={() => downloadPreviewFrame(frame)}
+                    className="flex-1 px-1 py-0.5 bg-ink-900 text-white text-[9px] font-bold rounded hover:bg-black transition"
+                  >
+                    ⬇{frame.idx + 1}
+                  </button>
+                  {projectId && (
+                    <ImageRefineButton
+                      projectId={projectId}
+                      imageType="video-frame"
+                      aspectRatio="9:16"
+                      onRefined={(b64) => {
+                        setPreviewVideo(prev => prev ? {
+                          ...prev,
+                          frames: prev.frames.map(f =>
+                            f.idx === frame.idx ? { ...f, base64: b64 } : f
+                          ),
+                        } : prev);
+                      }}
+                      onBalanceChange={setBalance}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 leading-relaxed">
+            💡 CapCut · 인스타 릴스 · 프리미어 등에서 import → 12초씩 배치 + 음악 → 1분 영상.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // === 확장 탭 슬롯 ===
+  // 오디오북
+  const audiobookBox = (
+    <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-teal-50 rounded-xl border border-purple-200">
+      <p className="text-[11px] text-gray-500 mb-2">한국어 TTS WAV (Gemini · Charon)</p>
+      {!project.chapters.some(c => c.content) ? (
+        <p className="text-[11px] text-gray-400 italic px-1">먼저 챕터를 1개 이상 집필하세요.</p>
+      ) : audiobook?.chapters && audiobook.chapters.length > 0 ? (
+        <>
+          <div className="space-y-1.5">
+            {audiobook.chapters.map((c) => (
+              <div key={c.chapterIdx} className="flex items-center gap-1.5 p-1.5 bg-white rounded border border-purple-100">
+                <span className="text-[10px] font-bold text-purple-600 w-6 text-center shrink-0">{c.chapterIdx + 1}</span>
+                <span className="text-[10px] text-gray-700 truncate flex-1 min-w-0" title={c.title}>{c.title}</span>
+                <audio controls className="h-7 shrink-0" style={{ maxWidth: 160 }} src={`data:audio/wav;base64,${c.wavBase64}`} />
+                <button
+                  onClick={() => downloadAudio(c)}
+                  className="text-[10px] px-1 py-0.5 text-purple-600 hover:bg-purple-50 rounded shrink-0"
+                  title="WAV 다운"
+                >
+                  💾
+                </button>
+              </div>
+            ))}
+          </div>
+          {audiobook.chapters.length < project.chapters.length && (
+            <button
+              onClick={() => generateAudiobook(false)}
+              disabled={audiobookBusy}
+              className="mt-2 px-3 py-1.5 bg-purple-500 text-white rounded text-xs font-bold hover:bg-purple-600 transition disabled:opacity-50"
+            >
+              {audiobookBusy
+                ? (audiobookProgress ?? "⏳ 생성 중...")
+                : `🎙️ 남은 ${project.chapters.length - audiobook.chapters.length}장 (~₩${((project.chapters.length - audiobook.chapters.length) * 300).toLocaleString()})`}
+            </button>
+          )}
+          <p className="mt-1.5 text-[10px] text-gray-500">
+            {new Date(audiobook.generatedAt).toLocaleString("ko-KR")} · {audiobook.chapters.length}/{project.chapters.length}장
+          </p>
+        </>
+      ) : (
+        <button
+          onClick={() => generateAudiobook(false)}
+          disabled={audiobookBusy}
+          className="w-full px-3 py-2 bg-purple-500 text-white rounded text-xs font-black hover:bg-purple-600 transition disabled:opacity-50"
+        >
+          {audiobookBusy
+            ? (audiobookProgress ?? "⏳ 생성 중...")
+            : `🎙️ 오디오북 생성 (${project.chapters.length}챕터, ~₩${project.chapters.length * 50})`}
+        </button>
+      )}
+    </div>
+  );
+
+  // 강의 슬라이드
+  const courseSlidesBox = (
+    <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+      <p className="text-[11px] text-gray-500 mb-2">책 → 강사·코치용 outline</p>
+      {!project.chapters.some(c => c.content) ? (
+        <p className="text-[11px] text-gray-400 italic px-1">먼저 챕터를 1개 이상 집필하세요.</p>
+      ) : !courseSlides ? (
+        <>
+          <div className="flex items-center gap-1 mb-2 flex-wrap">
+            <span className="text-[11px] font-bold text-gray-600">슬라이드:</span>
+            {([8, 12, 16, 20] as const).map(n => (
+              <button
+                key={n}
+                onClick={() => setCourseSlideCount(n)}
+                disabled={courseSlidesBusy}
+                className={`px-2 py-0.5 text-[11px] rounded-full border transition ${
+                  courseSlideCount === n
+                    ? "bg-blue-600 text-white border-blue-600 font-bold"
+                    : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
+                }`}
+              >
+                {n}장
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 mb-2 flex-wrap">
+            <span className="text-[11px] font-bold text-gray-600">템플릿:</span>
+            {([
+              { id: "minimal" as const, label: "🤍" },
+              { id: "bold" as const, label: "⬛" },
+              { id: "academic" as const, label: "📘" },
+            ]).map(t => (
+              <button
+                key={t.id}
+                onClick={() => setCourseSlideTemplate(t.id)}
+                disabled={courseSlidesBusy}
+                className={`px-2 py-0.5 text-[11px] rounded-full border transition ${
+                  courseSlideTemplate === t.id
+                    ? "bg-blue-600 text-white border-blue-600 font-bold"
+                    : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-1.5 mb-2 text-[11px] text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={courseSlideRender}
+              onChange={e => setCourseSlideRender(e.target.checked)}
+              disabled={courseSlidesBusy}
+              className="w-3.5 h-3.5"
+            />
+            <span>🖼️ 이미지 렌더 <span className="text-gray-500">(+₩{courseSlideCount * 10})</span></span>
+          </label>
+          <button
+            onClick={generateCourseSlides}
+            disabled={courseSlidesBusy}
+            className="w-full px-3 py-2 bg-blue-600 text-white rounded text-xs font-black hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {courseSlidesBusy ? "⏳ 생성 중..." : `🎙️ 슬라이드 생성 (~₩2,000)`}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-1 mb-2 flex-wrap">
+            <p className="text-[11px] font-bold text-ink-900">
+              {courseSlides.slides.length}장 · {courseSlides.template}
+            </p>
+            <button
+              onClick={generateCourseSlides}
+              disabled={courseSlidesBusy}
+              className="px-2 py-0.5 text-[11px] bg-white border border-blue-300 text-blue-700 rounded font-bold hover:bg-blue-50 transition disabled:opacity-50"
+            >
+              {courseSlidesBusy ? "⏳" : "🔄 재생성"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {courseSlides.slides.map(slide => (
+              <div
+                key={slide.slideNum}
+                className="bg-white rounded p-1.5 border border-blue-100 flex flex-col gap-1"
+              >
+                {slide.pngBase64 && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`data:image/png;base64,${slide.pngBase64}`}
+                    alt={`슬라이드 ${slide.slideNum}`}
+                    className="w-full aspect-video object-cover rounded border border-gray-200"
+                  />
+                )}
+                <div className="flex items-start gap-1">
+                  <span className="text-[9px] font-mono font-bold text-blue-600 mt-0.5 shrink-0">
+                    {String(slide.slideNum).padStart(2, "0")}
+                  </span>
+                  <p className="text-[10px] font-bold text-ink-900 leading-snug line-clamp-2">{slide.title}</p>
+                </div>
+                <div className="flex items-center gap-0.5 mt-auto">
+                  <button
+                    onClick={() => copyCourseSlide(slide)}
+                    className="flex-1 px-1 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold rounded transition"
+                  >
+                    📋
+                  </button>
+                  {slide.pngBase64 && (
+                    <button
+                      onClick={() => downloadCourseSlidePng(slide)}
+                      className="flex-1 px-1 py-0.5 bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-bold rounded transition"
+                    >
+                      💾
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10px] text-gray-500">
+            {new Date(courseSlides.generatedAt).toLocaleString("ko-KR")}
+          </p>
+        </>
+      )}
+    </div>
+  );
+
+  // 책 번역
+  const translationBox = (
+    <div className="p-3 sm:p-4 bg-indigo-50/60 border border-indigo-300/50 rounded-lg">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+        <span className="text-[11px] text-indigo-700">~₩2,000/책 (전체)</span>
+      </div>
+      <p className="text-[11px] text-gray-600 mb-2">한국어 책 → 영어 또는 일본어. KDP/Amazon 글로벌 진출용.</p>
+      <div className="flex gap-1.5 mb-2">
+        {(["en", "ja"] as TranslationLang[]).map(lang => {
+          const label = lang === "en" ? "🇺🇸 영어" : "🇯🇵 일본어";
+          const active2 = translateLang === lang;
+          return (
+            <button
+              key={lang}
+              onClick={() => setTranslateLang(lang)}
+              disabled={translateBusy}
+              className={`flex-1 px-2 py-1 text-[11px] rounded font-bold border ${
+                active2
+                  ? "bg-indigo-500 text-white border-indigo-500"
+                  : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400"
+              } disabled:opacity-50`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={() => handleTranslate(translateLang)}
+        disabled={translateBusy || !project?.chapters?.length}
+        className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded disabled:opacity-50"
+      >
+        {translateBusy ? "⏳ 번역 중..." : `🌐 책 전체 번역 (~₩2,000)`}
+      </button>
+      {translateMsg && (
+        <div className="mt-2 text-[11px] text-indigo-800 bg-white border border-indigo-200 rounded p-2">
+          {translateMsg}
+        </div>
+      )}
+      {translations.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <div className="text-[10px] font-bold text-indigo-900">완료된 번역</div>
+          {translations.map(t => {
+            const flag = t.language === "en" ? "🇺🇸" : "🇯🇵";
+            const langLabel = t.language === "en" ? "영어" : "일본어";
+            const completed = t.chapters?.filter((c: any) => c?.content).length ?? 0;
+            const total = project?.chapters?.length ?? 0;
+            const isOpen = translatePreviewLang === t.language;
+            return (
+              <div key={t.language} className="bg-white border border-indigo-200 rounded p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-bold text-indigo-900">
+                    {flag} {langLabel} — {completed}/{total} 챕터
+                  </div>
+                  <button
+                    onClick={() => setTranslatePreviewLang(isOpen ? null : t.language)}
+                    className="text-[10px] text-indigo-600 hover:underline"
+                  >
+                    {isOpen ? "접기" : "미리보기"}
+                  </button>
+                </div>
+                {isOpen && (
+                  <div className="mt-2 max-h-60 overflow-y-auto text-[11px] text-gray-800 space-y-2 border-t border-indigo-100 pt-2">
+                    <div><b>Title:</b> {t.topic}</div>
+                    <div><b>Audience:</b> {t.audience}</div>
+                    {(t.chapters ?? []).slice(0, 3).map((c: any, i: number) => (
+                      c?.title ? (
+                        <div key={i} className="border-t border-gray-100 pt-1">
+                          <div className="font-bold">Ch{i + 1}: {c.title}</div>
+                          {c.content && <div className="whitespace-pre-wrap line-clamp-4 text-gray-600">{c.content.slice(0, 400)}...</div>}
+                        </div>
+                      ) : null
+                    ))}
+                    {(t.chapters?.length ?? 0) > 3 && (
+                      <div className="text-[10px] text-gray-500">… ({(t.chapters?.length ?? 0) - 3}개 챕터 더)</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const repurposeBoxSlot = (
+    <RepurposeBox
+      project={project}
+      repurposed={repurposed}
+      repurposeBusy={repurposeBusy}
+      onGenerate={generateRepurpose}
+    />
+  );
+
+  // === 운영 탭 슬롯 ===
+  const shareToggleBox = (
+    <ShareToggle
+      projectId={projectId!}
+      enabled={(project as any).shareEnabled === true}
+      shareLinks={(project as any).shareLinks ?? {}}
+      onChange={async (patch) => {
+        setProject({ ...(project as any), ...patch });
+        await fetch(`/api/projects/${projectId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: patch }),
+        }).catch(() => {});
+      }}
+    />
+  );
+
+  const abTestBox = (
+    <div className="p-3 sm:p-4 bg-white rounded-xl border border-gray-200">
+      <p className="text-[11px] text-gray-500 mb-2">두 마케팅 카피 50/50 분기, cookie sticky</p>
+      <div className="grid grid-cols-1 gap-2">
+        <div className="p-2 bg-blue-50/50 border border-blue-200 rounded space-y-1.5">
+          <div className="text-[11px] font-bold text-blue-700">A variant</div>
+          <input
+            type="text"
+            maxLength={200}
+            value={abTestForm.taglineA ?? ""}
+            onChange={e => setAbTestForm(f => ({ ...f, taglineA: e.target.value }))}
+            placeholder="A 한 줄 소개"
+            className="w-full text-[11px] px-1.5 py-1 border border-blue-200 rounded bg-white"
+          />
+          <textarea
+            maxLength={3000}
+            rows={2}
+            value={abTestForm.descriptionA ?? ""}
+            onChange={e => setAbTestForm(f => ({ ...f, descriptionA: e.target.value }))}
+            placeholder="A 상세 설명"
+            className="w-full text-[11px] px-1.5 py-1 border border-blue-200 rounded bg-white resize-y"
+          />
+        </div>
+        <div className="p-2 bg-purple-50/50 border border-purple-200 rounded space-y-1.5">
+          <div className="text-[11px] font-bold text-purple-700">B variant</div>
+          <input
+            type="text"
+            maxLength={200}
+            value={abTestForm.taglineB ?? ""}
+            onChange={e => setAbTestForm(f => ({ ...f, taglineB: e.target.value }))}
+            placeholder="B 한 줄 소개"
+            className="w-full text-[11px] px-1.5 py-1 border border-purple-200 rounded bg-white"
+          />
+          <textarea
+            maxLength={3000}
+            rows={2}
+            value={abTestForm.descriptionB ?? ""}
+            onChange={e => setAbTestForm(f => ({ ...f, descriptionB: e.target.value }))}
+            placeholder="B 상세 설명"
+            className="w-full text-[11px] px-1.5 py-1 border border-purple-200 rounded bg-white resize-y"
+          />
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <label className="flex items-center gap-1 text-[11px] text-gray-700">
+          <input
+            type="checkbox"
+            checked={abTestForm.enabled === true}
+            onChange={e => setAbTestForm(f => ({ ...f, enabled: e.target.checked }))}
+          />
+          <span className="font-bold">활성화</span>
+        </label>
+        <button
+          onClick={saveAbTest}
+          disabled={abTestBusy}
+          className="ml-auto px-3 py-1.5 bg-tiger-orange text-white rounded text-[11px] font-black hover:bg-orange-600 transition disabled:opacity-50"
+        >
+          {abTestBusy ? "저장 중..." : abTestSaved ? "✓ 저장됨" : "💾 저장"}
+        </button>
+        <button
+          onClick={fetchAbTestStats}
+          disabled={abTestStatsBusy}
+          className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-[11px] font-bold hover:bg-gray-50 transition disabled:opacity-50"
+        >
+          {abTestStatsBusy ? "조회 중..." : "📊 통계"}
+        </button>
+      </div>
+      {abTestStats && (
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          {(["A", "B"] as const).map(v => (
+            <div key={v} className={`p-1.5 rounded border ${v === "A" ? "bg-blue-50 border-blue-200" : "bg-purple-50 border-purple-200"}`}>
+              <div className={`text-[10px] font-bold ${v === "A" ? "text-blue-700" : "text-purple-700"}`}>{v} 방문</div>
+              <div className="text-[10px] text-gray-700 mt-0.5">
+                24h: <strong>{abTestStats[v].views24h}</strong> · 7d: <strong>{abTestStats[v].views7d}</strong> · 전체: <strong>{abTestStats[v].viewsTotal}</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const revenueBox = (
+    <div className="p-3 sm:p-4 bg-green-50/60 border border-green-300/50 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] text-gray-600">채널별 누적 매출</span>
+        {(() => {
+          const net = revenueChannels.reduce(
+            (sum, c) => sum + Math.floor((Number(c.grossKRW) || 0) * (1 - (Number(c.feeRate) || 0))),
+            0,
+          );
+          return (
+            <span className="text-[11px] font-mono text-green-700 font-bold">
+              순매출 ₩{net.toLocaleString()}
+            </span>
+          );
+        })()}
+      </div>
+      <div className="space-y-1.5">
+        {revenueChannels.map((row, i) => {
+          const labelMap: Record<string, string> = {
+            kmong: "크몽", ridi: "리디", kyobo: "교보", aladdin: "알라딘",
+            direct: "직접", other: "기타",
+          };
+          return (
+            <div key={`${row.channel}-${i}`} className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-gray-700 w-10 shrink-0">
+                {labelMap[row.channel] ?? row.channel}
+              </span>
+              <div className="flex items-center gap-0.5 flex-1 min-w-0">
+                <span className="text-[10px] text-gray-400">₩</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100_000_000}
+                  step={1000}
+                  value={row.grossKRW || ""}
+                  onChange={e => updateRevenueChannel(i, { grossKRW: Number(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="flex-1 min-w-0 text-[11px] px-1.5 py-1 border border-gray-200 rounded font-mono focus:border-tiger-orange focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round((Number(row.feeRate) || 0) * 100)}
+                  onChange={e => updateRevenueChannel(i, { feeRate: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })}
+                  className="w-10 text-[11px] px-1 py-1 border border-gray-200 rounded font-mono text-right focus:border-tiger-orange focus:outline-none"
+                  title="채널 수수료 %"
+                />
+                <span className="text-[10px] text-gray-400">%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button
+        onClick={saveRevenue}
+        disabled={revenueBusy}
+        className="w-full mt-2 px-2 py-1.5 bg-green-600 text-white rounded text-[11px] font-bold hover:bg-green-700 transition disabled:opacity-50"
+      >
+        {revenueBusy ? "저장 중..." : revenueSavedFlash ? "✓ 저장됨" : "💾 저장"}
+      </button>
+      <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed">
+        직접 입력. 자동 추적은 추후 추가 예정.
+      </p>
+    </div>
+  );
+
+  const kmongPackageBox = (
+    <div className="space-y-1">
+      <button
+        onClick={generateFullKmongPackage}
+        disabled={!!loading || !!kmongBusy || batch.status === "running"}
+        className="w-full px-3 py-2 border-2 border-tiger-orange text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-50 transition disabled:opacity-50"
+      >
+        {kmongBusy || ((project as any).kmongPackage ? "📦 크몽 패키지 (재생성)" : "📦 크몽 패키지 생성")}
+      </button>
+      {(project as any).kmongPackage && (
+        <button
+          onClick={() => setKmongModalOpen(true)}
+          className="w-full px-3 py-1 text-xs text-tiger-orange hover:underline"
+        >
+          크몽 패키지 다시 보기
+        </button>
+      )}
+      <p className="text-[10px] text-gray-500 leading-relaxed">
+        ZIP에 표지·썸네일·목차·스펙·독자·미리보기 + 8종 카피 + README 포함.
+      </p>
+    </div>
+  );
+
+  // === 챕터 본문 children: streaming / editing / content / 빈 상태 ===
+  const chapterContentChildren = (() => {
+    if (streamingChapterIdx === activeIdx && streamingText) {
+      return (
+        <div className="rounded-xl border border-tiger-orange/30 bg-orange-50/40 p-5">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-tiger-orange mb-3">
+            <span className="w-2 h-2 rounded-full bg-tiger-orange animate-pulse" />
+            AI 작성 중... ({streamingText.length.toLocaleString()}자)
+          </div>
+          <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep text-ink-900">
+            {streamingText}
+            <span className="inline-block w-1.5 h-4 bg-tiger-orange ml-0.5 animate-pulse align-middle" />
+          </div>
+        </div>
+      );
+    }
+    if (editingContent !== null) {
+      return (
+        <>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange">✏️ 본문 직접 편집</p>
+            <p className="text-xs font-mono text-gray-500">{editingContent.length.toLocaleString()}자</p>
+          </div>
+          <textarea
+            value={editingContent}
+            onChange={e => setEditingContent(e.target.value)}
+            className="w-full min-h-[500px] p-4 border border-tiger-orange/40 rounded-lg text-sm leading-relaxed font-sans focus:outline-none focus:border-tiger-orange whitespace-pre-wrap break-keep"
+            spellCheck={false}
+          />
+          <div className="mt-3 flex gap-2 justify-end">
+            <button
+              onClick={() => setEditingContent(null)}
+              className="px-4 py-2 text-sm border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition"
+            >
+              취소
+            </button>
+            <button
+              onClick={async () => {
+                const updated = [...project.chapters];
+                updated[activeIdx] = { ...active, content: editingContent };
+                await saveProject({ ...project, chapters: updated });
+                setEditingContent(null);
+              }}
+              className="px-4 py-2 text-sm bg-tiger-orange text-white font-bold rounded-lg shadow-glow-orange-sm hover:bg-orange-600 transition"
+            >
+              저장
+            </button>
+          </div>
+        </>
+      );
+    }
+    if (active.content) {
+      return (
+        <>
+          <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep">
+            {active.content}
+          </div>
+          {placeholders.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-sm font-bold mb-3">📷 이미지 첨부 ({placeholders.length})</p>
+              <div className="space-y-3">
+                {placeholders.map((ph, idx) => {
+                  const img = (active.images ?? []).find(im => im.placeholder === ph);
+                  const caption = ph.replace(/^\[IMAGE:\s*/, "").replace(/\]$/, "");
+                  return (
+                    <div key={idx} className="flex gap-3 items-start p-3 bg-[#fafafa] rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono text-gray-500 mb-1 break-all">{ph}</p>
+                        <p className="text-xs text-gray-600 break-keep">{caption}</p>
+                      </div>
+                      {img?.dataUrl ? (
+                        <div className="flex flex-col gap-1 items-end">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img.dataUrl} alt={caption} className="w-20 h-20 object-cover rounded" />
+                          <div className="flex gap-2 flex-wrap justify-end">
+                            <button onClick={() => generateChapterImage(activeIdx, ph)} disabled={!!imageGenBusy} className="text-xs text-tiger-orange hover:underline disabled:opacity-50">
+                              재생성
+                            </button>
+                            <label className="text-xs text-gray-600 hover:text-tiger-orange cursor-pointer">
+                              교체
+                              <input
+                                type="file" accept="image/*" className="hidden"
+                                onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
+                              />
+                            </label>
+                            <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-gray-500 hover:text-orange-600">초기화</button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
+                                  removeImagePlaceholder(activeIdx, ph);
+                                }
+                              }}
+                              className="text-xs text-red-600 hover:underline"
+                            >
+                              ✗ 자리 삭제
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1 items-end">
+                          <button
+                            onClick={() => generateChapterImage(activeIdx, ph)}
+                            disabled={!!imageGenBusy}
+                            className="text-xs px-3 py-2 bg-tiger-orange text-white rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50 whitespace-nowrap shadow-glow-orange-sm"
+                          >
+                            {imageGenBusy === ph ? "생성 중..." : "✨ AI 자동 생성"}
+                          </button>
+                          <label className="text-[10px] px-2 py-1 text-gray-500 cursor-pointer hover:text-tiger-orange whitespace-nowrap">
+                            또는 직접 업로드
+                            <input
+                              type="file" accept="image/*" className="hidden"
+                              onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
+                            />
+                          </label>
+                          <button
+                            onClick={() => {
+                              if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
+                                removeImagePlaceholder(activeIdx, ph);
+                              }
+                            }}
+                            className="text-[10px] text-red-500 hover:underline"
+                          >
+                            ✗ 자리 삭제
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-3">2MB 이하 이미지. PDF·DOCX 출력 시 본문에 자동 삽입됩니다.</p>
+            </div>
+          )}
+        </>
+      );
+    }
+    // 빈 상태 — empty hint 자리에 표시 (children null이면 ChapterContent emptyHint 사용)
+    return null;
+  })();
+
+  const chapterEmptyHint = (
+    <div className="text-center py-8 px-4">
+      <div className="text-5xl mb-4">📝</div>
+      <p className="text-gray-500 text-sm mb-6">{loading || "이 챕터는 아직 집필 전입니다"}</p>
+      {!loading && (
+        <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
+          <button
+            onClick={() => generateChapter(activeIdx)}
+            className="flex-1 px-4 py-3 bg-tiger-orange text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition shadow-glow-orange-sm"
+          >
+            ✨ AI 자동 집필
+          </button>
+          <button
+            onClick={() => setContinueModal({ chapterIdx: activeIdx, seed: "" })}
+            className="flex-1 px-4 py-3 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg font-bold text-sm hover:bg-orange-50 transition"
+            title="첫 단락을 직접 쓰면 AI가 그 톤으로 이어 작성"
+          >
+            ✏️ 직접 시작 + AI 이어쓰기
+          </button>
+        </div>
+      )}
+      {!loading && (
+        <p className="text-xs text-gray-400 mt-4 max-w-md mx-auto leading-relaxed">
+          💡 <strong>이어쓰기</strong>는 첫 200~500자만 작가 본인이 쓰면 AI가 그 문체로 챕터 끝까지 완성. 100% AI 책보다 진정성 ↑
+        </p>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <Header />
+      <TopHeader
+        topic={project.topic}
+        balanceKrw={balance}
+        onExport={() => router.push(`/export?id=${projectId}`)}
+        exportDisabled={!project.chapters.some(c => c.content)}
+      />
+
+      {error && (
+        <div className="max-w-[1600px] mx-auto px-4 py-2">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+        </div>
+      )}
+
+      <WritePageLayout
+        tab={tab}
+        chapterList={
+          <ChapterListNew
+            chapters={chapterListChapters}
+            activeIdx={activeIdx}
+            onSelect={(idx) => {
+              if (editingContent !== null && idx !== activeIdx && !confirm("편집 중인 내용이 있습니다. 저장 안 하고 다른 챕터로 이동할까요?")) return;
+              if (idx !== activeIdx) setEditingContent(null);
+              setActiveIdx(idx);
+            }}
+            onAdd={async (title) => {
+              setAddChapterDraft({ title, subtitle: "" });
+              setAddChapterOpen(true);
+            }}
+            onEditTitle={(idx) => startEditTitle(idx)}
+            disabled={!!loading}
+          />
+        }
+        chapterContent={
+          <>
             <BatchBanner
               batch={batch}
               onStop={stopBatch}
               onResume={resumeBatch}
               onDismiss={() => setBatch({ status: "idle" })}
             />
-            <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
-              <div className="min-w-0">
-                <p className="text-xs text-gray-500">{activeIdx + 1}장 · {active.content ? `${active.content.length.toLocaleString()}자` : "미집필"}</p>
-                <h2 className="text-lg sm:text-xl font-black break-keep">{active.title}</h2>
-                {active.subtitle && <p className="text-sm text-gray-500 mt-1 break-keep">{active.subtitle}</p>}
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {active.content && editingContent === null && (
-                  <>
-                    <button
-                      onClick={() => setPreviewModal({ chapterIdx: activeIdx })}
-                      disabled={!active?.content}
-                      className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
-                      title="현재 선택된 템플릿으로 이 챕터를 미리보기"
-                    >
-                      👁 결과 미리보기
-                    </button>
-                    <button
-                      onClick={() => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false })}
-                      disabled={!!loading}
-                      className="text-xs px-3 py-1 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg hover:bg-orange-50 transition disabled:opacity-50 whitespace-nowrap font-bold"
-                      title="자연어로 AI에게 수정 요청"
-                    >
-                      💬 AI 수정 요청
-                    </button>
-                    <button
-                      onClick={() => setEditingContent(active.content)}
-                      disabled={!!loading}
-                      className="text-xs px-3 py-1 border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition disabled:opacity-50 whitespace-nowrap"
-                    >
-                      ✏️ 직접 수정
-                    </button>
-                  </>
-                )}
-                <button onClick={() => generateChapter(activeIdx)} disabled={!!loading || editingContent !== null} className="text-xs px-3 py-1 bg-tiger-orange text-white rounded-lg disabled:opacity-50 whitespace-nowrap">
-                  {loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`) ? loading : active.content ? "다시 생성" : "집필"}
-                </button>
-              </div>
-            </div>
-
-            {streamingChapterIdx === activeIdx && streamingText ? (
-              <div className="rounded-xl border border-tiger-orange/30 bg-orange-50/40 p-5">
-                <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-tiger-orange mb-3">
-                  <span className="w-2 h-2 rounded-full bg-tiger-orange animate-pulse" />
-                  AI 작성 중... ({streamingText.length.toLocaleString()}자)
-                </div>
-                <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep text-ink-900">
-                  {streamingText}
-                  <span className="inline-block w-1.5 h-4 bg-tiger-orange ml-0.5 animate-pulse align-middle" />
-                </div>
-              </div>
-            ) : editingContent !== null ? (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange">✏️ 본문 직접 편집</p>
-                  <p className="text-xs font-mono text-gray-500">{editingContent.length.toLocaleString()}자</p>
-                </div>
-                <textarea
-                  value={editingContent}
-                  onChange={e => setEditingContent(e.target.value)}
-                  className="w-full min-h-[500px] p-4 border border-tiger-orange/40 rounded-lg text-sm leading-relaxed font-sans focus:outline-none focus:border-tiger-orange whitespace-pre-wrap break-keep"
-                  spellCheck={false}
-                />
-                <div className="mt-3 flex gap-2 justify-end">
-                  <button
-                    onClick={() => setEditingContent(null)}
-                    className="px-4 py-2 text-sm border border-gray-300 text-ink-900 rounded-lg hover:border-ink-900 transition"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const updated = [...project.chapters];
-                      updated[activeIdx] = { ...active, content: editingContent };
-                      await saveProject({ ...project, chapters: updated });
-                      setEditingContent(null);
-                    }}
-                    className="px-4 py-2 text-sm bg-tiger-orange text-white font-bold rounded-lg shadow-glow-orange-sm hover:bg-orange-600 transition"
-                  >
-                    저장
-                  </button>
-                </div>
-              </>
-            ) : active.content ? (
-              <>
-                <div className="prose max-w-none text-sm whitespace-pre-wrap break-keep">
-                  {active.content}
-                </div>
-
-                {/* 이미지 placeholder 업로드 */}
-                {placeholders.length > 0 && (
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <p className="text-sm font-bold mb-3">📷 이미지 첨부 ({placeholders.length})</p>
-                    <div className="space-y-3">
-                      {placeholders.map((ph, idx) => {
-                        const img = (active.images ?? []).find(im => im.placeholder === ph);
-                        const caption = ph.replace(/^\[IMAGE:\s*/, "").replace(/\]$/, "");
-                        return (
-                          <div key={idx} className="flex gap-3 items-start p-3 bg-[#fafafa] rounded-lg">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-mono text-gray-500 mb-1 break-all">{ph}</p>
-                              <p className="text-xs text-gray-600 break-keep">{caption}</p>
-                            </div>
-                            {img?.dataUrl ? (
-                              <div className="flex flex-col gap-1 items-end">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.dataUrl} alt={caption} className="w-20 h-20 object-cover rounded" />
-                                <div className="flex gap-2 flex-wrap justify-end">
-                                  <button onClick={() => generateChapterImage(activeIdx, ph)} disabled={!!imageGenBusy} className="text-xs text-tiger-orange hover:underline disabled:opacity-50">
-                                    재생성
-                                  </button>
-                                  <label className="text-xs text-gray-600 hover:text-tiger-orange cursor-pointer">
-                                    교체
-                                    <input
-                                      type="file" accept="image/*" className="hidden"
-                                      onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
-                                    />
-                                  </label>
-                                  <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-gray-500 hover:text-orange-600">초기화</button>
-                                  <button
-                                    onClick={() => {
-                                      if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
-                                        removeImagePlaceholder(activeIdx, ph);
-                                      }
-                                    }}
-                                    className="text-xs text-red-600 hover:underline"
-                                  >
-                                    ✗ 자리 삭제
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-1 items-end">
-                                <button
-                                  onClick={() => generateChapterImage(activeIdx, ph)}
-                                  disabled={!!imageGenBusy}
-                                  className="text-xs px-3 py-2 bg-tiger-orange text-white rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50 whitespace-nowrap shadow-glow-orange-sm"
-                                >
-                                  {imageGenBusy === ph ? "생성 중..." : "✨ AI 자동 생성"}
-                                </button>
-                                <label className="text-[10px] px-2 py-1 text-gray-500 cursor-pointer hover:text-tiger-orange whitespace-nowrap">
-                                  또는 직접 업로드
-                                  <input
-                                    type="file" accept="image/*" className="hidden"
-                                    onChange={e => e.target.files?.[0] && uploadImage(activeIdx, ph, e.target.files[0])}
-                                  />
-                                </label>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
-                                      removeImagePlaceholder(activeIdx, ph);
-                                    }
-                                  }}
-                                  className="text-[10px] text-red-500 hover:underline"
-                                >
-                                  ✗ 자리 삭제
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-gray-400 mt-3">2MB 이하 이미지. PDF·DOCX 출력 시 본문에 자동 삽입됩니다.</p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 px-4">
-                <div className="text-5xl mb-4">📝</div>
-                <p className="text-gray-500 text-sm mb-6">{loading || "이 챕터는 아직 집필 전입니다"}</p>
-                {!loading && (
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
-                    <button
-                      onClick={() => generateChapter(activeIdx)}
-                      className="flex-1 px-4 py-3 bg-tiger-orange text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition shadow-glow-orange-sm"
-                    >
-                      ✨ AI 자동 집필
-                    </button>
-                    <button
-                      onClick={() => setContinueModal({ chapterIdx: activeIdx, seed: "" })}
-                      className="flex-1 px-4 py-3 bg-white border-2 border-tiger-orange text-tiger-orange rounded-lg font-bold text-sm hover:bg-orange-50 transition"
-                      title="첫 단락을 직접 쓰면 AI가 그 톤으로 이어 작성"
-                    >
-                      ✏️ 직접 시작 + AI 이어쓰기
-                    </button>
-                  </div>
-                )}
-                {!loading && (
-                  <p className="text-xs text-gray-400 mt-4 max-w-md mx-auto leading-relaxed">
-                    💡 <strong>이어쓰기</strong>는 첫 200~500자만 작가 본인이 쓰면 AI가 그 문체로 챕터 끝까지 완성. 100% AI 책보다 진정성 ↑
-                  </p>
-                )}
-              </div>
+            {active && (
+              <ChapterContentNew
+                chapterIdx={activeIdx}
+                totalChapters={project.chapters.length}
+                title={active.title}
+                subtitle={active.subtitle}
+                hasContent={!!active.content}
+                busyGenerating={streamingChapterIdx === activeIdx || (loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`))}
+                onGenerate={!active.content ? () => generateChapter(activeIdx) : undefined}
+                onPreview={active.content ? () => setPreviewModal({ chapterIdx: activeIdx }) : undefined}
+                onAIEdit={active.content && editingContent === null ? () => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false }) : undefined}
+                onDirectEdit={active.content && editingContent === null ? () => setEditingContent(active.content) : undefined}
+                onRegenerate={active.content && editingContent === null ? () => generateChapter(activeIdx) : undefined}
+                emptyHint={chapterEmptyHint}
+              >
+                {chapterContentChildren}
+              </ChapterContentNew>
             )}
-          </section>
+          </>
+        }
+        tabContent={
+          <>
+            {tab === "writing" && (
+              <WritingTab
+                bulkWritingControls={bulkWritingControls}
+                bulkImageControls={bulkImageControls}
+                coverVariationsControls={coverVariationsControls}
+                templateSelector={templateSelectorBox}
+              />
+            )}
+            {tab === "publish" && (
+              <PublishTab
+                marketingPageBox={marketingPageBoxSlot}
+                metaAdsBox={metaAdsBoxSlot}
+                packageRecommendationBox={packageRecommendationBox}
+                infographicBox={infographicBox}
+                previewVideoBox={previewVideoBox}
+              />
+            )}
+            {tab === "extras" && (
+              <ExtrasTab
+                audiobookBox={audiobookBox}
+                courseSlidesBox={courseSlidesBox}
+                translationBox={translationBox}
+                repurposeBox={repurposeBoxSlot}
+              />
+            )}
+            {tab === "ops" && (
+              <OpsTab
+                shareToggleBox={shareToggleBox}
+                abTestBox={abTestBox}
+                revenueBox={revenueBox}
+                kmongPackageBox={kmongPackageBox}
+              />
+            )}
+          </>
+        }
+      />
+
+      <MobileBottomNav active={tab} setTab={setTab} hints={{ publish: showPublishHint }} />
+
+      {/* === 챕터 추가 inline form (writing 탭에서만 보임) === */}
+      {addChapterOpen && tab === "writing" && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4" onClick={() => { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); }}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-black mb-4">챕터 추가</h3>
+            <input
+              type="text"
+              autoFocus
+              value={addChapterDraft.title}
+              onChange={e => setAddChapterDraft(d => ({ ...d, title: e.target.value }))}
+              onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
+              placeholder="챕터 제목 *"
+              maxLength={100}
+              className="w-full text-sm px-3 py-2 border border-gray-200 rounded mb-2 focus:border-tiger-orange focus:outline-none"
+            />
+            <input
+              type="text"
+              value={addChapterDraft.subtitle}
+              onChange={e => setAddChapterDraft(d => ({ ...d, subtitle: e.target.value }))}
+              onKeyDown={e => { if (e.key === "Enter" && addChapterDraft.title.trim()) submitAddChapter(); if (e.key === "Escape") { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); } }}
+              placeholder="부제 (선택)"
+              maxLength={150}
+              className="w-full text-sm px-3 py-2 border border-gray-200 rounded mb-4 focus:border-tiger-orange focus:outline-none"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setAddChapterOpen(false); setAddChapterDraft({ title: "", subtitle: "" }); }}
+                className="px-4 py-2 text-sm border border-gray-200 rounded hover:bg-gray-50 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={submitAddChapter}
+                disabled={!addChapterDraft.title.trim() || !!loading}
+                className="px-4 py-2 bg-tiger-orange text-white rounded text-sm font-bold hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                추가
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* 📦 패키지 추천 — Funnel + 1-click bundle (Wave B1) */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && (() => {
-        const bookDone = project.chapters.length > 0 && project.chapters.every(c => c.content);
-        const marketingDone = !!(project as any).marketingMeta?.tagline;
-        const metaDone = !!(project as any).metaAdPackage || (Array.isArray((project as any).metaAdImages) && (project as any).metaAdImages.length > 0);
-        const repurposeDone = !!(project as any).repurposedContent && Object.keys((project as any).repurposedContent).length > 0;
-
-        const dots: { label: string; done: boolean; key: string }[] = [
-          { key: "book", label: "책 완성", done: bookDone },
-          { key: "marketing", label: "마케팅 페이지", done: marketingDone },
-          { key: "meta", label: "Meta 광고", done: metaDone },
-          { key: "repurpose", label: "콘텐츠 재가공", done: repurposeDone },
-        ];
-        const nextStep = dots.find(d => !d.done);
-        const allDone = !nextStep;
-
-        const bundleCard = (
-          level: BundleLevel,
-          title: string,
-          priceLabel: string,
-          desc: string,
-          gradient: string,
-          tag?: string,
-        ) => {
-          const isBusy = bundleBusy === level;
-          const otherBusy = bundleBusy && bundleBusy !== level;
-          return (
-            <div className={`relative p-4 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg`}>
-              {tag && (
-                <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-white text-tiger-orange text-[10px] font-black rounded-full shadow">{tag}</div>
-              )}
-              <div className="text-sm font-black mb-1">{title}</div>
-              <div className="text-[11px] opacity-90 mb-3 leading-relaxed break-keep">{desc}</div>
-              <div className="text-lg font-black mb-3">{priceLabel}</div>
-              <button
-                onClick={() => runBundle(level)}
-                disabled={!!bundleBusy || !!loading}
-                className="w-full px-3 py-2 bg-white/95 text-ink-900 rounded-lg text-xs font-black hover:bg-white transition disabled:opacity-50"
-              >
-                {isBusy
-                  ? (bundleProgress ? `⏳ ${bundleProgress.step}/${bundleProgress.total} ${bundleProgress.label}...` : "⏳ 진행 중...")
-                  : otherBusy ? "다른 패키지 진행 중" : "🚀 한 번에 만들기"}
-              </button>
-            </div>
-          );
-        };
-
-        return (
-          <section className="mt-6 mb-4 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-              <h2 className="text-lg font-black text-ink-900">📦 패키지 추천</h2>
-              <p className="text-[11px] text-gray-500">책 1권 → 다음 단계 자동 / 1-click 묶음</p>
-            </div>
-
-            {/* Funnel — progress dots + next CTA */}
-            <div className="mb-5 p-4 bg-gradient-to-r from-orange-50 via-yellow-50 to-pink-50 rounded-xl border border-tiger-orange/20">
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap mb-3">
-                {dots.map((d, i) => (
-                  <div key={d.key} className="flex items-center gap-2">
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold ${
-                      d.done ? "bg-green-100 text-green-700" : "bg-white text-gray-500 border border-gray-200"
-                    }`}>
-                      <span>{d.done ? "✅" : "⬜"}</span>
-                      <span>{d.label}</span>
-                    </div>
-                    {i < dots.length - 1 && <span className="text-gray-300">→</span>}
-                  </div>
-                ))}
-              </div>
-              {!allDone && nextStep && (
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-sm text-ink-900">
-                    <span className="text-tiger-orange font-bold">다음:</span> {nextStep.label}
-                  </div>
-                  <button
-                    onClick={() => {
-                      // Next step CTA — 직접 endpoint 호출
-                      if (nextStep.key === "marketing") generateMarketingMeta();
-                      else if (nextStep.key === "meta") {
-                        if (!(project as any).metaAdPackage) generateMetaPackage();
-                        else generateMetaImages();
-                      } else if (nextStep.key === "repurpose") {
-                        // 첫 번째 미완 채널 자동 호출 (인스타 우선)
-                        const channels: RepurposeChannel[] = ["instagram", "youtube", "blog", "email", "kakao"];
-                        const existing: any = (project as any).repurposedContent ?? {};
-                        const firstNeed = channels.find(ch => !existing[ch]) ?? "instagram";
-                        generateRepurpose(firstNeed);
-                      }
-                    }}
-                    disabled={!!bundleBusy || !!loading || nextStep.key === "book"}
-                    className="px-4 py-2 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
-                  >
-                    → 다음: {nextStep.label}
-                  </button>
-                </div>
-              )}
-              {allDone && (
-                <div className="text-sm text-green-700 font-bold">🎉 모든 단계 완료! 책 1권으로 풀 패키지가 준비됐습니다.</div>
-              )}
-            </div>
-
-            {/* 1-click bundle 3개 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {bundleCard("publish", "🎯 출간 패키지", "약 ₩900", "표지 + EPUB + 마케팅 카피 (이미 만들어진 표지/EPUB는 그대로)", "from-tiger-orange to-orange-600")}
-              {bundleCard("growth", "📈 성장 패키지", "약 ₩2,500", "출간 + Meta 광고 카피 + Meta 이미지 3종 + 마케팅 페이지", "from-blue-500 to-blue-700", "추천")}
-              {bundleCard("full", "🚀 풀 패키지", "약 ₩6,300", "성장 + 인스타·유튜브·블로그·이메일·카톡 5채널 재가공", "from-pink-500 to-purple-600")}
-            </div>
-
-            {bundleBusy && bundleProgress && (
-              <div className="mt-4 p-3 bg-orange-50 border border-tiger-orange/30 rounded-lg text-sm text-ink-900">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold">⏳ {bundleProgress.label}</span>
-                  <span className="text-xs font-mono text-gray-500">{bundleProgress.step}/{bundleProgress.total}</span>
-                </div>
-                <div className="h-1.5 bg-white rounded-full overflow-hidden">
-                  <div className="h-full bg-tiger-orange transition-all" style={{ width: `${(bundleProgress.step / bundleProgress.total) * 100}%` }} />
-                </div>
-                <p className="text-[10px] text-gray-500 mt-2">완료된 항목은 자동 스킵됩니다. 잔액 부족 시 중단.</p>
-              </div>
-            )}
-
-            <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
-              💡 비용은 추정치. 실제 차감액은 잔액 표시(상단)와 [방금] 사용량 배너에서 확인하세요. 이미 생성된 항목은 자동 스킵.
-            </p>
-          </section>
-        );
-      })()}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* 📚 카드뉴스 인포그래픽 — 5장 자동 (Wave B3)  */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && (
-        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className="text-lg font-black text-ink-900">📚 카드뉴스 인포그래픽</h2>
-            <p className="text-[11px] text-gray-500">책의 핵심 5가지 → 1080×1080 PNG 5장 (Sharp만 사용 — AI 호출 X)</p>
-          </div>
-
-          {!(project as any).referencesSummary?.keyPoints?.length && (
-            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
-              ⚠️ <strong>먼저 자료 분석이 필요합니다.</strong>{" "}
-              <Link href={`/write/setup?id=${projectId}`} className="text-tiger-orange font-bold hover:underline">/write/setup</Link>{" "}
-              에서 [🤖 AI 자료 정리]를 실행하세요.
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-xs font-bold text-gray-600">템플릿:</span>
-            {(["minimal", "bold", "dark"] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setInfographicTemplate(t)}
-                disabled={infographicBusy}
-                className={`px-3 py-1 text-xs rounded-full border transition ${
-                  infographicTemplate === t
-                    ? "bg-tiger-orange text-white border-tiger-orange font-bold"
-                    : "bg-white border-gray-200 text-gray-700 hover:border-tiger-orange"
-                }`}
-              >
-                {t === "minimal" ? "🤍 미니멀" : t === "bold" ? "🟧 볼드" : "⬛ 다크"}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={generateInfographic}
-            disabled={infographicBusy || !((project as any).referencesSummary?.keyPoints?.length)}
-            className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
-          >
-            {infographicBusy ? "⏳ 5장 생성 중..." : infographic ? "🔄 다시 생성" : "✨ 카드뉴스 인포그래픽 5장 생성 (~₩1,000)"}
-          </button>
-
-          {infographic && infographic.slides.length > 0 && (
-            <div className="mt-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-ink-900">생성된 카드 ({infographic.slides.length}장)</p>
-                <p className="text-[10px] text-gray-500">템플릿: {infographic.template} · {new Date(infographic.generatedAt).toLocaleString("ko-KR")}</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {infographic.slides.map(slide => (
-                  <div key={slide.slideNum} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`data:image/png;base64,${slide.base64}`}
-                      alt={`infographic ${slide.slideNum}`}
-                      className="w-full aspect-square object-cover rounded mb-2"
-                    />
-                    <div className="flex gap-1 items-center">
-                      <button
-                        onClick={() => downloadInfographicSlide(slide)}
-                        className="flex-1 px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
-                      >
-                        ⬇ {slide.slideNum}/{infographic.slides.length}
-                      </button>
-                      {projectId && (
-                        <ImageRefineButton
-                          projectId={projectId}
-                          imageType="infographic"
-                          aspectRatio="1:1"
-                          onRefined={(b64) => {
-                            setInfographic(prev => prev ? {
-                              ...prev,
-                              slides: prev.slides.map(s =>
-                                s.slideNum === slide.slideNum ? { ...s, base64: b64 } : s
-                              ),
-                            } : prev);
-                          }}
-                          onBalanceChange={setBalance}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* ⚖️ A/B 테스트 — 마케팅 페이지 variant (Wave B5)  */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && (
-        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className="text-lg font-black text-ink-900">⚖️ A/B 테스트</h2>
-            <p className="text-[11px] text-gray-500">두 가지 마케팅 카피로 어느 게 잘 먹히는지 측정 (50/50 분기, cookie sticky)</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg space-y-2">
-              <div className="text-xs font-bold text-blue-700">A variant</div>
-              <input
-                type="text"
-                maxLength={200}
-                value={abTestForm.taglineA ?? ""}
-                onChange={e => setAbTestForm(f => ({ ...f, taglineA: e.target.value }))}
-                placeholder="A 한 줄 소개"
-                className="w-full text-xs px-2 py-1.5 border border-blue-200 rounded bg-white"
-              />
-              <textarea
-                maxLength={3000}
-                rows={3}
-                value={abTestForm.descriptionA ?? ""}
-                onChange={e => setAbTestForm(f => ({ ...f, descriptionA: e.target.value }))}
-                placeholder="A 상세 설명"
-                className="w-full text-xs px-2 py-1.5 border border-blue-200 rounded bg-white resize-y"
-              />
-            </div>
-            <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-lg space-y-2">
-              <div className="text-xs font-bold text-purple-700">B variant</div>
-              <input
-                type="text"
-                maxLength={200}
-                value={abTestForm.taglineB ?? ""}
-                onChange={e => setAbTestForm(f => ({ ...f, taglineB: e.target.value }))}
-                placeholder="B 한 줄 소개"
-                className="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white"
-              />
-              <textarea
-                maxLength={3000}
-                rows={3}
-                value={abTestForm.descriptionB ?? ""}
-                onChange={e => setAbTestForm(f => ({ ...f, descriptionB: e.target.value }))}
-                placeholder="B 상세 설명"
-                className="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white resize-y"
-              />
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
-            <label className="flex items-center gap-2 text-xs text-gray-700">
-              <input
-                type="checkbox"
-                checked={abTestForm.enabled === true}
-                onChange={e => setAbTestForm(f => ({ ...f, enabled: e.target.checked }))}
-              />
-              <span className="font-bold">활성화</span>
-              <span className="text-gray-500">(체크 후 저장하면 /book/{projectId} 방문자 50/50 분기)</span>
-            </label>
-
-            <button
-              onClick={saveAbTest}
-              disabled={abTestBusy}
-              className="ml-auto px-4 py-2 bg-tiger-orange text-white rounded-lg text-xs font-black hover:bg-orange-600 transition disabled:opacity-50"
-            >
-              {abTestBusy ? "저장 중..." : abTestSaved ? "✓ 저장됨" : "💾 저장"}
-            </button>
-
-            <button
-              onClick={fetchAbTestStats}
-              disabled={abTestStatsBusy}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              {abTestStatsBusy ? "조회 중..." : "📊 변형별 방문 통계"}
-            </button>
-          </div>
-
-          {abTestStats && (
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {(["A", "B"] as const).map(v => (
-                <div key={v} className={`p-3 rounded-lg border ${v === "A" ? "bg-blue-50 border-blue-200" : "bg-purple-50 border-purple-200"}`}>
-                  <div className={`text-xs font-bold ${v === "A" ? "text-blue-700" : "text-purple-700"}`}>{v} variant 방문</div>
-                  <div className="text-[11px] text-gray-700 mt-1">
-                    24시간: <strong>{abTestStats[v].views24h}</strong> · 7일: <strong>{abTestStats[v].views7d}</strong> · 전체: <strong>{abTestStats[v].viewsTotal}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* 🎬 미리보기 영상 frames — 9:16 PNG 5장 (Wave B6)  */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
-        <section className="mb-6 p-5 sm:p-6 bg-white rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className="text-lg font-black text-ink-900">🎬 미리보기 영상 (5 frames)</h2>
-            <p className="text-[11px] text-gray-500">9:16 (인스타 릴스/유튜브 쇼츠) PNG 5장. 본인 영상 편집기에서 1분 영상 만들기</p>
-          </div>
-
-          <button
-            onClick={generatePreviewVideo}
-            disabled={previewVideoBusy}
-            className="w-full sm:w-auto px-5 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-black hover:bg-orange-600 transition disabled:opacity-50"
-          >
-            {previewVideoBusy ? "⏳ 5장 생성 중..." : previewVideo ? "🔄 다시 생성" : "🎬 5장 frame 생성 (~₩500)"}
-          </button>
-
-          {previewVideo && previewVideo.frames.length > 0 && (
-            <div className="mt-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-ink-900">생성된 frame ({previewVideo.frames.length}장)</p>
-                <p className="text-[10px] text-gray-500">{new Date(previewVideo.generatedAt).toLocaleString("ko-KR")}</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {previewVideo.frames.map(frame => (
-                  <div key={frame.idx} className="bg-[#fafafa] rounded-lg p-2 border border-gray-200 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`data:image/png;base64,${frame.base64}`}
-                      alt={`preview frame ${frame.idx + 1}`}
-                      className="w-full aspect-[9/16] object-cover rounded mb-2 bg-white"
-                    />
-                    <div className="flex gap-1 items-center">
-                      <button
-                        onClick={() => downloadPreviewFrame(frame)}
-                        className="flex-1 px-2 py-1 bg-ink-900 text-white text-[10px] font-bold rounded hover:bg-black transition"
-                      >
-                        ⬇ {frame.idx + 1}/{previewVideo.frames.length}
-                      </button>
-                      {projectId && (
-                        <ImageRefineButton
-                          projectId={projectId}
-                          imageType="video-frame"
-                          aspectRatio="9:16"
-                          onRefined={(b64) => {
-                            setPreviewVideo(prev => prev ? {
-                              ...prev,
-                              frames: prev.frames.map(f =>
-                                f.idx === frame.idx ? { ...f, base64: b64 } : f
-                              ),
-                            } : prev);
-                          }}
-                          onBalanceChange={setBalance}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-900 leading-relaxed">
-                💡 <strong>가이드:</strong> 다운받은 5장을 <strong>CapCut · 인스타 릴스 · 프리미어 프로</strong> 등에서 import → 각 frame을 12초씩 배치 + 음악·트랜지션 추가하면 1분 영상 완성.
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* 📻 오디오북 — 챕터별 한국어 TTS (Gemini)  */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
-        <section className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-purple-50 to-teal-50 rounded-xl border border-purple-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className="text-lg font-black text-ink-900">📻 오디오북</h2>
-            <p className="text-[11px] text-gray-500">책 본문 → 한국어 TTS WAV (Gemini · Charon voice)</p>
-          </div>
-
-          {audiobook?.chapters && audiobook.chapters.length > 0 ? (
-            <>
-              <div className="space-y-2">
-                {audiobook.chapters.map((c) => (
-                  <div key={c.chapterIdx} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-purple-100">
-                    <span className="text-xs font-bold text-purple-600 w-8 text-center shrink-0">{c.chapterIdx + 1}장</span>
-                    <span className="text-xs text-gray-700 truncate flex-1 min-w-0" title={c.title}>{c.title}</span>
-                    <audio controls className="h-8 shrink-0" style={{ maxWidth: 240 }} src={`data:audio/wav;base64,${c.wavBase64}`} />
-                    <button
-                      onClick={() => downloadAudio(c)}
-                      className="text-xs px-2 py-1 text-purple-600 hover:bg-purple-50 rounded shrink-0"
-                      title="WAV 다운로드"
-                    >
-                      💾
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {audiobook.chapters.length < project.chapters.length && (
-                <button
-                  onClick={() => generateAudiobook(false)}
-                  disabled={audiobookBusy}
-                  className="mt-3 px-4 py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition disabled:opacity-50"
-                >
-                  {audiobookBusy
-                    ? (audiobookProgress ?? "⏳ 생성 중...")
-                    : `🎙️ 남은 ${project.chapters.length - audiobook.chapters.length}장 생성 (~₩${((project.chapters.length - audiobook.chapters.length) * 300).toLocaleString()})`}
-                </button>
-              )}
-              <p className="mt-2 text-[10px] text-gray-500">
-                생성: {new Date(audiobook.generatedAt).toLocaleString("ko-KR")} · {audiobook.chapters.length}/{project.chapters.length}장
-              </p>
-            </>
-          ) : (
-            <button
-              onClick={() => generateAudiobook(false)}
-              disabled={audiobookBusy}
-              className="w-full sm:w-auto px-5 py-2.5 bg-purple-500 text-white rounded-lg text-sm font-black hover:bg-purple-600 transition disabled:opacity-50"
-            >
-              {audiobookBusy
-                ? (audiobookProgress ?? "⏳ 생성 중...")
-                : `🎙️ 오디오북 생성 (${project.chapters.length}챕터, ~₩${project.chapters.length * 50})`}
-            </button>
-          )}
-        </section>
-      )}
-
-      {/* ───────────────────────────────────────────────────── */}
-      {/* 🎓 강의 슬라이드 — 책 → 10~20장 (강사·코치용)         */}
-      {/* ───────────────────────────────────────────────────── */}
-      {project.chapters.length > 0 && project.chapters.some(c => c.content) && (
-        <section className="mb-6 p-5 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className="text-lg font-black text-ink-900">🎓 강의 슬라이드</h2>
-            <p className="text-[11px] text-gray-500">책 본문 → 강사·코치용 outline (실시간 줌/오프라인 즉시 사용)</p>
-          </div>
-
-          {!courseSlides ? (
-            <>
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-xs font-bold text-gray-600">슬라이드 수:</span>
-                {([8, 12, 16, 20] as const).map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setCourseSlideCount(n)}
-                    disabled={courseSlidesBusy}
-                    className={`px-3 py-1 text-xs rounded-full border transition ${
-                      courseSlideCount === n
-                        ? "bg-blue-600 text-white border-blue-600 font-bold"
-                        : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
-                    }`}
-                  >
-                    {n}장
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-xs font-bold text-gray-600">템플릿:</span>
-                {([
-                  { id: "minimal" as const, label: "🤍 미니멀" },
-                  { id: "bold" as const, label: "⬛ 볼드" },
-                  { id: "academic" as const, label: "📘 아카데믹" },
-                ]).map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setCourseSlideTemplate(t.id)}
-                    disabled={courseSlidesBusy}
-                    className={`px-3 py-1 text-xs rounded-full border transition ${
-                      courseSlideTemplate === t.id
-                        ? "bg-blue-600 text-white border-blue-600 font-bold"
-                        : "bg-white border-gray-200 text-gray-700 hover:border-blue-500"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              <label className="flex items-center gap-2 mb-3 text-xs text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={courseSlideRender}
-                  onChange={e => setCourseSlideRender(e.target.checked)}
-                  disabled={courseSlidesBusy}
-                  className="w-4 h-4"
-                />
-                <span>
-                  🖼️ 이미지로도 렌더 <span className="text-gray-500">(+₩{courseSlideCount * 10}, 1920×1080 PNG)</span>
-                </span>
-              </label>
-
-              <button
-                onClick={generateCourseSlides}
-                disabled={courseSlidesBusy}
-                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-black hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {courseSlidesBusy
-                  ? "⏳ 슬라이드 생성 중..."
-                  : `🎙️ 강의 슬라이드 생성 (~₩2,000)`}
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                <p className="text-xs font-bold text-ink-900">
-                  생성된 슬라이드 ({courseSlides.slides.length}장) · 템플릿: {courseSlides.template}
-                </p>
-                <button
-                  onClick={generateCourseSlides}
-                  disabled={courseSlidesBusy}
-                  className="px-3 py-1 text-xs bg-white border border-blue-300 text-blue-700 rounded font-bold hover:bg-blue-50 transition disabled:opacity-50"
-                >
-                  {courseSlidesBusy ? "⏳ 재생성 중..." : "🔄 다시 생성"}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {courseSlides.slides.map(slide => (
-                  <div
-                    key={slide.slideNum}
-                    className="bg-white rounded-lg p-3 border border-blue-100 flex flex-col gap-2"
-                  >
-                    {slide.pngBase64 && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`data:image/png;base64,${slide.pngBase64}`}
-                        alt={`슬라이드 ${slide.slideNum}`}
-                        className="w-full aspect-video object-cover rounded border border-gray-200"
-                      />
-                    )}
-                    <div className="flex items-start gap-2">
-                      <span className="text-[10px] font-mono font-bold text-blue-600 mt-0.5 shrink-0">
-                        {String(slide.slideNum).padStart(2, "0")}
-                      </span>
-                      <p className="text-xs font-bold text-ink-900 leading-snug line-clamp-2">{slide.title}</p>
-                    </div>
-                    {slide.bullets[0] && (
-                      <p className="text-[11px] text-gray-600 leading-snug line-clamp-2">• {slide.bullets[0]}</p>
-                    )}
-                    <div className="flex items-center gap-1 mt-auto">
-                      <button
-                        onClick={() => copyCourseSlide(slide)}
-                        className="flex-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded transition"
-                        title="제목 + bullets + 노트 복사"
-                      >
-                        📋 복사
-                      </button>
-                      {slide.pngBase64 && (
-                        <button
-                          onClick={() => downloadCourseSlidePng(slide)}
-                          className="flex-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded transition"
-                          title="PNG 다운로드"
-                        >
-                          💾 다운
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-[10px] text-gray-500">
-                생성: {new Date(courseSlides.generatedAt).toLocaleString("ko-KR")}
-              </p>
-            </>
-          )}
-        </section>
       )}
 
       {/* 챕터 제목 편집 모달 */}
@@ -3755,9 +3023,9 @@ function Inner() {
         </div>
       )}
 
-      {/* 마지막 호출 사용량 */}
+      {/* 마지막 호출 사용량 — 모바일에서는 MobileBottomNav (60px) 위로 이동 */}
       {lastUsage && (
-        <div className="fixed bottom-0 left-0 right-0 bg-ink-900 text-white text-xs py-2 px-4">
+        <div className="fixed bottom-[60px] lg:bottom-0 left-0 right-0 bg-ink-900 text-white text-xs py-2 px-4 z-20">
           <div className="max-w-6xl mx-auto flex items-center gap-2 sm:gap-4 flex-wrap">
             <span className="font-bold">방금</span>
             <span>입 {lastUsage.inputTokens?.toLocaleString()}</span>
@@ -4249,7 +3517,6 @@ function Inner() {
         totalChapters={project.chapters.length}
       />
     )}
-    </main>
     </>
   );
 }
@@ -4454,133 +3721,5 @@ function BatchBanner({
 // AI 호출 없음. 책 type / topic / targetPages / 기존 카피 활용.
 // ─────────────────────────────────────────────────────────
 
-const KMONG_CATEGORIES: Record<string, string> = {
-  "자기계발서": "취업·이직 > 자기계발 / 동기부여",
-  "재테크": "비즈니스 코칭 > 재테크·자산관리",
-  "에세이": "전자책·소책자 > 에세이",
-  "실용서": "비즈니스 코칭 > 실용·노하우",
-  "매뉴얼": "비즈니스 코칭 > 매뉴얼·가이드",
-  "웹소설": "전자책·소책자 > 소설·시",
-  "전문서": "비즈니스 코칭 > 전문 분야",
-};
-
-function suggestKmongPriceKRW(targetPages: number): number {
-  if (!targetPages || targetPages < 50) return 3000;
-  if (targetPages < 100) return 5000;
-  if (targetPages < 200) return 10000;
-  return 15000;
-}
-
-function suggestKmongKeywords(project: any): string[] {
-  const fromCopy: string[] = Array.isArray(project?.kmongPackage?.copy?.kmongHighlights)
-    ? project.kmongPackage.copy.kmongHighlights.slice(0, 5).map((s: string) => String(s).trim()).filter(Boolean)
-    : [];
-  if (fromCopy.length > 0) return fromCopy;
-  // fallback — 챕터 제목 첫 5개에서 추출
-  const fromChapters = (project?.chapters ?? [])
-    .slice(0, 5)
-    .map((c: any) => String(c?.title ?? "").trim())
-    .filter(Boolean);
-  return fromChapters.length > 0 ? fromChapters : [project?.topic ?? "전자책"];
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        navigator.clipboard.writeText(text || "").then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }).catch(() => {});
-      }}
-      className="text-[10px] px-1.5 py-0.5 border border-gray-200 rounded hover:bg-white transition shrink-0"
-      title="복사"
-    >
-      {copied ? "✓" : "📋 복사"}
-    </button>
-  );
-}
-
-function KmongGuideBox({ project }: { project: any }) {
-  const [open, setOpen] = useState(false);
-
-  const type = project?.type ?? "";
-  const category = KMONG_CATEGORIES[type] ?? "전자책·소책자 > 기타";
-  const targetPages = Number(project?.targetPages ?? 0);
-  const price = suggestKmongPriceKRW(targetPages);
-  const title =
-    project?.marketingMeta?.tagline ||
-    project?.kmongPackage?.copy?.kmongTitle ||
-    project?.topic ||
-    "(제목 미지정)";
-  const description =
-    project?.kmongPackage?.copy?.kmongDescription ||
-    project?.marketingMeta?.description ||
-    "(상세 설명 미작성 — '🤖 AI가 마케팅 카피 생성' 또는 '📦 크몽 패키지 생성' 후 자동 채워집니다.)";
-  const keywords = suggestKmongKeywords(project);
-
-  return (
-    <div className="mt-2 p-2 bg-yellow-50/60 border border-yellow-300/60 rounded-lg">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between text-left"
-      >
-        <span className="text-xs font-bold text-ink-900">📦 크몽 등록 가이드</span>
-        <span className="text-[10px] text-gray-500">{open ? "접기 ▲" : "펼치기 ▼"}</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2 text-[11px]">
-          <div className="flex items-start gap-2">
-            <div className="w-16 shrink-0 text-gray-500 font-bold">카테고리</div>
-            <div className="flex-1 break-keep text-ink-900">{category}</div>
-            <CopyButton text={category} />
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-16 shrink-0 text-gray-500 font-bold">추천가</div>
-            <div className="flex-1 text-ink-900">
-              ₩{price.toLocaleString()}
-              <span className="ml-1 text-[10px] text-gray-500">({targetPages || "?"}쪽 기준)</span>
-            </div>
-            <CopyButton text={String(price)} />
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-16 shrink-0 text-gray-500 font-bold">제목</div>
-            <div className="flex-1 break-keep text-ink-900 line-clamp-3">{title}</div>
-            <CopyButton text={title} />
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-16 shrink-0 text-gray-500 font-bold">상세</div>
-            <div className="flex-1 break-keep text-ink-900 line-clamp-4 whitespace-pre-wrap">{description}</div>
-            <CopyButton text={description} />
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-16 shrink-0 text-gray-500 font-bold">키워드</div>
-            <div className="flex-1 flex flex-wrap gap-1">
-              {keywords.map((k, i) => (
-                <span key={i} className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] text-ink-900">{k}</span>
-              ))}
-            </div>
-            <CopyButton text={keywords.join(", ")} />
-          </div>
-          <div className="pt-1">
-            <a
-              href="https://kmong.com/register/service"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block w-full text-center px-2 py-1.5 bg-yellow-500 text-white rounded text-[11px] font-bold hover:bg-yellow-600 transition"
-            >
-              🔗 크몽에 새 서비스 등록
-            </a>
-          </div>
-          <p className="text-[10px] text-gray-500 leading-relaxed pt-1">
-            추천값은 정적 매핑입니다. 크몽 화면의 실제 카테고리·정책에 맞춰 수정해 사용하세요.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
+// KmongGuideBox + 헬퍼들(KMONG_CATEGORIES / suggestKmongPriceKRW / suggestKmongKeywords / CopyButton) →
+// MarketingPageBox.tsx 내부로 이동됨 (해당 박스 안에서만 사용).
