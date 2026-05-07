@@ -3,6 +3,7 @@
 // 어울리는 책: 에세이·웹소설·인문·자서전
 
 import type { BookTemplate, TemplateProps } from "./index";
+import { parseMultimedia, renderMultimediaToken } from "./_multimedia";
 
 const THUMBNAIL_SVG = `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
   <rect width="80" height="100" fill="#fefefe" rx="4"/>
@@ -17,7 +18,7 @@ const THUMBNAIL_SVG = `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/s
   <line x1="10" y1="84" x2="60" y2="84" stroke="#d4d4d8" stroke-width="1.5"/>
 </svg>`;
 
-function ClassicRender({ chapter, chapterIdx, totalChapters }: TemplateProps) {
+function ClassicRender({ chapter, theme, chapterIdx, totalChapters }: TemplateProps) {
   return (
     <article className="tpl-classic max-w-2xl mx-auto px-4 md:px-6 py-10 md:py-16" style={{ fontFamily: "'Noto Serif KR', Georgia, serif" }}>
       <div className="text-center mb-12">
@@ -32,39 +33,57 @@ function ClassicRender({ chapter, chapterIdx, totalChapters }: TemplateProps) {
         )}
       </div>
       <div className="text-base md:text-lg text-gray-800 leading-loose" style={{ wordBreak: "keep-all" }}>
-        {renderContentWithImages(chapter.content, chapter.images)}
+        {renderContentWithImages(chapter.content, chapter.images, theme)}
       </div>
     </article>
   );
 }
 
-function renderContentWithImages(content: string, images: TemplateProps["chapter"]["images"]) {
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
+function renderContentWithImages(
+  content: string,
+  images: TemplateProps["chapter"]["images"],
+  theme: TemplateProps["theme"],
+) {
+  const segments = parseMultimedia(content);
+  const accentText = theme.accent.split(" ")[0];
   let firstParagraphRendered = false;
 
-  return parts.map((part, i) => {
-    if (part.startsWith("[IMAGE:")) {
-      const matched = images?.find(img => img.placeholder === part);
-      if (!matched?.dataUrl) return null;
-      return (
-        <figure key={i} className="my-8 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={matched.dataUrl} alt={matched.alt ?? ""} className="mx-auto max-w-[50%] rounded" />
-          {matched.caption && <figcaption className="mt-2 text-sm text-gray-500 italic font-sans">{matched.caption}</figcaption>}
-        </figure>
+  return segments.map((seg, segIdx) => {
+    if (typeof seg !== "string") {
+      return renderMultimediaToken(
+        seg,
+        `mm-${segIdx}`,
+        "classic",
+        accentText,
+        theme.accentBorder,
+        theme.bg,
       );
     }
-    const paragraphs = part.split("\n\n").filter(p => p.trim());
-    return paragraphs.map((para, j) => {
-      if (!firstParagraphRendered && para.trim().length > 0) {
-        firstParagraphRendered = true;
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map((part, i) => {
+      if (part.startsWith("[IMAGE:")) {
+        const matched = images?.find(img => img.placeholder === part);
+        if (!matched?.dataUrl) return null;
         return (
-          <p key={`${i}-${j}`} className="mb-6 first-letter:text-6xl first-letter:font-bold first-letter:float-left first-letter:mr-2 first-letter:leading-none first-letter:mt-1">
-            {para}
-          </p>
+          <figure key={`${segIdx}-${i}`} className="my-8 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={matched.dataUrl} alt={matched.alt ?? ""} className="mx-auto max-w-[50%] rounded" />
+            {matched.caption && <figcaption className="mt-2 text-sm text-gray-500 italic font-sans">{matched.caption}</figcaption>}
+          </figure>
         );
       }
-      return <p key={`${i}-${j}`} className="mb-5">{para}</p>;
+      const paragraphs = part.split("\n\n").filter(p => p.trim());
+      return paragraphs.map((para, j) => {
+        if (!firstParagraphRendered && para.trim().length > 0) {
+          firstParagraphRendered = true;
+          return (
+            <p key={`${segIdx}-${i}-${j}`} className="mb-6 first-letter:text-6xl first-letter:font-bold first-letter:float-left first-letter:mr-2 first-letter:leading-none first-letter:mt-1">
+              {para}
+            </p>
+          );
+        }
+        return <p key={`${segIdx}-${i}-${j}`} className="mb-5">{para}</p>;
+      });
     });
   });
 }

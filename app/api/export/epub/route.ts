@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getProject } from "@/lib/server/db";
 import { getTemplate } from "@/lib/templates";
+import { parseMultimedia, multimediaTokenToEpubHtml } from "@/lib/templates/_multimedia";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -25,24 +26,32 @@ function stripMarkdown(text: string): string {
 }
 
 function renderChapterHtml(content: string, images: any[]): string {
-  const parts = content.split(/(\[IMAGE:[^\]]+\])/);
-  return parts.map(part => {
-    if (part.startsWith("[IMAGE:")) {
-      const img = images.find((i: any) => i.placeholder === part);
-      if (img?.dataUrl) {
-        return `<div style="text-align:center;margin:1em 0"><img src="${img.dataUrl}" style="max-width:100%;height:auto" alt="${escapeHtml(img.caption || "")}" />${img.caption ? `<p style="font-size:0.85em;color:#666;margin-top:0.3em">${escapeHtml(img.caption)}</p>` : ""}</div>`;
-      }
-      return "";
+  // 1단계: [VIDEO|AUDIO|LINK] 분리 → 멀티미디어 token 또는 텍스트 segment
+  const segments = parseMultimedia(content);
+  return segments.map(seg => {
+    if (typeof seg !== "string") {
+      return multimediaTokenToEpubHtml(seg);
     }
-    const cleaned = stripMarkdown(part);
-    return cleaned.split("\n").map(rawLine => {
-      const line = rawLine.trim();
-      if (!line) return "";
-      if (line.startsWith("## ")) return `<h3>${escapeHtml(line.slice(3))}</h3>`;
-      if (line.startsWith("### ")) return `<h4>${escapeHtml(line.slice(4))}</h4>`;
-      if (line.startsWith("- ") || line.startsWith("* ")) return `<p>· ${escapeHtml(line.slice(2))}</p>`;
-      if (/^\d+\.\s/.test(line)) return `<p>${escapeHtml(line)}</p>`;
-      return `<p>${escapeHtml(line)}</p>`;
+    // 2단계: 텍스트 segment에서 [IMAGE:] 처리 (기존 로직)
+    const parts = seg.split(/(\[IMAGE:[^\]]+\])/);
+    return parts.map(part => {
+      if (part.startsWith("[IMAGE:")) {
+        const img = images.find((i: any) => i.placeholder === part);
+        if (img?.dataUrl) {
+          return `<div style="text-align:center;margin:1em 0"><img src="${img.dataUrl}" style="max-width:100%;height:auto" alt="${escapeHtml(img.caption || "")}" />${img.caption ? `<p style="font-size:0.85em;color:#666;margin-top:0.3em">${escapeHtml(img.caption)}</p>` : ""}</div>`;
+        }
+        return "";
+      }
+      const cleaned = stripMarkdown(part);
+      return cleaned.split("\n").map(rawLine => {
+        const line = rawLine.trim();
+        if (!line) return "";
+        if (line.startsWith("## ")) return `<h3>${escapeHtml(line.slice(3))}</h3>`;
+        if (line.startsWith("### ")) return `<h4>${escapeHtml(line.slice(4))}</h4>`;
+        if (line.startsWith("- ") || line.startsWith("* ")) return `<p>· ${escapeHtml(line.slice(2))}</p>`;
+        if (/^\d+\.\s/.test(line)) return `<p>${escapeHtml(line)}</p>`;
+        return `<p>${escapeHtml(line)}</p>`;
+      }).join("\n");
     }).join("\n");
   }).join("\n");
 }
