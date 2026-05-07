@@ -34,7 +34,10 @@ export interface ToneSetting {
   generatedAt: number;
 }
 
-export type ThemeColorKey = "orange" | "blue" | "green" | "purple" | "red" | "gray";
+export type ThemeColorKey =
+  | "orange" | "blue" | "green" | "purple" | "red" | "gray"
+  // Wave 2: 신규 6
+  | "crimson" | "amber" | "teal" | "indigo" | "rose" | "slate";
 
 export type { TemplateKey, BookType };
 
