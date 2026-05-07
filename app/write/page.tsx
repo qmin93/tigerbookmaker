@@ -11,6 +11,7 @@ import type { MetaAdImage } from "@/lib/storage";
 import { RepurposeBox } from "./_components/sections/RepurposeBox";
 import { MetaAdsBox } from "./_components/sections/MetaAdsBox";
 import { MarketingPageBox } from "./_components/sections/MarketingPageBox";
+import { CoverVariationsBox } from "./_components/sections/CoverVariationsBox";
 import { useTabState } from "./_hooks/useTabState";
 import { usePublishHint } from "./_hooks/usePublishHint";
 import { TopHeader } from "./_components/TopHeader";
@@ -1910,12 +1911,22 @@ function Inner() {
     </>
   );
 
-  // 표지 다양화는 크몽 모달 안에 깊이 nested돼 있어 쉽게 분리 어려움 — 모달에서 그대로 호출.
-  // 본문 탭 슬롯에는 안내만 노출.
+  // 표지 다양화 — CoverVariationsBox로 분리. WritingTab에 standalone 노출.
+  // 크몽 모달의 동일 블록은 제거됨(중복 방지).
   const coverVariationsControls = (
-    <p className="text-[11px] text-gray-500 px-1">
-      📦 [크몽 패키지] 모달에서 ✨ 표지 5장 후보 / 🎨 표지 다양화 (3~5종) 사용 가능.
-    </p>
+    <CoverVariationsBox
+      projectId={projectId}
+      variations={coverVariations}
+      busy={coverVariationsBusy}
+      count={coverVariationsCount}
+      onCountChange={setCoverVariationsCount}
+      onGenerate={generateCoverVariations}
+      onSelect={selectCoverVariation}
+      onRefined={(idx, b64) => {
+        setCoverVariations(prev => prev.map(p => (p.idx === idx ? { ...p, base64: b64 } : p)));
+      }}
+      onBalanceChange={setBalance}
+    />
   );
 
   const templateSelectorBox = (
@@ -3085,77 +3096,7 @@ function Inner() {
             📦 ZIP 다운로드 (이미지 + 카피 + README)
           </button>
 
-          {/* 표지 다양화 — 3~5종 다른 스타일 자동 생성 (Imagen 4 Fast) */}
-          <div className="mb-6 p-4 border border-blue-200 bg-blue-50/60 rounded-xl">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <div>
-                <h4 className="text-sm font-bold text-ink-900">📚 표지 다양화 ({coverVariationsCount}종 다른 스타일)</h4>
-                <p className="text-xs text-gray-600 mt-0.5">Minimalist · Bold · Photorealistic 등 완전히 다른 컴포지션 — 같은 책·같은 색상</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={coverVariationsCount}
-                  onChange={e => setCoverVariationsCount(Number(e.target.value) as 3 | 5)}
-                  disabled={coverVariationsBusy}
-                  className="text-xs px-2 py-1.5 border border-blue-300 rounded-md bg-white"
-                >
-                  <option value={3}>3종 (~₩900)</option>
-                  <option value={5}>5종 (~₩1,500)</option>
-                </select>
-                <button
-                  onClick={generateCoverVariations}
-                  disabled={coverVariationsBusy}
-                  className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 disabled:opacity-50 transition whitespace-nowrap"
-                >
-                  {coverVariationsBusy ? "생성 중..." : coverVariations.length > 0 ? "🔄 다시 생성" : `🎨 ${coverVariationsCount}종 생성`}
-                </button>
-              </div>
-            </div>
-            {coverVariationsBusy && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                {Array.from({ length: coverVariationsCount }).map((_, i) => (
-                  <div key={i} className="aspect-[3/4] rounded-md bg-blue-100 animate-pulse" />
-                ))}
-              </div>
-            )}
-            {!coverVariationsBusy && coverVariations.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                {coverVariations.map(v => (
-                  <div key={v.idx} className="relative">
-                    <button
-                      onClick={() => selectCoverVariation(v.idx)}
-                      className="aspect-[3/4] w-full rounded-md overflow-hidden border-2 border-transparent hover:border-blue-600 transition relative group bg-gray-100"
-                      title={`${v.style} — 이걸로 선택`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`data:image/png;base64,${v.base64}`} alt={v.style} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
-                        <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
-                      </div>
-                      <div className="absolute top-1 left-1 text-[9px] font-mono px-1 py-0.5 bg-white/90 text-blue-700 rounded font-bold">
-                        {v.style}
-                      </div>
-                    </button>
-                    {projectId && (
-                      <div className="absolute top-1 right-1 bg-white/90 rounded px-1 py-0.5 z-20">
-                        <ImageRefineButton
-                          projectId={projectId}
-                          imageType="cover"
-                          aspectRatio="1:1"
-                          onRefined={(b64) => {
-                            setCoverVariations(prev => prev.map(p =>
-                              p.idx === v.idx ? { ...p, base64: b64 } : p
-                            ));
-                          }}
-                          onBalanceChange={setBalance}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* 표지 다양화 (3~5종 다른 스타일) — WritingTab의 CoverVariationsBox로 이동됨 (중복 제거). */}
 
           {/* 표지 5장 후보 비교 */}
           <div className="mb-6 p-4 border border-tiger-orange/30 bg-orange-50/60 rounded-xl">
