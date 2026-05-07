@@ -1162,8 +1162,14 @@ function Inner() {
     if (!editChat?.proposal || !project) return;
     const chapters = [...project.chapters];
     chapters[editChat.chapterIdx] = { ...chapters[editChat.chapterIdx], content: editChat.proposal };
-    await saveProject({ ...project, chapters });
-    setEditChat(null);
+    setEditChat(c => c ? { ...c, busy: true } : c);
+    try {
+      await saveProject({ ...project, chapters });
+      setEditChat(null);
+    } catch (e: any) {
+      setError(e?.message || "저장 실패 — 다시 시도해주세요");
+      setEditChat(c => c ? { ...c, busy: false } : c);
+    }
   };
 
   // ─── 마케팅 메타 핸들러 ───
@@ -3335,9 +3341,10 @@ function Inner() {
                 </button>
                 <button
                   onClick={applyChapterEdit}
-                  className="flex-1 py-2 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600"
+                  disabled={editChat.busy}
+                  className="flex-1 py-2 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600 disabled:opacity-50"
                 >
-                  ✓ 챕터 본문에 적용
+                  {editChat.busy ? "저장 중..." : "✓ 챕터 본문에 적용"}
                 </button>
               </div>
             </div>
