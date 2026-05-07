@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { getTheme } from "@/lib/theme-colors";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import type { ThemeColorKey, MarketingMeta } from "@/lib/storage";
+import { FlipbookPreview } from "@/components/FlipbookPreview";
 
 interface ChapterMeta {
   id?: string;
@@ -39,6 +40,7 @@ interface BookData {
   firstChapterPreview?: string | null;
   firstChapterTitle?: string | null;
   firstChapterSubtitle?: string | null;
+  flipbookPages?: Array<{ chapterIdx: number; title: string; subtitle?: string | null; excerpt: string }>;
   themeColor?: ThemeColorKey;
   template?: TemplateKey;
   marketingMeta?: MarketingMeta | null;
@@ -315,28 +317,15 @@ export default function BookPage({ params }: { params: { id: string } }) {
         </section>
       )}
 
-      {/* 4.5. 1장 미리보기 section — 본문 sample (600자) + /share/[id] CTA */}
-      {data.firstChapterPreview && (
-        <section className="max-w-3xl mx-auto px-4 py-12 border-t border-gray-100">
-          <h2 className={`text-2xl font-bold mb-4 border-l-4 pl-3 ${theme.accentBorder}`}>📖 1장 미리보기</h2>
-          {data.firstChapterTitle && (
-            <h3 className="text-lg font-bold text-gray-900 mb-1">{data.firstChapterTitle}</h3>
-          )}
-          {data.firstChapterSubtitle && (
-            <p className="text-sm text-gray-500 mb-4">{data.firstChapterSubtitle}</p>
-          )}
-          <div className="prose prose-base max-w-none text-gray-800 leading-relaxed whitespace-pre-line">
-            {data.firstChapterPreview}
-          </div>
-          <div className="mt-6 text-center">
-            <Link
-              href={`/share/${id}`}
-              className={`inline-block ${theme.bgBold} ${theme.bgBoldHover} ${theme.textOnBold} font-bold text-sm px-6 py-3 rounded-lg shadow transition`}
-            >
-              📖 전체 본문 읽으러 가기 →
-            </Link>
-          </div>
-        </section>
+      {/* 4.5. 인터랙티브 flipbook 미리보기 (첫 2장의 첫 페이지) — 모바일 fallback 내장 */}
+      {data.flipbookPages && data.flipbookPages.length > 0 && (
+        <FlipbookPreview
+          bookId={data.id}
+          bookTopic={data.topic}
+          coverBase64={data.cover?.base64}
+          pages={data.flipbookPages}
+          theme={theme}
+        />
       )}
 
       {/* 5. 목차 section */}

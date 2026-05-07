@@ -38,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     subtitle: c.subtitle,
   }));
 
-  // 1장 본문 미리보기 (600자 — 마케팅 페이지에서 sample 표시, 전체는 /share/[id])
+  // 1장 본문 미리보기 (600자 — fallback for non-flipbook display)
   const firstChapter = (p.data?.chapters ?? [])[0];
   const firstChapterContentRaw = firstChapter?.content ? String(firstChapter.content) : "";
   const firstChapterPreview = firstChapterContentRaw
@@ -46,6 +46,21 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     : null;
   const firstChapterTitle = firstChapter?.title ?? null;
   const firstChapterSubtitle = firstChapter?.subtitle ?? null;
+
+  // Flipbook 미리보기 페이지 — 첫 2장의 첫 페이지만 노출 (마케팅 목적, 전체 본문은 /share/[id])
+  const chap0 = p.data?.chapters?.[0];
+  const chap1 = p.data?.chapters?.[1];
+  const flipbookPages = [chap0, chap1]
+    .filter(Boolean)
+    .map((c: any, i: number) => ({
+      chapterIdx: i,
+      title: c.title,
+      subtitle: c.subtitle ?? null,
+      excerpt: c.content
+        ? String(c.content).slice(0, 500).trim() + (String(c.content).length > 500 ? "…" : "")
+        : null,
+    }))
+    .filter((p: any) => p.excerpt);
 
   // 표지: base64만 (메타 제외)
   const coverImg = p.data?.kmongPackage?.images?.find((i: any) => i.type === "cover");
@@ -61,6 +76,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     firstChapterPreview,
     firstChapterTitle,
     firstChapterSubtitle,
+    flipbookPages,
     themeColor: p.data?.themeColor ?? "orange",
     marketingMeta: p.data?.marketingMeta ?? null,
     kmongCopy: p.data?.kmongPackage?.copy ?? null,
