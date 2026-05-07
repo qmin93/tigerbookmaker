@@ -452,7 +452,8 @@ function Inner() {
       </Center>
     );
   }
-  if (error) return <Center><p className="text-red-600">{error}</p></Center>;
+  // NOTE: 에러는 페이지 전체 대체 X (이전 버그 — applyChapterEdit 등 부분 실패 시 페이지가 통째로 빈 화면 + 에러만 보였음)
+  // 일반 에러는 main return의 inline banner (line ~2874)로 표시. 진짜 fatal 에러만 unauthorized 분기.
   if (!project) return <Center>로딩 중...</Center>;
 
   // ─── DB 동기화: project.data 통째로 PUT ───
