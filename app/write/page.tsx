@@ -1178,12 +1178,25 @@ function Inner() {
   };
 
   const applyChapterEdit = async () => {
-    if (!editChat?.proposal || !project) return;
-    const chapters = [...project.chapters];
-    chapters[editChat.chapterIdx] = { ...chapters[editChat.chapterIdx], content: editChat.proposal };
+    if (!editChat?.proposal || !project || !projectId) return;
     setEditChat(c => c ? { ...c, busy: true } : c);
     try {
-      await saveProject({ ...project, chapters });
+      // 본문만 patch — 챕터 이미지(base64) 함께 보내면 Vercel 4.5MB 한도 초과.
+      const idx = editChat.chapterIdx;
+      const newContent = editChat.proposal;
+      const res = await fetch(`/api/chapter/${idx}/content`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, content: newContent }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `저장 실패 (${res.status})`);
+      }
+      // 로컬 state도 업데이트 (서버에 저장된 내용과 동기화)
+      const chapters = [...project.chapters];
+      chapters[idx] = { ...chapters[idx], content: newContent };
+      setProject({ ...project, chapters });
       setEditChat(null);
     } catch (e: any) {
       setError(e?.message || "저장 실패 — 다시 시도해주세요");
@@ -2757,10 +2770,25 @@ function Inner() {
             </button>
             <button
               onClick={async () => {
-                const updated = [...project.chapters];
-                updated[activeIdx] = { ...active, content: editingContent };
-                await saveProject({ ...project, chapters: updated });
-                setEditingContent(null);
+                if (!projectId || editingContent === null) return;
+                try {
+                  // 본문만 patch — 이미지 base64 같이 안 보내서 payload 작음
+                  const res = await fetch(`/api/chapter/${activeIdx}/content`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ projectId, content: editingContent }),
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || `저장 실패 (${res.status})`);
+                  }
+                  const updated = [...project.chapters];
+                  updated[activeIdx] = { ...active, content: editingContent };
+                  setProject({ ...project, chapters: updated });
+                  setEditingContent(null);
+                } catch (e: any) {
+                  setError(e?.message || "저장 실패");
+                }
               }}
               className="px-4 py-2 text-sm bg-tiger-orange text-white font-bold rounded-lg shadow-glow-orange-sm hover:bg-orange-600 transition"
             >
