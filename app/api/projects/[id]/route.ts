@@ -224,6 +224,24 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const existingData = existing[0]?.data ?? {};
   const merged = { ...existingData, ...data };
 
+  // chapters per-chapter 머지 — 클라이언트가 4.5MB 한도 회피용으로 images.dataUrl을 빼고 보내는 케이스 보호.
+  // 신규 chapter의 images 배열 항목에 dataUrl이 없으면, 기존 동일 placeholder의 dataUrl로 채워 보존.
+  if (Array.isArray(data.chapters) && Array.isArray(existingData.chapters)) {
+    merged.chapters = data.chapters.map((newCh: any, i: number) => {
+      const oldCh = existingData.chapters[i];
+      if (!oldCh) return newCh;
+      let mergedImages = newCh.images;
+      if (Array.isArray(newCh.images) && Array.isArray(oldCh.images)) {
+        mergedImages = newCh.images.map((newImg: any) => {
+          if (newImg?.dataUrl) return newImg;
+          const oldImg = oldCh.images.find((o: any) => o?.placeholder === newImg?.placeholder);
+          return oldImg?.dataUrl ? { ...newImg, dataUrl: oldImg.dataUrl } : newImg;
+        });
+      }
+      return { ...oldCh, ...newCh, images: mergedImages };
+    });
+  }
+
   const { rowCount } = await sql`
     UPDATE book_projects SET data = ${JSON.stringify(merged)}, updated_at = NOW()
     WHERE id = ${params.id} AND user_id = ${session.user.id}

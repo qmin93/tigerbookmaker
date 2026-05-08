@@ -458,9 +458,17 @@ function Inner() {
 
   // ─── DB 동기화: project.data 통째로 PUT ───
   const saveProject = async (next: Project) => {
+    // 이미지 base64(dataUrl)는 PUT 본문에서 제거 — Vercel 함수 4.5MB 한도 초과 방지.
+    // 서버는 PUT 시 chapters를 per-chapter 머지해서 기존 images.dataUrl을 보존함.
+    const slimChapters = (next.chapters ?? []).map(ch => ({
+      ...ch,
+      images: Array.isArray(ch.images)
+        ? ch.images.map(img => ({ ...img, dataUrl: undefined }))
+        : ch.images,
+    }));
     const data = {
       topic: next.topic, audience: next.audience, type: next.type, targetPages: next.targetPages,
-      chapters: next.chapters,
+      chapters: slimChapters,
     };
     const res = await fetch(`/api/projects/${projectId}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
