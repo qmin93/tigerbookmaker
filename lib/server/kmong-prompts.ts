@@ -62,32 +62,34 @@ The visual should evoke this theme without showing any letters.${extra ? `\n${ex
 // 장르별 표지 시각 컨셉 — 책 유형에 따라 분위기 분기. 색상은 themeColor에서.
 // topic은 시각 컨셉 힌트로만 (글자로 그리지 X).
 function coverPromptByGenre(p: BookProject, styleVariant?: string): string {
-  const base = `Square 1:1 abstract editorial graphic composition, premium publishing aesthetic. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
-  const { hex, name } = resolveThemeColor(p);
+  // 주의: prompt 본문에 hex 코드(#f97316), aspect ratio 문자열("1:1"), 픽셀 크기(1080x1080) 절대 포함 X
+  // — 이미지 모델이 이런 문자열을 '그려야 할 텍스트'로 오해하고 표지에 그려넣는 사고 발생 (2026-05-07).
+  const base = `Square abstract editorial graphic composition, premium publishing aesthetic. ${NO_TEXT} ${NO_BOOK_OBJECT}`;
+  const { name } = resolveThemeColor(p);
   const topic = topicHint(p, styleVariant);
 
   switch (p.type) {
     case "자기계발서":
-      return `${base} Powerful upward arrow, mountain peak, or rising line graph as central abstract element. ${name} (${hex}) on cream/white background. Bold geometric shapes. Confident motivational mood.\n\n${topic}`;
+      return `${base} Powerful upward arrow, mountain peak, or rising line graph as central abstract element. ${name} on cream/white background. Bold geometric shapes. Confident motivational mood.\n\n${topic}`;
 
     case "재테크":
-      return `${base} Abstract financial chart pattern — upward trending line graph, geometric coin silhouette, or vault icon. Sophisticated palette built around ${name} (${hex}) with deep neutrals. Banking professional aesthetic. Geometric and serious.\n\n${topic}`;
+      return `${base} Abstract financial chart pattern — upward trending line graph, geometric coin silhouette, or vault icon. Sophisticated palette built around ${name} with deep neutrals. Banking professional aesthetic. Geometric and serious.\n\n${topic}`;
 
     case "에세이":
-      return `${base} Soft watercolor wash, single botanical element (leaf, branch, single flower silhouette), or atmospheric landscape silhouette. Muted earthy palette accented with ${name} (${hex}). Quiet contemplative mood. Hand-drawn illustration style.\n\n${topic}`;
+      return `${base} Soft watercolor wash, single botanical element (leaf, branch, single flower silhouette), or atmospheric landscape silhouette. Muted earthy palette accented with ${name}. Quiet contemplative mood. Hand-drawn illustration style.\n\n${topic}`;
 
     case "웹소설":
-      return `${base} Single dramatic character silhouette OR evocative cinematic scene, mood lighting, vivid color contrast led by ${name} (${hex}). Webtoon-influenced painterly illustration. Story-rich dramatic atmosphere.\n\n${topic}`;
+      return `${base} Single dramatic character silhouette OR evocative cinematic scene, mood lighting, vivid color contrast led by ${name}. Webtoon-influenced painterly illustration. Story-rich dramatic atmosphere.\n\n${topic}`;
 
     case "전문서":
-      return `${base} Geometric grid composition, single conceptual diagram or symbolic icon (network, atom, abstract graph). Cool authoritative palette built around ${name} (${hex}) with charcoal and white. Authoritative academic mood. Minimalist structured layout.\n\n${topic}`;
+      return `${base} Geometric grid composition, single conceptual diagram or symbolic icon (network, atom, abstract graph). Cool authoritative palette built around ${name} with charcoal and white. Authoritative academic mood. Minimalist structured layout.\n\n${topic}`;
 
     case "매뉴얼":
-      return `${base} Schematic exploded-view diagram of generic tool, blueprint aesthetic, fine line work. Monochrome with single ${name} (${hex}) accent. Functional clear technical drawing.\n\n${topic}`;
+      return `${base} Schematic exploded-view diagram of generic tool, blueprint aesthetic, fine line work. Monochrome with single ${name} accent. Functional clear technical drawing.\n\n${topic}`;
 
     case "실용서":
     default:
-      return `${base} Modern minimalist composition, single bold geometric or symbolic icon centered. Clean white background, single accent color ${name} (${hex}). Editorial design.\n\n${topic}`;
+      return `${base} Modern minimalist composition, single bold geometric or symbolic icon centered. Clean white background, single accent color ${name}. Editorial design.\n\n${topic}`;
   }
 }
 
@@ -101,19 +103,19 @@ export function imagePrompt(type: KmongImageType, p: BookProject): string {
       return coverPromptByGenre(p);
 
     case "thumb":
-      return `Square 1:1 abstract icon composition. Bold central visual metaphor — geometric shape or symbolic icon representing growth/learning/insight. Bright color contrast with orange (#f97316) accent. Professional aesthetic. ${NO_TEXT}`;
+      return `Square abstract icon composition. Bold central visual metaphor — geometric shape or symbolic icon representing growth, learning, or insight. Bright color contrast with warm orange accent. Professional aesthetic. ${NO_TEXT}`;
 
     case "toc":
-      return `Square 1:1 abstract structural infographic. Vertical stack of horizontal lines or bars suggesting a hierarchical list, with subtle thin dividers. White background, monochrome with orange (#f97316) accent dots. Clean editorial. ${NO_TEXT}`;
+      return `Square abstract structural infographic. Vertical stack of horizontal lines or bars suggesting a hierarchical list, with subtle thin dividers. White background, monochrome with warm orange accent dots. Clean editorial. ${NO_TEXT}`;
 
     case "spec":
-      return `Square 1:1 minimalist file format icon composition. Document icons (folded corner page shapes), grid layout, hairline borders. Modern flat design. Monochrome with single orange (#f97316) accent. Premium professional. ${NO_TEXT}`;
+      return `Square minimalist file format icon composition. Document icons (folded corner page shapes), grid layout, hairline borders. Modern flat design. Monochrome with single warm orange accent. Premium professional. ${NO_TEXT}`;
 
     case "audience":
-      return `Square 1:1 friendly persona illustration. Single warm character portrait — head and shoulders, simple line illustration style, neutral expression. Soft warm palette (peach, cream, sage). White background. Modern editorial illustration. ${NO_TEXT}`;
+      return `Square friendly persona illustration. Single warm character portrait — head and shoulders, simple line illustration style, neutral expression. Soft warm palette (peach, cream, sage). White background. Modern editorial illustration. ${NO_TEXT}`;
 
     case "preview":
-      return `Square 1:1 minimal flat-lay scene of an open paper book on a clean wooden desk, soft natural lighting from a side window, a small coffee cup nearby. Editorial product photography style. Pages visible but blurred — pure visual atmosphere. ${NO_TEXT}`;
+      return `Square minimal flat-lay scene of an open paper book on a clean wooden desk, soft natural lighting from a side window, a small coffee cup nearby. Editorial product photography style. Pages visible but blurred — pure visual atmosphere. ${NO_TEXT}`;
   }
 }
 

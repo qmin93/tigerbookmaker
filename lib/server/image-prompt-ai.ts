@@ -51,23 +51,27 @@ export async function generateImagePromptAI(opts: ImagePromptOptions): Promise<I
     ? `\n[TEMPLATE STYLE GUIDANCE — keep the cover consistent with this style direction]\n${opts.templateHint}`
     : "";
 
-  const systemPrompt = `You are an expert at writing image generation prompts for Imagen 4 / Flux. You MUST write the prompt in ENGLISH (image models don't understand Korean well). Output ONLY the prompt — no explanations, no JSON, no quotes. Just the prompt as plain text.
+  const systemPrompt = `You are an expert at writing image generation prompts for Imagen 4 / Flux. You MUST write the prompt in ENGLISH (image models don't understand Korean well). Output ONLY the prompt — no explanations, no JSON, no quotes, no code fences, no preamble. Just the prompt as plain text.
 
-Strong principles:
-1. Be specific and visual (concrete objects/scenes), not abstract mood words
-2. Mention exact colors and composition
-3. Include a clear focal point
-4. NO text/letters/numbers in the image (Korean text is added separately via overlay)
-5. Pinterest / Behance editorial design aesthetic
-6. Match the aspect ratio: ${opts.aspectRatio}
-7. The book is in Korean — but generate VISUAL CONCEPTS, not translation`;
+CRITICAL — These rules prevent text artifacts in the output:
+1. NEVER mention hex codes (like #f97316 or F97316), color codes, or aspect ratio strings (1:1 / 16:9) in the prompt — image models render those as text in the picture
+2. NEVER mention "1:1", "16:9", "9:16", or any colon-separated number in the prompt body
+3. NEVER mention pixel dimensions like "1080x1080"
+4. Refer to colors by NAME only (e.g., "warm orange", "midnight blue") — never by hex
+5. NO text, letters, numbers, words, captions, labels, watermarks, signatures of ANY language
+
+Style principles:
+6. Be specific and visual (concrete objects/scenes), not abstract mood words
+7. Include a clear focal point and composition direction
+8. Pinterest / Behance editorial design aesthetic
+9. Generate VISUAL CONCEPTS only — not translations of Korean text`;
 
   const userPrompt = `[BOOK]
-Topic (translate concept, not text): ${opts.bookTopic}
+Topic (translate the concept into visuals, not the literal text): ${opts.bookTopic}
 Audience: ${opts.bookAudience}
 Genre: ${opts.bookType}
-Theme color: ${opts.themeColorName} (${opts.themeColorHex})
-${opts.headline ? `Headline (for context only, NOT to render): "${opts.headline}"` : ""}
+Theme color (use this NAME only, do NOT include any color code): ${opts.themeColorName}
+${opts.headline ? `Headline (Korean — for theme context ONLY, NEVER to be drawn or rendered): "${opts.headline}"` : ""}
 
 [IMAGE PURPOSE]
 ${purposeHint}
@@ -76,7 +80,7 @@ ${templateBlock}
 ${ragContext}
 ${refinementBlock}
 
-Now write a single English prompt (max 100 words) for Imagen 4 to generate the perfect image. Start directly with the prompt — no preamble.`;
+Now write a single English image prompt (max 100 words). Describe ONLY the visual scene. Do NOT mention aspect ratios, hex codes, dimensions, or any Korean/English text to be displayed. Start directly with the prompt — no preamble.`;
 
   const result = await callAIServer({
     model: "gemini-flash-latest",
@@ -90,9 +94,16 @@ Now write a single English prompt (max 100 words) for Imagen 4 to generate the p
   let prompt = result.text.trim();
   // Strip code fences if AI added any
   prompt = prompt.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-  // Always append no-text constraint
+  // Sanitize: remove hex codes, aspect ratios, dimensions that would be rendered as text on image
+  prompt = prompt
+    .replace(/#?[0-9a-fA-F]{6}\b/g, "")            // hex codes (#f97316 or f97316)
+    .replace(/\b\d{1,2}\s*:\s*\d{1,2}\b/g, "")     // 1:1, 16:9 etc.
+    .replace(/\b\d{3,5}\s*[xX×]\s*\d{3,5}\b/g, "") // 1080x1080
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  // Always append strong no-text constraint (text may have been removed by sanitize)
   if (!/no text|no letters|no characters|wordless/i.test(prompt)) {
-    prompt += " WORDLESS, no text, no letters, no numbers, no Korean characters anywhere.";
+    prompt += " WORDLESS image with absolutely NO text, NO letters, NO numbers, NO words, NO captions, NO Korean or Chinese or English characters anywhere in the image. Pure visual composition only.";
   }
 
   // Approx cost calc — Gemini Flash output 2.50 USD/M tokens, very cheap for ~400 tokens
