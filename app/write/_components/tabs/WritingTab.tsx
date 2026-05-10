@@ -17,14 +17,18 @@ export function WritingTab({
 }: Props) {
   return (
     <div className="p-3 space-y-4">
-      <SectionTitle icon="✍️" label="본문 일괄 작업" />
-      {bulkWritingControls}
+      <div id="writing-section-chapters" className="scroll-mt-32 rounded-lg p-1 -m-1">
+        <SectionTitle icon="✍️" label="본문 일괄 작업" />
+        {bulkWritingControls}
+      </div>
 
       <SectionTitle icon="🖼" label="본문 이미지" />
       {bulkImageControls}
 
-      <SectionTitle icon="🎨" label="표지 다양화" />
-      {coverVariationsControls}
+      <div id="writing-section-cover" className="scroll-mt-32 rounded-lg p-1 -m-1">
+        <SectionTitle icon="🎨" label="표지 다양화" />
+        {coverVariationsControls}
+      </div>
 
       <SectionTitle icon="📐" label="레이아웃 템플릿" />
       {templateSelector}

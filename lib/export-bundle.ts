@@ -390,6 +390,7 @@ export interface ProgressItem {
   done: boolean;
   tab: "writing" | "publish" | "extras" | "ops";
   hint: string;
+  anchor?: string;   // 해당 탭 안에서 scroll 대상 element id
 }
 
 export interface ProjectProgress {
@@ -411,6 +412,7 @@ export function calculateProgress(project: BookProject): ProjectProgress {
       hint: writtenChapters < totalChapters
         ? `${totalChapters - writtenChapters}장 더 [본문 생성] 클릭`
         : "완료",
+      anchor: "writing-section-chapters",
     },
     {
       key: "cover",
@@ -418,6 +420,7 @@ export function calculateProgress(project: BookProject): ProjectProgress {
       done: !!(project.kmongPackage?.images?.some(i => i.type === "cover") || project.coverVariations?.length),
       tab: "writing",
       hint: "writing 탭의 [표지 다양화 5종] 또는 [크몽 패키지 생성]에서 만들어짐",
+      anchor: "writing-section-cover",
     },
     {
       key: "marketing",
@@ -425,6 +428,7 @@ export function calculateProgress(project: BookProject): ProjectProgress {
       done: !!project.marketingMeta?.tagline,
       tab: "publish",
       hint: "publish 탭 [🤖 AI 마케팅 카피 생성] (~₩500)",
+      anchor: "publish-section-marketing",
     },
     {
       key: "meta-ad-copy",
@@ -432,6 +436,7 @@ export function calculateProgress(project: BookProject): ProjectProgress {
       done: !!project.metaAdPackage,
       tab: "publish",
       hint: "publish 탭 [Meta 광고 카피] (₩500)",
+      anchor: "publish-section-meta-ads",
     },
     {
       key: "meta-ad-images",
@@ -439,6 +444,7 @@ export function calculateProgress(project: BookProject): ProjectProgress {
       done: (project.metaAdImages?.length ?? 0) >= 1,
       tab: "publish",
       hint: "publish 탭 [Meta 광고 이미지 3장] (₩1,500)",
+      anchor: "publish-section-meta-ads",
     },
   ];
   const done = items.filter(i => i.done).length;

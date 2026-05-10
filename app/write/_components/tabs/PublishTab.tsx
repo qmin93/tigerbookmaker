@@ -17,14 +17,18 @@ export function PublishTab({
 }: Props) {
   return (
     <div className="p-3 space-y-4">
-      <SectionTitle icon="🔗" label="마케팅 페이지" />
-      {marketingPageBox}
+      <div id="publish-section-marketing" className="scroll-mt-32 rounded-lg p-1 -m-1">
+        <SectionTitle icon="🔗" label="마케팅 페이지" />
+        {marketingPageBox}
+      </div>
 
       <SectionTitle icon="📦" label="패키지 추천 (1-click)" />
       {packageRecommendationBox}
 
-      <SectionTitle icon="📣" label="Meta 광고" />
-      {metaAdsBox}
+      <div id="publish-section-meta-ads" className="scroll-mt-32 rounded-lg p-1 -m-1">
+        <SectionTitle icon="📣" label="Meta 광고" />
+        {metaAdsBox}
+      </div>
 
       <SectionTitle icon="📚" label="카드뉴스 인포그래픽" />
       {infographicBox}
