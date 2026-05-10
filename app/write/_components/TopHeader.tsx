@@ -5,6 +5,12 @@
 "use client";
 import Link from "next/link";
 
+interface MissingItem {
+  label: string;
+  hint: string;
+  tab: string;
+}
+
 interface Props {
   topic?: string | null;
   balanceKrw?: number | null;
@@ -14,17 +20,25 @@ interface Props {
   progressPercent?: number;
   progressDone?: number;
   progressTotal?: number;
+  missingItems?: MissingItem[];   // 빠진 항목 구체 리스트 (label+hint+탭)
+  onGoToTab?: (tab: string) => void;  // "지금 가기" 클릭 시 호출
 }
 
-export function TopHeader({ topic, balanceKrw, onExport, exportDisabled, progressPercent, progressDone, progressTotal }: Props) {
+export function TopHeader({ topic, balanceKrw, onExport, exportDisabled, progressPercent, progressDone, progressTotal, missingItems, onGoToTab }: Props) {
   const handleExport = () => {
-    if (typeof progressPercent === "number" && progressPercent < 100 && onExport) {
+    if (typeof progressPercent === "number" && progressPercent < 100 && onExport && missingItems && missingItems.length > 0) {
+      const lines = missingItems.map(m => `✗ ${m.label}\n   → ${m.hint}`).join("\n\n");
       const ok = confirm(
-        `⚠️ 패키지가 아직 ${progressPercent}% 완성입니다.\n\n` +
-        `빠진 자료(마케팅 카피·Meta 광고 등)가 있으면 외부 마켓 등록 시 다시 만들어야 합니다.\n\n` +
-        `그래도 지금 내보내기로 가시겠어요? (publish/extras 탭에서 마저 만들 수 있습니다)`
+        `⚠️ 패키지 ${progressPercent}% — 아직 빠진 자료가 있습니다:\n\n${lines}\n\n` +
+        `[취소]를 누르면 위 항목 만든 후 내보낼 수 있습니다.\n` +
+        `[확인]을 누르면 지금 상태 그대로 내보내기 페이지로 갑니다.`
       );
-      if (!ok) return;
+      if (!ok) {
+        // 첫 번째 빠진 항목의 탭으로 자동 이동
+        const firstTab = missingItems[0]?.tab;
+        if (firstTab && onGoToTab) onGoToTab(firstTab);
+        return;
+      }
     }
     onExport?.();
   };

@@ -2939,6 +2939,8 @@ function Inner() {
         progressPercent={projectProgress.percent}
         progressDone={projectProgress.done}
         progressTotal={projectProgress.total}
+        missingItems={projectProgress.details.filter(d => !d.done).map(d => ({ label: d.label, hint: d.hint, tab: d.tab }))}
+        onGoToTab={(t) => setTab(t as any)}
       />
 
       {error && (

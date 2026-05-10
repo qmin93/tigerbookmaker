@@ -120,7 +120,7 @@ function Inner() {
 
       {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
-      {/* 진행률 체크리스트 — 마케팅·광고 자료 만들었는지 한눈에 */}
+      {/* 진행률 체크리스트 — 항목별로 만들러 가는 버튼 직접 제공 */}
       {(() => {
         const prog = calculateProgress(project);
         return (
@@ -131,32 +131,35 @@ function Inner() {
                 {prog.percent}%
               </span>
             </div>
-            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
               <div
                 className={`h-full transition-all ${prog.percent === 100 ? "bg-tiger-orange" : "bg-gray-400"}`}
                 style={{ width: `${prog.percent}%` }}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="space-y-2">
               {prog.details.map(d => (
-                <div key={d.label} className={`flex items-center gap-1.5 ${d.done ? "text-ink-900" : "text-gray-400"}`}>
-                  <span className={d.done ? "text-tiger-orange" : "text-gray-300"}>{d.done ? "✓" : "○"}</span>
-                  <span>{d.label}</span>
+                <div key={d.key} className={`flex items-center justify-between gap-3 p-2.5 rounded-lg ${d.done ? "bg-orange-50/50" : "bg-gray-50"}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className={`flex items-center gap-1.5 text-sm ${d.done ? "text-ink-900 font-bold" : "text-gray-700"}`}>
+                      <span className={d.done ? "text-tiger-orange" : "text-gray-300"}>{d.done ? "✓" : "○"}</span>
+                      <span>{d.label}</span>
+                    </div>
+                    {!d.done && (
+                      <div className="text-[11px] text-gray-500 mt-0.5 ml-5">{d.hint}</div>
+                    )}
+                  </div>
+                  {!d.done && (
+                    <Link
+                      href={`/write?id=${projectId}&tab=${d.tab}`}
+                      className="flex-shrink-0 px-3 py-1.5 bg-tiger-orange text-white text-xs font-bold rounded hover:bg-orange-600 transition whitespace-nowrap"
+                    >
+                      만들러 →
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>
-            {prog.percent < 100 && (
-              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
-                💡 빠진 자료가 있어요.{" "}
-                <Link href={`/write?id=${projectId}&tab=publish`} className="text-tiger-orange font-bold hover:underline">
-                  publish 탭 가기 →
-                </Link>{" "}
-                또는{" "}
-                <Link href={`/write?id=${projectId}&tab=extras`} className="text-tiger-orange font-bold hover:underline">
-                  extras 탭 →
-                </Link>
-              </div>
-            )}
           </div>
         );
       })()}

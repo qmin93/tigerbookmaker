@@ -380,31 +380,58 @@ export async function generateBundle(
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// 진행률 계산 — TopHeader에서 사용. 0~100 사이 % 와 detail breakdown.
+// 진행률 계산 — TopHeader/Export에서 사용. 0~100 % + 항목별 위치 정보 포함.
+// tab: /write의 어느 탭에 가야 만들 수 있는가
+// hashAnchor: 해당 탭 안의 어느 영역인지 (스크롤 보조)
+// hint: 사용자가 만들 때 보일 짧은 안내
+export interface ProgressItem {
+  key: string;
+  label: string;
+  done: boolean;
+  tab: "writing" | "publish" | "extras" | "ops";
+  hint: string;
+}
+
 export interface ProjectProgress {
-  percent: number;          // 0-100
-  done: number;             // 완료 항목 수
-  total: number;            // 총 항목 수
-  details: Array<{ label: string; done: boolean }>;
+  percent: number;
+  done: number;
+  total: number;
+  details: ProgressItem[];
 }
 
 export function calculateProgress(project: BookProject): ProjectProgress {
-  const items: Array<{ label: string; done: boolean }> = [
+  const writtenChapters = project.chapters.filter(c => c.content).length;
+  const totalChapters = project.chapters.length;
+  const items: ProgressItem[] = [
     {
-      label: `본문 ${project.chapters.filter(c => c.content).length}/${project.chapters.length}`,
-      done: project.chapters.length > 0 && project.chapters.every(c => !!c.content),
+      key: "chapters",
+      label: `본문 ${writtenChapters}/${totalChapters}장`,
+      done: totalChapters > 0 && writtenChapters === totalChapters,
+      tab: "writing",
+      hint: writtenChapters < totalChapters
+        ? `${totalChapters - writtenChapters}장 더 [본문 생성] 클릭`
+        : "완료",
     },
     {
-      label: "표지",
+      key: "cover",
+      label: "표지 이미지",
       done: !!(project.kmongPackage?.images?.some(i => i.type === "cover") || project.coverVariations?.length),
+      tab: "writing",
+      hint: "writing 탭의 [표지 다양화 5종] 또는 [크몽 패키지 생성]에서 만들어짐",
     },
     {
-      label: "마케팅 카피",
+      key: "marketing",
+      label: "마케팅 카피 (tagline·설명·작가소개)",
       done: !!project.marketingMeta?.tagline,
+      tab: "publish",
+      hint: "publish 탭의 [🤖 AI가 마케팅 카피 생성] 버튼 (~₩500)",
     },
     {
-      label: "Meta 광고",
-      done: !!(project.metaAdPackage && project.metaAdImages?.length),
+      key: "meta-ads",
+      label: "Meta 광고 카피 + 이미지 3장",
+      done: !!(project.metaAdPackage && (project.metaAdImages?.length ?? 0) >= 3),
+      tab: "publish",
+      hint: "publish 탭의 [Meta 광고 카피] (₩500) + [Meta 광고 이미지 3장] (₩1,500)",
     },
   ];
   const done = items.filter(i => i.done).length;
