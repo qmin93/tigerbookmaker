@@ -28,7 +28,7 @@ function stripMarkdown(text: string): string {
 function renderChapterHtml(content: string, images: any[]): string {
   // 1단계: [VIDEO|AUDIO|LINK] 분리 → 멀티미디어 token 또는 텍스트 segment
   const segments = parseMultimedia(content);
-  return segments.map(seg => {
+  const raw = segments.map(seg => {
     if (typeof seg !== "string") {
       return multimediaTokenToEpubHtml(seg);
     }
@@ -54,6 +54,13 @@ function renderChapterHtml(content: string, images: any[]): string {
       }).join("\n");
     }).join("\n");
   }).join("\n");
+
+  // 소제목과 다음 단락을 한 그룹으로 묶음 — page-break-inside: avoid 적용해
+  // 소제목이 페이지 끝에 외롭게 떨어지는 widow heading 차단.
+  return raw.replace(
+    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+[^>]*)?>[\s\S]*?<\/p>)/g,
+    '<div class="heading-group">$1$2</div>'
+  );
 }
 
 // 공통 EPUB 빌드 — POST와 GET 둘 다 사용
@@ -89,10 +96,11 @@ async function buildEpubBuffer(projectId: string, userId: string) {
     cover: coverDataUrl,
     css: `
       body { margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
-      h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; }
+      h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; page-break-after: avoid; break-after: avoid-page; }
       h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
       h4 { font-size: 1.1em; margin-top: 1.2em; }
-      p { margin-bottom: 1em; text-align: justify; word-break: keep-all; }
+      p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 3; widows: 3; }
+      .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
       ${tpl.epubCss}
     `.trim(),
   };
@@ -175,10 +183,11 @@ export async function POST(req: Request) {
       cover: coverDataUrl,
       css: `
         body { margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; line-height: 1.7; }
-        h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; }
+        h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; page-break-after: avoid; break-after: avoid-page; }
         h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
         h4 { font-size: 1.1em; margin-top: 1.2em; }
-        p { margin-bottom: 1em; text-align: justify; word-break: keep-all; }
+        p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 3; widows: 3; }
+        .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
         ${tpl.epubCss}
       `.trim(),
     };

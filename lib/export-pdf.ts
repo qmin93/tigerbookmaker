@@ -20,7 +20,7 @@ function escapeHtml(s: string) {
 function renderBody(content: string, images: BookProject["chapters"][0]["images"]): string {
   // PDF는 video/audio iframe 불가 → link fallback (EPUB과 동일)
   const segments = parseMultimedia(content);
-  return segments.map(seg => {
+  const raw = segments.map(seg => {
     if (typeof seg !== "string") {
       return multimediaTokenToEpubHtml(seg);
     }
@@ -45,6 +45,14 @@ function renderBody(content: string, images: BookProject["chapters"][0]["images"
       }).join("\n");
     }).join("\n");
   }).join("\n");
+
+  // 소제목과 다음 단락을 한 그룹으로 묶음 — page-break-inside: avoid 적용해
+  // 소제목이 페이지 끝에 외롭게 떨어지는 widow heading 현상 차단.
+  // h3/h4 직후 첫 <p>를 함께 .heading-group div로 감쌈.
+  return raw.replace(
+    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+class="[^"]*")?>[\s\S]*?<\/p>)/g,
+    '<div class="heading-group">$1$2</div>'
+  );
 }
 
 export async function generatePdf(project: BookProject) {
@@ -304,6 +312,11 @@ body {
   word-break: keep-all;
   orphans: 3;
   widows: 3;
+}
+.chapter-body .heading-group {
+  /* 소제목 + 첫 단락을 한 묶음으로 — 절대 페이지 사이에서 잘리지 않게 */
+  page-break-inside: avoid;
+  break-inside: avoid-page;
 }
 .chapter-body .bullet {
   padding-left: 16px;
