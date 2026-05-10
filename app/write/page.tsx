@@ -15,6 +15,7 @@ import { CoverVariationsBox } from "./_components/sections/CoverVariationsBox";
 import { useTabState } from "./_hooks/useTabState";
 import { usePublishHint } from "./_hooks/usePublishHint";
 import { TopHeader } from "./_components/TopHeader";
+import { calculateProgress } from "@/lib/export-bundle";
 import { WritePageLayout } from "./_components/WritePageLayout";
 import { MobileBottomNav } from "./_components/MobileBottomNav";
 import { ChapterList as ChapterListNew } from "./_components/ChapterList";
@@ -1876,6 +1877,9 @@ function Inner() {
     return sum + phs.filter(ph => !c.images?.find(i => i.placeholder === ph)?.dataUrl).length;
   }, 0);
 
+  // TopHeader chip + 내보내기 confirm 용 패키지 진행률 (본문·표지·마케팅·Meta 광고 4항목)
+  const projectProgress = calculateProgress(project as any);
+
   // 빈 책: 목차 생성 안내 (4-tab 레이아웃 진입 전)
   // NOTE: useTabState/usePublishHint hooks는 컴포넌트 최상단으로 이동됨 (line ~85 근처) — Rules of Hooks 준수.
   if (project.chapters.length === 0) {
@@ -2932,6 +2936,9 @@ function Inner() {
         balanceKrw={balance}
         onExport={() => router.push(`/export?id=${projectId}`)}
         exportDisabled={!project.chapters.some(c => c.content)}
+        progressPercent={projectProgress.percent}
+        progressDone={projectProgress.done}
+        progressTotal={projectProgress.total}
       />
 
       {error && (

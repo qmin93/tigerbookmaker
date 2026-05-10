@@ -10,9 +10,25 @@ interface Props {
   balanceKrw?: number | null;
   onExport?: () => void;
   exportDisabled?: boolean;
+  // 진행률 (0-100) — 본문/표지/마케팅/Meta 광고 4항목 기준
+  progressPercent?: number;
+  progressDone?: number;
+  progressTotal?: number;
 }
 
-export function TopHeader({ topic, balanceKrw, onExport, exportDisabled }: Props) {
+export function TopHeader({ topic, balanceKrw, onExport, exportDisabled, progressPercent, progressDone, progressTotal }: Props) {
+  const handleExport = () => {
+    if (typeof progressPercent === "number" && progressPercent < 100 && onExport) {
+      const ok = confirm(
+        `⚠️ 패키지가 아직 ${progressPercent}% 완성입니다.\n\n` +
+        `빠진 자료(마케팅 카피·Meta 광고 등)가 있으면 외부 마켓 등록 시 다시 만들어야 합니다.\n\n` +
+        `그래도 지금 내보내기로 가시겠어요? (publish/extras 탭에서 마저 만들 수 있습니다)`
+      );
+      if (!ok) return;
+    }
+    onExport?.();
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-ink-900 text-white border-b border-ink-800">
       <div className="max-w-[1600px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
@@ -30,6 +46,18 @@ export function TopHeader({ topic, balanceKrw, onExport, exportDisabled }: Props
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* 진행률 chip — 패키지 준비 정도 한눈에 */}
+          {typeof progressPercent === "number" && (
+            <div
+              className={`hidden sm:flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded ${
+                progressPercent === 100 ? "bg-tiger-orange/20 text-tiger-orange" : "bg-ink-800 text-gray-300"
+              }`}
+              title={`패키지 ${progressDone ?? 0}/${progressTotal ?? 0} 항목 완료 (본문·표지·마케팅·Meta 광고)`}
+            >
+              <span className="font-bold">{progressPercent}%</span>
+              <span className="opacity-70">패키지</span>
+            </div>
+          )}
           {balanceKrw != null && (
             <Link
               href="/billing"
@@ -40,7 +68,7 @@ export function TopHeader({ topic, balanceKrw, onExport, exportDisabled }: Props
           )}
           <button
             type="button"
-            onClick={onExport}
+            onClick={handleExport}
             disabled={exportDisabled || !onExport}
             className="px-3 py-1.5 bg-white text-ink-900 text-xs font-bold rounded hover:bg-gray-100 disabled:opacity-50 transition"
           >

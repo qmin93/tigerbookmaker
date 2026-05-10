@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { BookProject } from "@/lib/storage";
+import { calculateProgress, generateBundle } from "@/lib/export-bundle";
 
 function Inner() {
   const params = useSearchParams();
@@ -10,6 +11,7 @@ function Inner() {
   const projectId = params.get("id");
   const [project, setProject] = useState<BookProject | null>(null);
   const [busy, setBusy] = useState<string>("");
+  const [bundleStatus, setBundleStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +24,7 @@ function Inner() {
         if (r.status === 401) { router.push(`/login?redirect=/export?id=${projectId}`); return; }
         if (!r.ok) throw new Error(`프로젝트 로드 실패 (${r.status})`);
         const d = await r.json();
-        // BookProject 형태로 정규화 (id, topic, audience, type, targetPages, chapters)
+        // BookProject 형태로 정규화 — 통합 ZIP에서 사용할 자료(표지·광고·오디오북 등) 모두 포함
         setProject({
           id: d.id,
           topic: d.topic,
@@ -30,9 +32,22 @@ function Inner() {
           type: d.type,
           targetPages: d.targetPages,
           chapters: d.chapters || [],
+          // 통합 패키지에서 묶을 자료들 (서버 GET /api/projects/[id]가 그대로 내려줌)
+          themeColor: d.themeColor,
+          template: d.template,
+          marketingMeta: d.marketingMeta,
+          metaAdPackage: d.metaAdPackage,
+          metaAdImages: d.metaAdImages,
+          repurposedContent: d.repurposedContent,
+          infographic: d.infographic,
+          audiobook: d.audiobook,
+          courseSlides: d.courseSlides,
+          coverVariations: d.coverVariations,
+          kmongPackage: d.kmongPackage,
+          translations: d.translations,
           createdAt: Date.parse(d.createdAt),
           updatedAt: Date.parse(d.updatedAt),
-        });
+        } as BookProject);
       })
       .catch(e => setError(e.message));
   }, [projectId, router]);
@@ -69,6 +84,22 @@ function Inner() {
     setBusy("");
   };
 
+  const exportBundle = async () => {
+    setBusy("BUNDLE");
+    setBundleStatus("준비 중...");
+    try {
+      await generateBundle(project, p => {
+        setBundleStatus(`${p.label} (${p.current}/${p.total})`);
+      });
+      setBundleStatus("완료 — 다운로드 시작됨");
+      setTimeout(() => setBundleStatus(""), 3000);
+    } catch (e: any) {
+      setError(`통합 ZIP 생성 실패: ${e.message}`);
+      setBundleStatus("");
+    }
+    setBusy("");
+  };
+
   return (
     <main className="min-h-screen bg-[#fafafa]">
     <div className="max-w-2xl mx-auto px-6 py-12 md:py-16">
@@ -88,6 +119,59 @@ function Inner() {
       </div>
 
       {error && <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+
+      {/* 진행률 체크리스트 — 마케팅·광고 자료 만들었는지 한눈에 */}
+      {(() => {
+        const prog = calculateProgress(project);
+        return (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-ink-900 text-sm">📋 패키지 준비 상태</h3>
+              <span className={`text-sm font-mono font-bold ${prog.percent === 100 ? "text-tiger-orange" : "text-gray-500"}`}>
+                {prog.percent}%
+              </span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+              <div
+                className={`h-full transition-all ${prog.percent === 100 ? "bg-tiger-orange" : "bg-gray-400"}`}
+                style={{ width: `${prog.percent}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {prog.details.map(d => (
+                <div key={d.label} className={`flex items-center gap-1.5 ${d.done ? "text-ink-900" : "text-gray-400"}`}>
+                  <span className={d.done ? "text-tiger-orange" : "text-gray-300"}>{d.done ? "✓" : "○"}</span>
+                  <span>{d.label}</span>
+                </div>
+              ))}
+            </div>
+            {prog.percent < 100 && (
+              <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
+                💡 빠진 자료가 있어요.{" "}
+                <Link href={`/write?id=${projectId}&tab=publish`} className="text-tiger-orange font-bold hover:underline">
+                  publish 탭 가기 →
+                </Link>{" "}
+                또는{" "}
+                <Link href={`/write?id=${projectId}&tab=extras`} className="text-tiger-orange font-bold hover:underline">
+                  extras 탭 →
+                </Link>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 메인 CTA: 통합 ZIP — 본문 + 표지 + 마케팅 + 광고 다 묶어서 1번에 */}
+      <button
+        onClick={exportBundle}
+        disabled={!!busy || project.chapters.every(c => !c.content)}
+        className="block w-full mb-4 p-5 bg-gradient-to-r from-tiger-orange to-orange-600 text-white text-center rounded-xl hover:shadow-glow-orange-sm font-bold transition shadow-md disabled:opacity-50 disabled:shadow-none"
+      >
+        <div className="text-base mb-1">📦 통합 패키지 ZIP 다운로드</div>
+        <div className="text-xs opacity-90 font-normal">
+          {bundleStatus || "본문 EPUB · 표지 · 광고 이미지 · 마케팅 카피 · 오디오북 등 전부 1개 ZIP으로"}
+        </div>
+      </button>
 
       <div className="md:hidden mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
         📱 <strong>모바일 안내</strong>: PDF는 A4 인쇄용이라 폰에서 작게 보여요. 결과물 확인은 아래 [📖 미리보기]가 더 편하고, 다운로드는 PC에서 하시는 걸 권장합니다.
