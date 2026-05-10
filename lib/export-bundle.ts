@@ -435,8 +435,8 @@ export function calculateProgress(project: BookProject): ProjectProgress {
     },
     {
       key: "meta-ad-images",
-      label: "Meta 광고 이미지 3장",
-      done: (project.metaAdImages?.length ?? 0) >= 3,
+      label: `Meta 광고 이미지${(project.metaAdImages?.length ?? 0) > 0 ? ` ${project.metaAdImages!.length}장` : ""}`,
+      done: (project.metaAdImages?.length ?? 0) >= 1,
       tab: "publish",
       hint: "publish 탭 [Meta 광고 이미지 3장] (₩1,500)",
     },
