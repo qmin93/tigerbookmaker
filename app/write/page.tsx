@@ -15,6 +15,7 @@ import { CoverVariationsBox } from "./_components/sections/CoverVariationsBox";
 import { useTabState } from "./_hooks/useTabState";
 import { usePublishHint } from "./_hooks/usePublishHint";
 import { TopHeader } from "./_components/TopHeader";
+import { PackageProgressBar } from "./_components/PackageProgressBar";
 import { calculateProgress } from "@/lib/export-bundle";
 import { WritePageLayout } from "./_components/WritePageLayout";
 import { MobileBottomNav } from "./_components/MobileBottomNav";
@@ -2940,6 +2941,11 @@ function Inner() {
         progressDone={projectProgress.done}
         progressTotal={projectProgress.total}
         missingItems={projectProgress.details.filter(d => !d.done).map(d => ({ label: d.label, hint: d.hint, tab: d.tab }))}
+        onGoToTab={(t) => setTab(t as any)}
+      />
+      <PackageProgressBar
+        items={projectProgress.details}
+        currentTab={tab}
         onGoToTab={(t) => setTab(t as any)}
       />
 
