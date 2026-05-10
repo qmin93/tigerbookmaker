@@ -56,6 +56,10 @@ export function CoverVariationsBox(props: Props) {
   const [conceptsError, setConceptsError] = useState<string | null>(null);
   const [concepts, setConcepts] = useState<CoverConcept[]>([]);
 
+  // 이미지 클릭 시 큰 미리보기 모달
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const previewVariation = previewIdx !== null ? variations.find(v => v.idx === previewIdx) : null;
+
   const fetchConcepts = async () => {
     if (!projectId) return;
     setConceptsBusy(true);
@@ -255,14 +259,14 @@ export function CoverVariationsBox(props: Props) {
           {variations.map(v => (
             <div key={v.idx} className="relative">
               <button
-                onClick={() => onSelect(v.idx)}
+                onClick={() => setPreviewIdx(v.idx)}
                 className="aspect-[3/4] w-full rounded-md overflow-hidden border-2 border-transparent hover:border-blue-600 transition relative group bg-gray-100"
-                title={`${v.style} — 이걸로 선택`}
+                title={`${v.style} — 클릭해서 크게 보기`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`data:image/png;base64,${v.base64}`} alt={v.style} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
-                  <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">✓ 이걸로</span>
+                  <span className="text-white font-bold text-xs opacity-0 group-hover:opacity-100">🔍 크게 보기</span>
                 </div>
                 <div className="absolute top-1 left-1 text-[9px] font-mono px-1 py-0.5 bg-white/90 text-blue-700 rounded font-bold">
                   {v.style}
@@ -281,6 +285,71 @@ export function CoverVariationsBox(props: Props) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 큰 미리보기 모달 — 이미지 클릭 시 풀사이즈 보기 + 메인 적용 / 다시 생성 */}
+      {previewVariation && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setPreviewIdx(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-4 md:p-6 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-base font-black text-ink-900">{previewVariation.style}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">vendor: {previewVariation.vendor}</p>
+              </div>
+              <button
+                onClick={() => setPreviewIdx(null)}
+                className="text-gray-400 hover:text-ink-900 text-2xl"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="bg-gray-50 rounded-lg overflow-hidden mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`data:image/png;base64,${previewVariation.base64}`}
+                alt={previewVariation.style}
+                className="w-full h-auto max-h-[60vh] object-contain"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => {
+                  if (previewIdx !== null) onSelect(previewIdx);
+                  setPreviewIdx(null);
+                }}
+                className="flex-1 py-2.5 bg-tiger-orange text-white font-bold rounded-lg hover:bg-orange-600 transition"
+              >
+                ✓ 이 표지로 메인 적용
+              </button>
+              {projectId && (
+                <div className="flex-1">
+                  <ImageRefineButton
+                    projectId={projectId}
+                    imageType="cover"
+                    aspectRatio="1:1"
+                    onRefined={(b64) => {
+                      if (previewIdx !== null) onRefined(previewIdx, b64);
+                    }}
+                    onBalanceChange={onBalanceChange}
+                  />
+                </div>
+              )}
+              <button
+                onClick={() => setPreviewIdx(null)}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

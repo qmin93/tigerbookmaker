@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { ImageRefineButton } from "@/components/ImageRefineButton";
@@ -106,6 +106,7 @@ function Inner() {
   const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
   const [batch, setBatch] = useState<BatchState>({ status: "idle" });
   const [editingContent, setEditingContent] = useState<string | null>(null);
+  const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [imageGenBusy, setImageGenBusy] = useState<string>("");
   const [kmongModalOpen, setKmongModalOpen] = useState(false);
   const [kmongBusy, setKmongBusy] = useState<string>("");
@@ -2787,13 +2788,39 @@ function Inner() {
       );
     }
     if (editingContent !== null) {
+      const insertImagePlaceholder = () => {
+        const ta = editingTextareaRef.current;
+        if (!ta || editingContent === null) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const sample = "여기에 이미지 캡션 (예: 계단 오르는 사람의 뒷모습, 햇살 비치는 아침)";
+        const placeholder = `\n\n[IMAGE: ${sample}]\n\n`;
+        const next = editingContent.slice(0, start) + placeholder + editingContent.slice(end);
+        setEditingContent(next);
+        // 다음 tick에 캡션 부분만 선택 — 사용자가 바로 타이핑해 덮어쓰기
+        setTimeout(() => {
+          const captionStart = start + 10; // "\n\n[IMAGE: " 길이
+          ta.focus();
+          ta.setSelectionRange(captionStart, captionStart + sample.length);
+        }, 0);
+      };
       return (
         <>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
             <p className="text-xs font-mono uppercase tracking-wider text-tiger-orange">✏️ 본문 직접 편집</p>
-            <p className="text-xs font-mono text-gray-500">{editingContent.length.toLocaleString()}자</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={insertImagePlaceholder}
+                className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 font-bold transition"
+                title="현재 커서 위치에 [IMAGE: 캡션] 자리 삽입. 캡션을 본인 의도에 맞게 수정 후 저장 → 이미지 일괄 생성에서 자동으로 그림"
+              >
+                📷 이미지 자리 추가
+              </button>
+              <p className="text-xs font-mono text-gray-500">{editingContent.length.toLocaleString()}자</p>
+            </div>
           </div>
           <textarea
+            ref={editingTextareaRef}
             value={editingContent}
             onChange={e => setEditingContent(e.target.value)}
             className="w-full min-h-[500px] p-4 border border-tiger-orange/40 rounded-lg text-sm leading-relaxed font-sans focus:outline-none focus:border-tiger-orange whitespace-pre-wrap break-keep"
