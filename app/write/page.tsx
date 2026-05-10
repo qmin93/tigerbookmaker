@@ -1303,6 +1303,11 @@ function Inner() {
       if (!res.ok) throw new Error(data.message || `생성 실패 (${res.status})`);
       setMetaAdPackage(data.metaAdPackage);
       if (typeof data.newBalance === "number") setBalance(data.newBalance);
+      // project state도 fresh로 동기화 — PackageProgressBar 진행률 갱신 위해
+      try {
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+      } catch {}
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1349,6 +1354,11 @@ function Inner() {
       if (!r2.ok) throw new Error(d2.message || "이미지 생성 실패");
       setMetaAdImages(d2.images || []);
       if (typeof d2.newBalance === "number") setBalance(d2.newBalance);
+      // project state도 fresh로 동기화 — PackageProgressBar 진행률 갱신 위해
+      try {
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+      } catch {}
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1405,6 +1415,11 @@ function Inner() {
         setMetaAdImages(data.images ?? []);
       }
       if (typeof data.newBalance === "number") setBalance(data.newBalance);
+      // project state도 fresh로 동기화 — PackageProgressBar의 진행률 갱신 위해
+      try {
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+      } catch {}
     } catch (e: any) {
       setError(e.message);
     } finally {
