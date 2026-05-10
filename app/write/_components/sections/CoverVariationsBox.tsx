@@ -1,10 +1,11 @@
 // app/write/_components/sections/CoverVariationsBox.tsx
-// 📚 표지 다양화 — 3~5종 다른 스타일 자동 생성 (Imagen 4 Fast)
-// Minimalist · Bold · Photorealistic 등 완전히 다른 컴포지션 — 같은 책·같은 색상.
-// 기존엔 크몽 패키지 모달 안에 nested돼 있었으나, WritingTab에 standalone으로 노출하도록 분리.
+// 📚 표지 다양화 — 3~5종 다른 스타일 자동 생성
+// + 사용자 시각 컨셉 직접 입력 + 스타일 방향 (image/typography/hybrid)
+// + 이미지 모델 선택 (imagen/openai/DALL-E 3) + AI 컨셉 5종 추천 받기
 
 "use client";
 
+import { useState } from "react";
 import { ImageRefineButton } from "@/components/ImageRefineButton";
 
 export interface CoverVariation {
@@ -14,13 +15,27 @@ export interface CoverVariation {
   vendor: string;
 }
 
+export interface CoverGenerateOptions {
+  userConcept?: string;
+  styleDirection: "image" | "typography" | "hybrid";
+  imageVendor: "imagen" | "openai";
+}
+
+interface CoverConcept {
+  id: string;
+  styleDirection: "image" | "typography" | "hybrid";
+  title: string;
+  description: string;
+  userConcept: string;
+}
+
 interface Props {
   projectId: string | null;
   variations: CoverVariation[];
   busy: boolean;
   count: 3 | 5;
   onCountChange: (n: 3 | 5) => void;
-  onGenerate: () => void;
+  onGenerate: (options: CoverGenerateOptions) => void;
   onSelect: (idx: number) => void;
   onRefined: (idx: number, b64: string) => void;
   onBalanceChange: (b: number) => void;
@@ -28,23 +43,68 @@ interface Props {
 
 export function CoverVariationsBox(props: Props) {
   const {
-    projectId,
-    variations,
-    busy,
-    count,
-    onCountChange,
-    onGenerate,
-    onSelect,
-    onRefined,
-    onBalanceChange,
+    projectId, variations, busy, count, onCountChange,
+    onGenerate, onSelect, onRefined, onBalanceChange,
   } = props;
+
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [userConcept, setUserConcept] = useState("");
+  const [styleDirection, setStyleDirection] = useState<"image" | "typography" | "hybrid">("image");
+  const [imageVendor, setImageVendor] = useState<"imagen" | "openai">("imagen");
+
+  const [conceptsBusy, setConceptsBusy] = useState(false);
+  const [conceptsError, setConceptsError] = useState<string | null>(null);
+  const [concepts, setConcepts] = useState<CoverConcept[]>([]);
+
+  const fetchConcepts = async () => {
+    if (!projectId) return;
+    setConceptsBusy(true);
+    setConceptsError(null);
+    try {
+      const res = await fetch("/api/generate/cover-concepts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setConceptsError(`잔액 부족 (₩${data.shortfall ?? 200} 더 필요). /billing에서 충전하세요.`);
+        return;
+      }
+      if (!res.ok) {
+        setConceptsError(data.message || `컨셉 추천 실패 (${res.status})`);
+        return;
+      }
+      setConcepts(data.concepts ?? []);
+      if (typeof data.newBalance === "number") onBalanceChange(data.newBalance);
+    } catch (e: any) {
+      setConceptsError(e.message);
+    } finally {
+      setConceptsBusy(false);
+    }
+  };
+
+  const pickConcept = (c: CoverConcept) => {
+    setUserConcept(c.userConcept);
+    setStyleDirection(c.styleDirection);
+    setOptionsOpen(true);
+    // 자동 generate까진 안 함 — 사용자가 vendor·count 정하고 직접 누르도록
+  };
+
+  const handleGenerate = () => {
+    onGenerate({
+      userConcept: userConcept.trim() || undefined,
+      styleDirection,
+      imageVendor,
+    });
+  };
 
   return (
     <div className="mb-6 p-4 border border-blue-200 bg-blue-50/60 rounded-xl">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h4 className="text-sm font-bold text-ink-900">📚 표지 다양화 ({count}종 다른 스타일)</h4>
-          <p className="text-xs text-gray-600 mt-0.5">Minimalist · Bold · Photorealistic 등 완전히 다른 컴포지션 — 같은 책·같은 색상</p>
+          <p className="text-xs text-gray-600 mt-0.5">시각 컨셉·스타일 방향·모델 직접 선택 가능</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -57,7 +117,7 @@ export function CoverVariationsBox(props: Props) {
             <option value={5}>5종 (~₩1,500)</option>
           </select>
           <button
-            onClick={onGenerate}
+            onClick={handleGenerate}
             disabled={busy}
             className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 disabled:opacity-50 transition whitespace-nowrap"
           >
@@ -65,6 +125,124 @@ export function CoverVariationsBox(props: Props) {
           </button>
         </div>
       </div>
+
+      {/* 옵션 토글 */}
+      <button
+        type="button"
+        onClick={() => setOptionsOpen(o => !o)}
+        className="text-[11px] font-bold text-blue-700 hover:text-blue-900 mb-2 flex items-center gap-1"
+      >
+        {optionsOpen ? "▼ 옵션 접기" : "▶ ⚙️ 컨셉·스타일·모델 옵션"}
+      </button>
+
+      {optionsOpen && (
+        <div className="space-y-3 mb-4 p-3 bg-white border border-blue-200 rounded-lg">
+          {/* 1. AI 컨셉 5종 추천 */}
+          <div className="pb-3 border-b border-blue-100">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-bold text-ink-900">🤖 AI가 시각 컨셉 5개 추천 (선택)</label>
+              <button
+                type="button"
+                onClick={fetchConcepts}
+                disabled={conceptsBusy || !projectId}
+                className="text-[11px] px-2 py-1 bg-tiger-orange text-white rounded font-bold hover:bg-orange-600 disabled:opacity-50"
+              >
+                {conceptsBusy ? "추천 중..." : "추천 받기 (~₩200)"}
+              </button>
+            </div>
+            {conceptsError && (
+              <p className="text-[11px] text-red-600 mb-2">{conceptsError}</p>
+            )}
+            {concepts.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                {concepts.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => pickConcept(c)}
+                    className="text-left p-2 border border-gray-200 rounded-md hover:border-tiger-orange hover:bg-orange-50/50 transition"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] font-bold text-ink-900">{c.title}</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded">
+                        {c.styleDirection === "image" ? "이미지" : c.styleDirection === "typography" ? "타이포" : "하이브리드"}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-gray-600 line-clamp-2">{c.description}</div>
+                    <div className="text-[10px] text-tiger-orange font-bold mt-1">→ 이걸로 컨셉 적용</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 2. 사용자 시각 컨셉 직접 입력 */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-900 mb-1 block">시각 컨셉 (선택, 직접 입력)</label>
+            <textarea
+              value={userConcept}
+              onChange={e => setUserConcept(e.target.value)}
+              rows={2}
+              maxLength={400}
+              placeholder="예: 흰 종이 위 만년필, 잉크가 데이터 코드처럼 흘러나옴 / 검은 산 실루엣 + 작은 별빛"
+              className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded resize-none focus:border-tiger-orange focus:outline-none"
+            />
+            <p className="text-[10px] text-gray-500 mt-0.5">비워두면 AI가 자동 생성. 입력하면 main subject로 강제 반영.</p>
+          </div>
+
+          {/* 3. 스타일 방향 */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-900 mb-1 block">스타일 방향</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { v: "image" as const, label: "🖼 이미지 중심", desc: "시각 메타포 메인" },
+                { v: "typography" as const, label: "🔠 타이포 중심", desc: "글씨가 메인 (베스트셀러 스타일)" },
+                { v: "hybrid" as const, label: "🎯 하이브리드", desc: "글씨 + 작은 일러스트" },
+              ].map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setStyleDirection(opt.v)}
+                  className={`text-[11px] px-2.5 py-1.5 rounded-md border font-medium transition ${
+                    styleDirection === opt.v
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-ink-900"
+                  }`}
+                  title={opt.desc}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. 이미지 모델 */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-900 mb-1 block">이미지 모델</label>
+            <div className="flex gap-1.5">
+              {[
+                { v: "imagen" as const, label: "Imagen 4 Fast", desc: "한국어 글자 깔끔, 추상 강함" },
+                { v: "openai" as const, label: "DALL-E 3 (gpt-image-1)", desc: "한국어 주제 이해·구체적 묘사 강함" },
+              ].map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setImageVendor(opt.v)}
+                  className={`text-[11px] px-2.5 py-1.5 rounded-md border font-medium transition ${
+                    imageVendor === opt.v
+                      ? "bg-ink-900 text-white border-ink-900"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-ink-900"
+                  }`}
+                  title={opt.desc}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {busy && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {Array.from({ length: count }).map((_, i) => (

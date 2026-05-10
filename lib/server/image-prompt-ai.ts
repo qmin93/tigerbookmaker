@@ -31,6 +31,10 @@ export interface ImagePromptOptions {
   // Misc
   headline?: string;           // 텍스트 합성용 헤드라인 (이미지엔 안 그려짐 — context로만)
   templateHint?: string;       // 레이아웃 template의 coverStyleHint
+  // Wave: 사용자 시각 컨셉 직접 입력 — 입력 있으면 main subject로 강제 반영
+  userConcept?: string;
+  // Wave: 표지 스타일 방향 — image(시각 메타포 위주, 기본) / typography(글씨 위주) / hybrid(둘 다)
+  styleDirection?: "image" | "typography" | "hybrid";
 }
 
 export interface ImagePromptResult {
@@ -51,7 +55,30 @@ export async function generateImagePromptAI(opts: ImagePromptOptions): Promise<I
     ? `\n[TEMPLATE STYLE GUIDANCE — keep the cover consistent with this style direction]\n${opts.templateHint}`
     : "";
 
-  const systemPrompt = `You are an expert at writing image generation prompts for Imagen 4 / Flux. You MUST write the prompt in ENGLISH (image models don't understand Korean well). Output ONLY the prompt — no explanations, no JSON, no quotes, no code fences, no preamble. Just the prompt as plain text.
+  const userConceptBlock = opts.userConcept && opts.userConcept.trim()
+    ? `\n[USER'S VISUAL INTENT — TOP PRIORITY, RENDER THIS AS THE MAIN SUBJECT]\n${opts.userConcept.trim()}\n`
+    : "";
+
+  // 표지 스타일 방향 — typography 모드는 글씨가 메인, image는 시각 메타포 메인, hybrid는 둘 다
+  const sd = opts.styleDirection ?? "image";
+  const styleDirectionBlock = opts.purpose === "cover" && sd !== "image"
+    ? sd === "typography"
+      ? `\n[STYLE DIRECTION: TYPOGRAPHY-DRIVEN COVER]
+The cover MUST be typography-as-art. Imagine a Penguin Modern Classics or Korean bestseller cover ("원씽", "아주 작은 습관의 힘") where the title itself IS the visual.
+- Compose a striking abstract typography-style composition: bold geometric letterforms, oversized initial-cap silhouettes, type stacks, type wrapped around shapes
+- The actual book title will be added separately as overlay — but the prompt should describe a TYPE-CENTRIC composition (large abstract letter shapes, color blocks behind text areas, modernist editorial type layout)
+- AVOID literal scenes, photographs, illustrated objects, characters
+- Think: Pentagram / Nationale / Mucca / Pinterest "editorial typography" boards
+- Output a composition that LOOKS like typography even though no actual letters are drawn (text overlay handled later by code)`
+      : `\n[STYLE DIRECTION: HYBRID — TYPOGRAPHY + ILLUSTRATION]
+The cover should mix bold typography composition (top half) with a small focused illustrative element (bottom or corner).
+- Top 60-70%: type-centric design (color blocks, letterform silhouettes, ample whitespace)
+- Bottom 30-40%: ONE small illustration or symbolic icon related to the topic
+- AVOID full-frame photographs or characters that fight the typography
+- Editorial magazine aesthetic, restrained palette led by ${opts.themeColorName}`
+    : "";
+
+  const systemPrompt = `You are an expert at writing image generation prompts for Imagen 4 / DALL-E 3 / Flux. You MUST write the prompt in ENGLISH (image models don't understand Korean well). Output ONLY the prompt — no explanations, no JSON, no quotes, no code fences, no preamble. Just the prompt as plain text.
 
 CRITICAL — These rules prevent text artifacts in the output:
 1. NEVER mention hex codes (like #f97316 or F97316), color codes, or aspect ratio strings (1:1 / 16:9) in the prompt — image models render those as text in the picture
@@ -64,7 +91,8 @@ Style principles:
 6. Be specific and visual (concrete objects/scenes), not abstract mood words
 7. Include a clear focal point and composition direction
 8. Pinterest / Behance editorial design aesthetic
-9. Generate VISUAL CONCEPTS only — not translations of Korean text`;
+9. Generate VISUAL CONCEPTS only — not translations of Korean text
+10. If [USER'S VISUAL INTENT] is provided, treat it as the highest-priority subject — build the prompt around it`;
 
   const userPrompt = `[BOOK]
 Topic (translate the concept into visuals, not the literal text): ${opts.bookTopic}
@@ -72,10 +100,12 @@ Audience: ${opts.bookAudience}
 Genre: ${opts.bookType}
 Theme color (use this NAME only, do NOT include any color code): ${opts.themeColorName}
 ${opts.headline ? `Headline (Korean — for theme context ONLY, NEVER to be drawn or rendered): "${opts.headline}"` : ""}
+${userConceptBlock}
 
 [IMAGE PURPOSE]
 ${purposeHint}
 ${templateBlock}
+${styleDirectionBlock}
 
 ${ragContext}
 ${refinementBlock}

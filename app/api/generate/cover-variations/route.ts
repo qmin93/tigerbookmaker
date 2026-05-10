@@ -36,6 +36,8 @@ async function getSmartCoverPrompt(
   project: any,
   projectId: string,
   styleHint: string,
+  userConcept?: string,
+  styleDirection?: "image" | "typography" | "hybrid",
 ): Promise<string> {
   const ch1 = project?.chapters?.[0];
   const chapterExcerpt = ch1?.content ? String(ch1.content).slice(0, 300) : undefined;
@@ -70,6 +72,8 @@ async function getSmartCoverPrompt(
       referenceChunks,
       headline: styleHint,  // style hint를 headline 슬롯에 — context로만 들어감
       templateHint: getTemplate((project as any)?.template).coverStyleHint,
+      userConcept,
+      styleDirection,
     });
     // styleHint를 prompt 끝에 붙여 다양성 보존
     return `${r.prompt}\n\n${styleHint}`;
@@ -117,6 +121,15 @@ export async function POST(req: Request) {
     const { projectId } = body as { projectId?: string };
     const rawCount = Number((body as any)?.count);
     const count = Math.max(1, Math.min(5, Number.isFinite(rawCount) ? Math.floor(rawCount) : 3));
+    // Wave: 사용자가 직접 시각 컨셉 입력 (선택)
+    const userConcept = typeof (body as any)?.userConcept === "string" ? String((body as any).userConcept).slice(0, 500) : undefined;
+    // Wave: 스타일 방향 — image(default) / typography / hybrid
+    const sdRaw = (body as any)?.styleDirection;
+    const styleDirection: "image" | "typography" | "hybrid" =
+      sdRaw === "typography" || sdRaw === "hybrid" ? sdRaw : "image";
+    // Wave: 이미지 모델 선택 — imagen(default) / openai(DALL-E 3 계열, 한국어 주제 이해 강함)
+    const imgVendorRaw = (body as any)?.imageVendor;
+    const imageVendor: "imagen" | "openai" = imgVendorRaw === "openai" ? "openai" : "imagen";
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
     const projectRow = await getProject(projectId, userId);
@@ -142,13 +155,14 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < count; i++) {
       const style = STYLE_VARIANTS[i % STYLE_VARIANTS.length];
-      const prompt = await getSmartCoverPrompt(project, projectId, style.hint);
+      const prompt = await getSmartCoverPrompt(project, projectId, style.hint, userConcept, styleDirection);
       try {
-        // preferPaid: Imagen 4 Fast — 한국어 글자 없는 추상이라 가장 안정.
+        // preferPaid: 사용자 선택 vendor 우선 (imagen=Imagen 4 Fast / openai=gpt-image-1)
         const img = await callImageGeneration({
           prompt,
           timeoutMs: 30000,
           preferPaid: true,
+          preferVendor: imageVendor,
         });
         // 새 가격 정책: 표지 다양화 ₩300/장 고정
         const costKRW = FIXED_COST_PER_VARIATION_KRW;

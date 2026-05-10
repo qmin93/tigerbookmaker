@@ -1011,18 +1011,28 @@ function Inner() {
   };
 
   // 표지 다양화 — 3종 다른 스타일 한번에 생성 (~₩900). Imagen 4 Fast.
-  const generateCoverVariations = async () => {
+  const generateCoverVariations = async (options?: {
+    userConcept?: string;
+    styleDirection?: "image" | "typography" | "hybrid";
+    imageVendor?: "imagen" | "openai";
+  }) => {
     if (!projectId) return;
     const cnt = coverVariationsCount;
-    const estKRW = cnt * 28;
-    if (!confirm(`표지 다양화 ${cnt}종 생성 (Minimalist · Bold · Photorealistic 등 다른 스타일). 예상 비용 ~₩${estKRW * 1.05 | 0}. 진행할까요?`)) return;
+    const estKRW = cnt * 300;
+    if (!confirm(`표지 다양화 ${cnt}종 생성. 예상 비용 ₩${estKRW.toLocaleString()}. 진행할까요?`)) return;
     setCoverVariationsBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/generate/cover-variations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, count: cnt }),
+        body: JSON.stringify({
+          projectId,
+          count: cnt,
+          ...(options?.userConcept ? { userConcept: options.userConcept } : {}),
+          ...(options?.styleDirection ? { styleDirection: options.styleDirection } : {}),
+          ...(options?.imageVendor ? { imageVendor: options.imageVendor } : {}),
+        }),
       });
       const data = await res.json();
       if (res.status === 402) {
