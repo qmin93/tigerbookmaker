@@ -43,10 +43,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     template: p.data?.template ?? "minimal",
     marketingMeta: p.data?.marketingMeta,
     metaAdPackage: p.data?.metaAdPackage,
+    metaAdImages: p.data?.metaAdImages,           // Part A: Meta 광고 이미지 3비율
     repurposedContent: p.data?.repurposedContent,
     revenue: p.data?.revenue,
     abTest: p.data?.abTest,             // Wave B5
     previewVideo: p.data?.previewVideo, // Wave B6
+    coverVariations: p.data?.coverVariations,     // 표지 다양화 5종
+    infographic: p.data?.infographic,             // 카드뉴스 인포그래픽
+    audiobook: p.data?.audiobook,                 // 오디오북 챕터별 WAV
+    courseSlides: p.data?.courseSlides,           // 강의 슬라이드
+    translations: p.data?.translations,           // 영/일 번역
+    toneSetting: p.data?.toneSetting,
+    referencesSummary: p.data?.referencesSummary,
+    seriesMembership: p.data?.seriesMembership,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   });
