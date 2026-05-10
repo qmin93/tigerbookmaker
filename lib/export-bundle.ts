@@ -421,17 +421,24 @@ export function calculateProgress(project: BookProject): ProjectProgress {
     },
     {
       key: "marketing",
-      label: "마케팅 카피 (tagline·설명·작가소개)",
+      label: "마케팅 카피",
       done: !!project.marketingMeta?.tagline,
       tab: "publish",
-      hint: "publish 탭의 [🤖 AI가 마케팅 카피 생성] 버튼 (~₩500)",
+      hint: "publish 탭 [🤖 AI 마케팅 카피 생성] (~₩500)",
     },
     {
-      key: "meta-ads",
-      label: "Meta 광고 카피 + 이미지 3장",
-      done: !!(project.metaAdPackage && (project.metaAdImages?.length ?? 0) >= 3),
+      key: "meta-ad-copy",
+      label: "Meta 광고 카피",
+      done: !!project.metaAdPackage,
       tab: "publish",
-      hint: "publish 탭의 [Meta 광고 카피] (₩500) + [Meta 광고 이미지 3장] (₩1,500)",
+      hint: "publish 탭 [Meta 광고 카피] (₩500)",
+    },
+    {
+      key: "meta-ad-images",
+      label: "Meta 광고 이미지 3장",
+      done: (project.metaAdImages?.length ?? 0) >= 3,
+      tab: "publish",
+      hint: "publish 탭 [Meta 광고 이미지 3장] (₩1,500)",
     },
   ];
   const done = items.filter(i => i.done).length;
