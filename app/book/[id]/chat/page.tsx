@@ -74,6 +74,7 @@ export default function BookChatPage({ params }: { params: { id: string } }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [chatMode, setChatMode] = useState<"qa" | "coach">("qa");
   const [questionCount, setQuestionCount] = useState(0);
   const [limitReached, setLimitReached] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,7 @@ export default function BookChatPage({ params }: { params: { id: string } }) {
       const r = await fetch("/api/chat-with-book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookId: id, question: text, history }),
+        body: JSON.stringify({ bookId: id, question: text, history, mode: chatMode }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -268,12 +269,36 @@ export default function BookChatPage({ params }: { params: { id: string } }) {
             </div>
           ) : (
             <>
+              {/* 모드 토글 — Q&A (책 내용 답변) vs 코치 (1:1 적용 조언) */}
+              <div className="flex items-center gap-1 mb-2 text-xs">
+                <span className="text-gray-500">모드:</span>
+                <button
+                  onClick={() => setChatMode("qa")}
+                  disabled={sending}
+                  className={`px-2.5 py-1 rounded-md font-bold transition ${
+                    chatMode === "qa" ? "bg-orange-500 text-white" : "bg-white border border-gray-300 text-gray-700 hover:border-orange-400"
+                  }`}
+                  title="책 내용에 대해 정확히 답변"
+                >
+                  📖 Q&A
+                </button>
+                <button
+                  onClick={() => setChatMode("coach")}
+                  disabled={sending}
+                  className={`px-2.5 py-1 rounded-md font-bold transition ${
+                    chatMode === "coach" ? "bg-orange-500 text-white" : "bg-white border border-gray-300 text-gray-700 hover:border-orange-400"
+                  }`}
+                  title="내 상황에 맞춰 책 내용 적용해 다음 행동 코칭"
+                >
+                  🎯 코치
+                </button>
+              </div>
               <div className="flex gap-2 items-end">
                 <textarea
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
-                  placeholder="이 책에 대해 질문해 보세요…"
+                  placeholder={chatMode === "coach" ? "내 상황을 짧게 적고, 어떻게 적용하면 좋을지 물어보세요…" : "이 책에 대해 질문해 보세요…"}
                   rows={1}
                   maxLength={500}
                   disabled={sending}

@@ -34,7 +34,8 @@ interface HistoryItem { role: "user" | "assistant"; text: string }
 
 export async function POST(req: Request) {
   try {
-    const { bookId, question, history } = await req.json().catch(() => ({}));
+    const { bookId, question, history, mode } = await req.json().catch(() => ({}));
+    // mode: "qa" (default, 책 내용 답변) | "coach" (1:1 코칭 톤, 독자 상황에 맞춰 적용 조언)
 
     if (!bookId || typeof bookId !== "string" || !UUID_RE.test(bookId)) {
       return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "INVALID_INPUT", message: "질문을 입력해주세요." }, { status: 400 });
     }
     const trimmedQuestion = question.trim().slice(0, MAX_QUESTION_LEN);
+    const chatMode: "qa" | "coach" = mode === "coach" ? "coach" : "qa";
 
     // Public rate limit per book — 누구나 접근 가능하므로 generous
     const rl = rateLimit(`chat-with-book:${bookId}`, 30, 60_000);
@@ -127,7 +129,18 @@ export async function POST(req: Request) {
       .join("\n");
 
     const authorName = book.data?.marketingMeta?.authorName || "작가";
-    const systemPrompt = `당신은 책 "${book.topic}"의 저자(${authorName}) 챗봇입니다.
+    const systemPrompt = chatMode === "coach"
+      ? `당신은 책 "${book.topic}"의 저자(${authorName})로서 독자에게 1:1 코칭하는 코치입니다.
+독자가 자기 상황을 말하면, 책 내용을 그 상황에 맞게 적용해 구체적인 다음 행동을 제안합니다.
+
+규칙 (코치 톤):
+- 친근하지만 전문적인 한국어. "~해 보세요", "~를 권합니다" 식.
+- 첫 답변에서 독자 상황을 먼저 짧게 정리하고("말씀하신 상황은..."), 그다음 책의 어느 챕터·원리를 적용할지 짚습니다.
+- 책에서 다루지 않은 분야면 "이 책의 범위를 벗어나지만, 일반적으로는..." 식으로 가볍게 안내하되 책으로 다시 돌립니다.
+- 답변은 5~8문장. 추상적 위로 X, 구체적 다음 한 걸음 1개는 반드시 포함.
+- "오늘 ~ 한 가지만 해 보세요" 같은 즉시 실행 액션으로 마무리.
+- ⚠️ 의료·법률·세무 같은 전문 분야 질문이면 "전문가 상담 권장" 명시.`
+      : `당신은 책 "${book.topic}"의 저자(${authorName}) 챗봇입니다.
 독자가 책 내용에 대해 묻는 질문에 친근하고 정중한 한국어로 답변하세요.
 
 규칙:

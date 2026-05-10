@@ -66,6 +66,34 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const coverImg = p.data?.kmongPackage?.images?.find((i: any) => i.type === "cover");
   const cover = coverImg ? { base64: coverImg.base64 } : null;
 
+  // 시리즈 형제 — 같은 seriesId 가진 다른 책 (공개 책만, 자기 자신 제외)
+  let seriesSiblings: Array<{ id: string; topic: string; orderInSeries: number; coverBase64: string | null }> = [];
+  const seriesId = p.data?.seriesMembership?.seriesId;
+  if (seriesId) {
+    try {
+      const { rows: siblingRows } = await sql<any>`
+        SELECT id, topic, data
+        FROM book_projects
+        WHERE data->'seriesMembership'->>'seriesId' = ${seriesId}
+          AND id != ${params.id}
+          AND data->>'shareEnabled' = 'true'
+        ORDER BY (data->'seriesMembership'->>'orderInSeries')::int ASC NULLS LAST
+        LIMIT 10
+      `;
+      seriesSiblings = siblingRows.map(s => {
+        const sCover = s.data?.kmongPackage?.images?.find((i: any) => i.type === "cover");
+        return {
+          id: s.id,
+          topic: s.topic,
+          orderInSeries: Number(s.data?.seriesMembership?.orderInSeries ?? 0),
+          coverBase64: sCover?.base64 ?? null,
+        };
+      });
+    } catch (e: any) {
+      console.warn("[/api/book/[id]] series query failed:", e?.message);
+    }
+  }
+
   return NextResponse.json({
     id: p.id,
     topic: p.topic,
@@ -91,6 +119,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           descriptionB: p.data.abTest.descriptionB ?? null,
         }
       : null,
+    seriesMembership: p.data?.seriesMembership ?? null,
+    seriesSiblings,
     createdAt: p.created_at,
   });
 }

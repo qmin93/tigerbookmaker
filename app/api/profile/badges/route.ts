@@ -130,6 +130,51 @@ export async function GET() {
     const info = LEVEL_INFO[levelData.current];
     const nextInfo = levelData.next ? LEVEL_INFO[levelData.next] : null;
 
+    // 추가 detail — achievement 계산용
+    let multiTypes = 0;
+    let bookWithMarketing = 0;
+    let bookWithMetaAds = 0;
+    let bookWithAudiobook = 0;
+    let bookFullPackage = 0; // 본문+표지+마케팅+Meta광고 다 있는 책
+    try {
+      const { rows: detailRows } = await sql<any>`
+        SELECT type, data FROM book_projects WHERE user_id = ${userId}
+      `;
+      const typeSet = new Set<string>();
+      for (const r of detailRows) {
+        if (r.type) typeSet.add(r.type);
+        const d = r.data ?? {};
+        const hasMarketing = !!d?.marketingMeta?.tagline;
+        const hasMetaCopy = !!d?.metaAdPackage;
+        const hasMetaImg = Array.isArray(d?.metaAdImages) && d.metaAdImages.length > 0;
+        const hasCover = !!(d?.kmongPackage?.images?.some((i: any) => i.type === "cover") || d?.coverVariations?.length);
+        const hasAudio = Array.isArray(d?.audiobook?.chapters) && d.audiobook.chapters.length > 0;
+        if (hasMarketing) bookWithMarketing++;
+        if (hasMetaCopy && hasMetaImg) bookWithMetaAds++;
+        if (hasAudio) bookWithAudiobook++;
+        if (hasMarketing && hasCover && hasMetaCopy && hasMetaImg) bookFullPackage++;
+      }
+      multiTypes = typeSet.size;
+    } catch {}
+
+    // Achievement badges — 조건 충족 시 unlocked
+    const achievements = [
+      { key: "first_book",       emoji: "🎉", title: "첫 책 완성",        unlocked: bookCount >= 1,            desc: "축하합니다! 첫 책을 완성했어요." },
+      { key: "five_books",       emoji: "📚", title: "다섯 권의 작가",    unlocked: bookCount >= 5,            desc: "5권 이상 출간" },
+      { key: "ten_books",        emoji: "🏅", title: "두 자릿수 작가",    unlocked: bookCount >= 10,           desc: "10권 이상 출간" },
+      { key: "first_series",     emoji: "🔗", title: "시리즈 작가",       unlocked: seriesCount >= 1,          desc: "시리즈 1개 이상 보유" },
+      { key: "multi_series",     emoji: "🌐", title: "멀티 시리즈",       unlocked: seriesCount >= 3,          desc: "시리즈 3개 이상 보유" },
+      { key: "multi_genre",      emoji: "🎭", title: "장르 마스터",       unlocked: multiTypes >= 3,           desc: "3가지 이상 장르 출간" },
+      { key: "marketing_pro",    emoji: "📝", title: "마케팅 프로",       unlocked: bookWithMarketing >= 3,    desc: "3권 이상 마케팅 카피 완성" },
+      { key: "meta_ads_pro",     emoji: "📣", title: "광고 셀러",         unlocked: bookWithMetaAds >= 3,      desc: "3권 이상 Meta 광고 패키지 완성" },
+      { key: "audio_creator",    emoji: "🎧", title: "오디오 크리에이터", unlocked: bookWithAudiobook >= 1,    desc: "오디오북 1권 이상 제작" },
+      { key: "full_package",     emoji: "💎", title: "풀패키지 제작자",   unlocked: bookFullPackage >= 1,      desc: "1권 이상에서 풀패키지 (본문+표지+마케팅+광고) 완성" },
+      { key: "revenue_50k",      emoji: "💰", title: "첫 매출 ₩50,000",   unlocked: totalRevenueKRW >= 50_000, desc: "누적 매출 ₩50,000 돌파" },
+      { key: "revenue_500k",     emoji: "💵", title: "매출 ₩500,000",     unlocked: totalRevenueKRW >= 500_000, desc: "누적 매출 ₩500,000 돌파" },
+      { key: "revenue_1m",       emoji: "💎", title: "매출 ₩1,000,000",   unlocked: totalRevenueKRW >= 1_000_000, desc: "누적 매출 ₩1,000,000 돌파" },
+    ];
+    const unlockedCount = achievements.filter(a => a.unlocked).length;
+
     return NextResponse.json({
       ok: true,
       badges: {
@@ -144,6 +189,9 @@ export async function GET() {
         nextLevelTarget: levelData.nextTargetText,
         progress: levelData.progress, // 0~1
       },
+      achievements,
+      achievementsUnlocked: unlockedCount,
+      achievementsTotal: achievements.length,
     });
   } catch (e: any) {
     console.error("[/api/profile/badges]", e);

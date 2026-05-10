@@ -60,6 +60,39 @@ export function CoverVariationsBox(props: Props) {
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const previewVariation = previewIdx !== null ? variations.find(v => v.idx === previewIdx) : null;
 
+  // #16: 표지 후킹 카피 5종 (선택)
+  const [headlinesBusy, setHeadlinesBusy] = useState(false);
+  const [headlinesError, setHeadlinesError] = useState<string | null>(null);
+  const [headlines, setHeadlines] = useState<Array<{ id: string; formula: string; title: string; subtitle?: string }>>([]);
+
+  const fetchHeadlines = async () => {
+    if (!projectId) return;
+    setHeadlinesBusy(true);
+    setHeadlinesError(null);
+    try {
+      const res = await fetch("/api/generate/cover-headlines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setHeadlinesError(`잔액 부족 (₩${data.shortfall ?? 200} 더 필요)`);
+        return;
+      }
+      if (!res.ok) {
+        setHeadlinesError(data.message || `생성 실패 (${res.status})`);
+        return;
+      }
+      setHeadlines(data.headlines ?? []);
+      if (typeof data.newBalance === "number") onBalanceChange(data.newBalance);
+    } catch (e: any) {
+      setHeadlinesError(e.message);
+    } finally {
+      setHeadlinesBusy(false);
+    }
+  };
+
   const fetchConcepts = async () => {
     if (!projectId) return;
     setConceptsBusy(true);
@@ -141,6 +174,35 @@ export function CoverVariationsBox(props: Props) {
 
       {optionsOpen && (
         <div className="space-y-3 mb-4 p-3 bg-white border border-blue-200 rounded-lg">
+          {/* 0. 표지 후킹 카피 5종 — 표지 디자인과 함께 쓰면 강력 */}
+          <div className="pb-3 border-b border-blue-100">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-bold text-ink-900">📝 표지 후킹 카피 5종 (선택)</label>
+              <button
+                type="button"
+                onClick={fetchHeadlines}
+                disabled={headlinesBusy || !projectId}
+                className="text-[11px] px-2 py-1 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 disabled:opacity-50"
+              >
+                {headlinesBusy ? "생성 중..." : "후킹 카피 5종 (~₩200)"}
+              </button>
+            </div>
+            {headlinesError && <p className="text-[11px] text-red-600 mb-2">{headlinesError}</p>}
+            {headlines.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mt-2">
+                {headlines.map(h => (
+                  <div key={h.id} className="p-2 bg-purple-50 border border-purple-200 rounded text-[11px]">
+                    <div className="flex items-start justify-between gap-1 mb-0.5">
+                      <span className="font-bold text-ink-900">{h.title}</span>
+                      <span className="text-[9px] font-mono px-1 py-0.5 bg-purple-100 text-purple-800 rounded flex-shrink-0">{h.formula}</span>
+                    </div>
+                    {h.subtitle && <div className="text-[10px] text-gray-600">{h.subtitle}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 1. AI 컨셉 5종 추천 */}
           <div className="pb-3 border-b border-blue-100">
             <div className="flex items-center justify-between mb-1.5">

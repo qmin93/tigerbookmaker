@@ -46,6 +46,8 @@ interface BookData {
   marketingMeta?: MarketingMeta | null;
   kmongCopy?: KmongCopy | null;
   abTest?: ABTestPublic | null;
+  seriesMembership?: { seriesId: string; seriesTitle: string; orderInSeries: number } | null;
+  seriesSiblings?: Array<{ id: string; topic: string; orderInSeries: number; coverBase64: string | null }>;
   createdAt: string;
 }
 
@@ -406,6 +408,56 @@ export default function BookPage({ params }: { params: { id: string } }) {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* 6.5 시리즈 형제 책 — 같은 시리즈 다른 책 */}
+      {data.seriesSiblings && data.seriesSiblings.length > 0 && (
+        <section className="max-w-5xl mx-auto px-4 py-12 border-t border-gray-100">
+          <div className="flex items-baseline justify-between mb-6">
+            <h2 className={`text-2xl font-bold border-l-4 pl-3 ${theme.accentBorder}`}>
+              📚 이 시리즈의 다른 책
+            </h2>
+            {data.seriesMembership?.seriesTitle && (
+              <span className="text-sm text-gray-500">{data.seriesMembership.seriesTitle}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {data.seriesSiblings.map(s => (
+              <Link
+                key={s.id}
+                href={`/book/${s.id}`}
+                className="group block"
+              >
+                <div className="aspect-[3/4] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition border border-gray-100 bg-gray-50">
+                  {s.coverBase64 ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`data:image/png;base64,${s.coverBase64}`}
+                      alt={s.topic}
+                      className="w-full h-full object-cover group-hover:scale-105 transition"
+                    />
+                  ) : (
+                    <div className={`w-full h-full ${theme.bg} flex items-center justify-center p-4`}>
+                      <span className={`text-sm font-bold text-center ${theme.accent.split(" ")[0]}`}>
+                        {s.topic}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 px-1">
+                  {s.orderInSeries > 0 && (
+                    <div className={`text-[10px] font-mono font-bold ${theme.accent.split(" ")[0]} mb-0.5`}>
+                      Vol. {s.orderInSeries}
+                    </div>
+                  )}
+                  <div className="text-sm font-bold text-gray-900 line-clamp-2 group-hover:text-tiger-orange transition">
+                    {s.topic}
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       )}
