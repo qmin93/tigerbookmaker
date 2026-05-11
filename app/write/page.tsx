@@ -16,6 +16,7 @@ import { useTabState } from "./_hooks/useTabState";
 import { usePublishHint } from "./_hooks/usePublishHint";
 import { TopHeader } from "./_components/TopHeader";
 import { calculateProgress } from "@/lib/export-bundle";
+import { useNotify } from "@/lib/ui/notify";
 import { WritePageLayout } from "./_components/WritePageLayout";
 import { MobileBottomNav } from "./_components/MobileBottomNav";
 import { ChapterList as ChapterListNew } from "./_components/ChapterList";
@@ -88,6 +89,32 @@ function Inner() {
   const params = useSearchParams();
   const router = useRouter();
   const projectId = params.get("id");
+  const notify = useNotify();
+  // 잔액 부족 시 충전 페이지 이동 confirm — 자주 쓰여서 helper로
+  const askTopUp = async (shortfallKRW?: number) => {
+    const ok = await notify.confirm({
+      title: "잔액 부족",
+      emoji: "💳",
+      message: shortfallKRW
+        ? `${shortfallKRW.toLocaleString()}원 더 필요해요. 충전 페이지로 이동할까요?`
+        : "잔액이 부족해요. 충전 페이지로 이동할까요?",
+      confirmLabel: "충전하러 가기",
+      cancelLabel: "나중에",
+      variant: "warn",
+    });
+    if (ok) router.push("/billing");
+    return ok;
+  };
+  // 단계 완료 toast — 다음 단계 안내 포함
+  const toastStepDone = (justDoneLabel: string, nextStepHint?: { label: string; tab: string }) => {
+    notify.success({
+      title: `✓ ${justDoneLabel} 완성!`,
+      message: nextStepHint ? `잘 됐어요. 이어서 ${nextStepHint.label} 만들어 보세요.` : "잘 됐어요.",
+      nextStepLabel: nextStepHint ? `${nextStepHint.label} 만들러 가기` : undefined,
+      onNextStep: nextStepHint ? () => setTab(nextStepHint.tab as any) : undefined,
+      durationMs: 6000,
+    });
+  };
 
   // ─── 4-tab 레이아웃 hooks (early return 전 호출 — Rules of Hooks) ───
   const { tab, setTab } = useTabState();
@@ -487,9 +514,14 @@ function Inner() {
       }
       if (res.status === 401) {
         // 세션 만료 — 로그인으로 자동 안내
-        if (confirm("로그인 세션이 만료되었습니다. 다시 로그인 페이지로 이동할까요?")) {
-          router.push(`/login?redirect=/write?id=${projectId}`);
-        }
+        const ok = await notify.confirm({
+          title: "로그인 세션 만료",
+          emoji: "🔒",
+          message: "다시 로그인하시겠어요?",
+          confirmLabel: "로그인 페이지로",
+          variant: "warn",
+        });
+        if (ok) router.push(`/login?redirect=/write?id=${projectId}`);
         throw new Error("로그인 만료 — 다시 로그인해주세요");
       }
       console.error("[saveProject] PUT failed", { status: res.status, detail });
@@ -510,9 +542,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족: ${data.shortfall.toLocaleString()}원 부족합니다. 충전 페이지로 이동할까요?`)) {
-          router.push("/billing");
-        }
+        await askTopUp(data.shortfall);
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
@@ -545,9 +575,7 @@ function Inner() {
       // 잔액 부족 등 일반 JSON 응답
       if (res.status === 402) {
         const data = await res.json().catch(() => ({}));
-        if (confirm(`잔액 부족: ${data.shortfall?.toLocaleString()}원 부족. 충전 페이지로 이동할까요?`)) {
-          router.push("/billing");
-        }
+        await askTopUp(data.shortfall);
         throw new Error("잔액 부족");
       }
       if (!res.ok) {
@@ -742,7 +770,14 @@ function Inner() {
     await saveProject({ ...project, chapters });
   };
   const deleteChapter = async (idx: number) => {
-    if (!confirm(`"${project.chapters[idx].title}" 챕터를 삭제할까요? (본문 포함)`)) return;
+    const ok = await notify.confirm({
+      title: "챕터 삭제",
+      emoji: "🗑️",
+      message: `"${project.chapters[idx].title}" 챕터를 삭제할까요?\n본문도 함께 삭제됩니다.`,
+      confirmLabel: "삭제",
+      variant: "danger",
+    });
+    if (!ok) return;
     const chapters = project.chapters.filter((_, i) => i !== idx);
     setActiveIdx(Math.max(0, Math.min(activeIdx, chapters.length - 1)));
     await saveProject({ ...project, chapters });
@@ -834,7 +869,14 @@ function Inner() {
       setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
       return;
     }
-    if (!confirm("크몽 패키지 — 이미지 6장 (~₩2,400) + 카피 5종 (~₩500), 약 40초. 진행할까요?")) return;
+    const ok = await notify.confirm({
+      title: "크몽 패키지 일괄 생성",
+      emoji: "📦",
+      message: "이미지 6장 + 카피 5종 한 번에 생성합니다 (~40초).",
+      details: ["이미지 6장 (~₩2,400)", "카피 5종 (~₩500)", "예상 합계 ~₩2,900"],
+      confirmLabel: "진행",
+    });
+    if (!ok) return;
 
     setError(null);
     setKmongModalOpen(true);
@@ -863,7 +905,7 @@ function Inner() {
         });
         const data = await res.json();
         if (res.status === 402) {
-          if (confirm("잔액 부족. 충전 페이지로 이동할까요?")) router.push("/billing");
+          await askTopUp();
           setKmongProgress(p => p ? { ...p, items: { ...p.items, [task]: "failed" } } : p);
           break;
         }
@@ -893,7 +935,14 @@ function Inner() {
         setError("모든 챕터 본문 작성이 끝나야 크몽 패키지를 생성할 수 있습니다.");
         return;
       }
-      if (!confirm("크몽 패키지 생성 — 카피 5종 (~₩500). 이미지 6장은 모달에서 개별 [생성] 클릭 (각 ₩400, ~5초). 진행할까요?")) return;
+      const ok = await notify.confirm({
+        title: "크몽 카피 5종 생성",
+        emoji: "📝",
+        message: "카피 5종 먼저 생성. 이미지 6장은 모달에서 개별로.",
+        details: ["카피 5종 ~₩500", "이미지 6장은 별도 (각 ₩400, ~5초)"],
+        confirmLabel: "진행",
+      });
+      if (!ok) return;
     }
     setKmongBusy(regenerateOnly ? "이미지 생성 중..." : "카피 생성 중 (약 10초)...");
     setError(null);
@@ -909,7 +958,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
@@ -1019,7 +1068,14 @@ function Inner() {
     if (!projectId) return;
     const cnt = coverVariationsCount;
     const estKRW = cnt * 300;
-    if (!confirm(`표지 다양화 ${cnt}종 생성. 예상 비용 ₩${estKRW.toLocaleString()}. 진행할까요?`)) return;
+    const ok = await notify.confirm({
+      title: `표지 다양화 ${cnt}종`,
+      emoji: "🎨",
+      message: `같은 책·같은 테마 색상으로 ${cnt}가지 다른 스타일 표지 생성.`,
+      details: [`예상 비용 ₩${estKRW.toLocaleString()}`, "Imagen 4 Fast 또는 DALL-E 3"],
+      confirmLabel: "생성",
+    });
+    if (!ok) return;
     setCoverVariationsBusy(true);
     setError(null);
     try {
@@ -1036,7 +1092,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm("잔액 부족. 충전 페이지로 이동할까요?")) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
@@ -1092,7 +1148,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `이미지 생성 실패 (${res.status})`);
@@ -1123,7 +1179,7 @@ function Inner() {
       });
       if (res.status === 402) {
         const data = await res.json().catch(() => ({}));
-        if (confirm(`잔액 부족: ₩${data.shortfall?.toLocaleString()} 부족. 충전 페이지로?`)) router.push("/billing");
+        await askTopUp(data.shortfall);
         throw new Error("잔액 부족");
       }
       if (!res.ok) {
@@ -1185,7 +1241,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족. 충전 페이지로?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
@@ -1237,7 +1293,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족. 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `요청 실패 (${res.status})`);
@@ -1246,6 +1302,7 @@ function Inner() {
       // project도 fresh로 동기화 (PATCH 머지 결과 반영)
       const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
       setProject(fresh);
+      toastStepDone("마케팅 카피", { label: "Meta 광고", tab: "publish" });
     } catch (e: any) {
       if (e.message !== "잔액 부족") setError(e.message);
     } finally {
@@ -1287,7 +1344,14 @@ function Inner() {
   const copyMarketingUrl = async (): Promise<boolean> => {
     if (!projectId) return false;
     if (!marketingMeta?.tagline && !marketingMeta?.description) {
-      const ok = confirm("⚠️ 마케팅 카피가 없습니다.\n\n방문자에게 책 소개·후킹이 보이지 않아 빈 페이지처럼 보일 수 있습니다.\n\n그래도 URL을 복사할까요? (먼저 '🤖 AI가 마케팅 카피 생성'을 권장합니다)");
+      const ok = await notify.confirm({
+        title: "마케팅 카피 없음",
+        emoji: "⚠️",
+        message: "방문자에게 책 소개가 보이지 않아 빈 페이지처럼 보일 수 있어요.\n그래도 URL을 복사할까요?",
+        confirmLabel: "그래도 복사",
+        cancelLabel: "먼저 카피 만들기",
+        variant: "warn",
+      });
       if (!ok) return false;
     }
     try {
@@ -1318,6 +1382,7 @@ function Inner() {
         const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
         setProject(fresh);
       } catch {}
+      toastStepDone("Meta 광고 카피", { label: "Meta 광고 이미지 3장", tab: "publish" });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1342,7 +1407,7 @@ function Inner() {
         });
         const d1 = await r1.json();
         if (r1.status === 402) {
-          if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+          await askTopUp();
           throw new Error("잔액 부족");
         }
         if (!r1.ok) throw new Error(d1.message || "카피 생성 실패");
@@ -1358,7 +1423,7 @@ function Inner() {
       });
       const d2 = await r2.json();
       if (r2.status === 402) {
-        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!r2.ok) throw new Error(d2.message || "이미지 생성 실패");
@@ -1410,7 +1475,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `이미지 생성 실패 (${res.status})`);
@@ -1430,6 +1495,14 @@ function Inner() {
         const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
         setProject(fresh);
       } catch {}
+      const imgCount = (data.images ?? []).length;
+      notify.success({
+        title: `✓ Meta 광고 이미지 ${imgCount}장 완성!`,
+        message: "이제 모든 단계 완료. 내보내기로 ZIP 다운로드 가능합니다.",
+        nextStepLabel: "내보내기로",
+        onNextStep: () => router.push(`/export?id=${projectId}`),
+        durationMs: 8000,
+      });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1451,7 +1524,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `인포그래픽 생성 실패 (${res.status})`);
@@ -1526,7 +1599,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `미리보기 영상 frame 생성 실패 (${res.status})`);
@@ -1567,7 +1640,7 @@ function Inner() {
       });
       const data = await res.json();
       if (res.status === 402) {
-        if (confirm("잔액 부족: 충전 페이지로 이동할까요?")) router.push("/billing");
+        await askTopUp();
         throw new Error("잔액 부족");
       }
       if (!res.ok) throw new Error(data.message || `강의 슬라이드 생성 실패 (${res.status})`);
@@ -1642,7 +1715,7 @@ function Inner() {
         });
         const data = await res.json();
         if (res.status === 402) {
-          if (confirm(`잔액 부족: 충전 페이지로 이동할까요?`)) router.push("/billing");
+          await askTopUp();
           throw new Error("잔액 부족");
         }
         if (!res.ok) throw new Error(data.message || `오디오북 생성 실패 (${res.status})`);
@@ -1860,7 +1933,13 @@ function Inner() {
       setError("이미 모든 이미지가 생성되어 있습니다.");
       return;
     }
-    if (!confirm(`총 ${jobs.length}개 이미지를 일괄 생성합니다 (~${jobs.length * 6}초). 진행할까요?`)) return;
+    const ok = await notify.confirm({
+      title: `이미지 ${jobs.length}개 일괄 생성`,
+      emoji: "🖼️",
+      message: `예상 소요 ~${jobs.length * 6}초.`,
+      confirmLabel: "생성",
+    });
+    if (!ok) return;
     setError(null);
     for (let i = 0; i < jobs.length; i++) {
       const { chapterIdx, placeholder } = jobs[i];
@@ -1874,7 +1953,7 @@ function Inner() {
         });
         const data = await res.json();
         if (res.status === 402) {
-          if (confirm(`잔액 부족 (${i + 1}/${jobs.length}에서 멈춤). 충전 페이지로?`)) router.push("/billing");
+          await askTopUp();
           break;
         }
         if (!res.ok) {
@@ -2898,8 +2977,15 @@ function Inner() {
                             </label>
                             <button onClick={() => removeImage(activeIdx, ph)} className="text-xs text-gray-500 hover:text-orange-600">초기화</button>
                             <button
-                              onClick={() => {
-                                if (confirm(`이 이미지 자리 자체를 본문에서 제거할까요? "${caption.slice(0, 30)}..."`)) {
+                              onClick={async () => {
+                                const ok = await notify.confirm({
+                                  title: "이미지 자리 제거",
+                                  emoji: "🗑️",
+                                  message: `이 이미지 자리를 본문에서 제거할까요?\n"${caption.slice(0, 30)}..."`,
+                                  confirmLabel: "제거",
+                                  variant: "danger",
+                                });
+                                if (ok) {
                                   removeImagePlaceholder(activeIdx, ph);
                                 }
                               }}
