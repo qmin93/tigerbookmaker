@@ -380,14 +380,24 @@ ${tpl.epubCss}
 ${(() => {
   const kPkg = (project as any).kmongPackage;
   const coverImg = kPkg?.images?.find((i: any) => i.type === "cover");
+  // 마케팅 메타에서 후킹 카피 가져옴 (사용자가 카피 적용했을 때 표지 페이지에 노출)
+  const tagline = (project as any).marketingMeta?.tagline?.trim();
+  const description = (project as any).marketingMeta?.description?.trim();
+  const headlineBlock = tagline
+    ? `<div style="margin-top: 16px; padding: 12px 20px; background: #fff7ed; border-left: 4px solid #f97316; border-radius: 6px; text-align: left; max-width: 480px; margin-left: auto; margin-right: auto;">
+         <div style="font-size: 14pt; font-weight: 800; color: #9a3412; line-height: 1.4;">${escapeHtml(tagline)}</div>
+         ${description ? `<div style="font-size: 11pt; color: #7c2d12; margin-top: 4px;">${escapeHtml(description)}</div>` : ""}
+       </div>`
+    : "";
+
   if (coverImg) {
-    // 이미지 표지가 있으면 이미지를 메인으로 + 텍스트 오버레이
     return `<div class="cover" style="background: white; padding: 0; position: relative;">
-  <img src="data:image/png;base64,${coverImg.base64}" style="width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; margin: 0 auto;" />
+  <img src="data:image/png;base64,${coverImg.base64}" style="width: 100%; height: auto; max-height: 60vh; object-fit: contain; display: block; margin: 0 auto;" />
   <div style="text-align: center; padding: 24px 32px;">
     <div class="cover-brand" style="margin-bottom: 16px;">TIGERBOOKMAKER</div>
     <div class="cover-title" style="font-size: 28pt; line-height: 1.2;">${escapeHtml(coverMainTitle)}</div>
     ${coverSubTitle ? `<div class="cover-subtitle" style="margin-top: 8px;">${escapeHtml(coverSubTitle)}</div>` : ""}
+    ${headlineBlock}
     <div style="margin-top: 16px; font-size: 11pt; color: #6b7280;">독자 · <strong>${escapeHtml(project.audience)}</strong></div>
   </div>
 </div>`;
@@ -399,6 +409,7 @@ ${(() => {
   <div class="cover-title-group">
     <div class="cover-title">${escapeHtml(coverMainTitle)}</div>
     ${coverSubTitle ? `<div class="cover-subtitle">${escapeHtml(coverSubTitle)}</div>` : ""}
+    ${headlineBlock}
   </div>
   <div class="cover-divider"></div>
   <div class="cover-audience">독자 · <strong>${escapeHtml(project.audience)}</strong></div>

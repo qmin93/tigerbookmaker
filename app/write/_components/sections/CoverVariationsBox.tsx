@@ -123,6 +123,38 @@ export function CoverVariationsBox(props: Props) {
     }
   };
 
+  // #1 표지 이미지에 텍스트 직접 합성 (Sharp + Pretendard)
+  const [overlayingId, setOverlayingId] = useState<string | null>(null);
+  const overlayOnCover = async (h: { id: string; title: string; subtitle?: string }) => {
+    if (!projectId) return;
+    setOverlayingId(h.id);
+    try {
+      const res = await fetch("/api/generate/cover-overlay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          headline: h.title,
+          subhead: h.subtitle,
+          template: "bold",
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setHeadlinesError(`잔액 부족 (₩${data.shortfall ?? 50})`);
+        return;
+      }
+      if (!res.ok) throw new Error(data.message || `합성 실패`);
+      if (typeof data.newBalance === "number") onBalanceChange(data.newBalance);
+      // 부모에게 갱신된 cover를 noti 위해 fresh fetch는 부모가 알아서 (saveProject 등으로 갱신될 것)
+      window.location.reload();  // 가장 단순 — 표지 즉시 반영
+    } catch (e: any) {
+      setHeadlinesError(`합성 실패: ${e.message}`);
+    } finally {
+      setOverlayingId(null);
+    }
+  };
+
   const fetchConcepts = async () => {
     if (!projectId) return;
     setConceptsBusy(true);
@@ -232,18 +264,30 @@ export function CoverVariationsBox(props: Props) {
                         <span className="text-[9px] font-mono px-1 py-0.5 bg-purple-100 text-purple-800 rounded flex-shrink-0">{h.formula}</span>
                       </div>
                       {h.subtitle && <div className="text-[10px] text-gray-600 mb-1.5">{h.subtitle}</div>}
-                      <button
-                        type="button"
-                        onClick={() => applyHeadline(h)}
-                        disabled={isApplying}
-                        className={`w-full mt-1 px-2 py-1 text-[10px] font-bold rounded transition ${
-                          isApplied
-                            ? "bg-tiger-orange text-white"
-                            : "bg-white border border-purple-300 text-purple-800 hover:bg-purple-100"
-                        }`}
-                      >
-                        {isApplied ? "✓ 적용됨" : isApplying ? "적용 중..." : "✓ 이 카피로 마케팅 페이지 적용"}
-                      </button>
+                      <div className="grid grid-cols-2 gap-1 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => applyHeadline(h)}
+                          disabled={isApplying}
+                          className={`px-2 py-1 text-[10px] font-bold rounded transition ${
+                            isApplied
+                              ? "bg-tiger-orange text-white"
+                              : "bg-white border border-purple-300 text-purple-800 hover:bg-purple-100"
+                          }`}
+                          title="마케팅 페이지(/book/[id])의 헤드라인으로 사용"
+                        >
+                          {isApplied ? "✓ 적용됨" : isApplying ? "적용 중..." : "📝 카피로 적용"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => overlayOnCover(h)}
+                          disabled={overlayingId === h.id}
+                          className="px-2 py-1 text-[10px] font-bold rounded bg-white border border-tiger-orange/40 text-tiger-orange hover:bg-orange-50 transition"
+                          title="표지 이미지에 글씨 합성 (Sharp, ₩50)"
+                        >
+                          {overlayingId === h.id ? "합성 중..." : "🎨 표지에 합성 (~₩50)"}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
