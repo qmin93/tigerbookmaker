@@ -684,7 +684,7 @@ export async function callImageGeneration(opts: {
   prompt: string;
   timeoutMs?: number;
   preferPaid?: boolean;  // true면 paid 모델 우선 (한국어 글자 깔끔, 표지·썸네일·인포그래픽용). 기본 false.
-  preferVendor?: "imagen" | "openai";  // preferPaid=true 시 어느 paid 모델 우선 — 기본 imagen
+  preferVendor?: "imagen" | "openai";  // preferPaid=true 시 어느 paid 모델 — 기본 openai (DALL-E 3)
   aspectRatio?: AspectRatio;  // 기본 "1:1" — 기존 호출자 호환
 }): Promise<ImageResult> {
   const started = Date.now();
@@ -692,9 +692,11 @@ export async function callImageGeneration(opts: {
   const aspectRatio: AspectRatio = opts.aspectRatio ?? "1:1";
   const errors: string[] = [];
   const now = Date.now();
-  const preferOpenAI = opts.preferPaid && opts.preferVendor === "openai";
+  // 기본 paid 모델: DALL-E 3 (Imagen은 한국어 글자 깨짐 빈발 → opt-in 으로만)
+  const preferOpenAI = opts.preferPaid && opts.preferVendor !== "imagen";
 
-  // preferPaid + preferVendor=openai: gpt-image-1 우선 (DALL-E 3 계열, 한국어 주제 이해·디테일 묘사 강함)
+  // preferPaid + (default 또는 preferVendor=openai): gpt-image-1 우선
+  // — DALL-E 3 계열, 한국어 텍스트 시도 안 함 (깔끔), 디테일 묘사 강함
   if (preferOpenAI && process.env.OPENAI_API_KEY) {
     try {
       const r = await callOpenAIImage(opts.prompt, timeoutMs, aspectRatio);
@@ -703,8 +705,8 @@ export async function callImageGeneration(opts: {
       errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
     }
   }
-  // preferPaid: 한국어 글자 정확 필요 (표지/썸네일/인포그래픽) — Imagen 4 Fast 우선
-  if (opts.preferPaid && !preferOpenAI && process.env.GEMINI_API_KEY) {
+  // preferPaid + preferVendor=imagen 명시: Imagen 4 Fast (이전 동작 호환)
+  if (opts.preferPaid && opts.preferVendor === "imagen" && process.env.GEMINI_API_KEY) {
     try {
       const r = await callImagenFast(opts.prompt, timeoutMs, aspectRatio);
       return { ...r, durationMs: Date.now() - started };

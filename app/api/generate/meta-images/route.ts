@@ -226,7 +226,7 @@ export async function POST(req: Request) {
         const img = await callImageGeneration({
           prompt: smartPrompt,
           timeoutMs: 30000,
-          preferPaid: true,    // 한국어 글자 가독성 — Imagen 4 Fast 우선
+          preferPaid: true,    // 한국어 글자 깔끔 — DALL-E 3 default (한글 시도 X)
           aspectRatio: ar,
         });
         // 새 가격 정책: Meta 광고 이미지 ₩500/장 고정
