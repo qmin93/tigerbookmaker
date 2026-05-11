@@ -93,6 +93,36 @@ export function CoverVariationsBox(props: Props) {
     }
   };
 
+  // 후킹 카피 1개 → 마케팅 카피 (tagline + description)에 적용
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [appliedId, setAppliedId] = useState<string | null>(null);
+  const applyHeadline = async (h: { id: string; title: string; subtitle?: string }) => {
+    if (!projectId) return;
+    setApplyingId(h.id);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          marketingMeta: {
+            tagline: h.title,
+            ...(h.subtitle ? { description: h.subtitle } : {}),
+          },
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || `적용 실패 (${res.status})`);
+      }
+      setAppliedId(h.id);
+      setTimeout(() => setAppliedId(null), 3000);
+    } catch (e: any) {
+      setHeadlinesError(`적용 실패: ${e.message}`);
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
   const fetchConcepts = async () => {
     if (!projectId) return;
     setConceptsBusy(true);
@@ -190,15 +220,33 @@ export function CoverVariationsBox(props: Props) {
             {headlinesError && <p className="text-[11px] text-red-600 mb-2">{headlinesError}</p>}
             {headlines.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mt-2">
-                {headlines.map(h => (
-                  <div key={h.id} className="p-2 bg-purple-50 border border-purple-200 rounded text-[11px]">
-                    <div className="flex items-start justify-between gap-1 mb-0.5">
-                      <span className="font-bold text-ink-900">{h.title}</span>
-                      <span className="text-[9px] font-mono px-1 py-0.5 bg-purple-100 text-purple-800 rounded flex-shrink-0">{h.formula}</span>
+                {headlines.map(h => {
+                  const isApplied = appliedId === h.id;
+                  const isApplying = applyingId === h.id;
+                  return (
+                    <div key={h.id} className={`p-2 bg-purple-50 border rounded text-[11px] transition ${
+                      isApplied ? "border-tiger-orange bg-orange-50" : "border-purple-200"
+                    }`}>
+                      <div className="flex items-start justify-between gap-1 mb-0.5">
+                        <span className="font-bold text-ink-900">{h.title}</span>
+                        <span className="text-[9px] font-mono px-1 py-0.5 bg-purple-100 text-purple-800 rounded flex-shrink-0">{h.formula}</span>
+                      </div>
+                      {h.subtitle && <div className="text-[10px] text-gray-600 mb-1.5">{h.subtitle}</div>}
+                      <button
+                        type="button"
+                        onClick={() => applyHeadline(h)}
+                        disabled={isApplying}
+                        className={`w-full mt-1 px-2 py-1 text-[10px] font-bold rounded transition ${
+                          isApplied
+                            ? "bg-tiger-orange text-white"
+                            : "bg-white border border-purple-300 text-purple-800 hover:bg-purple-100"
+                        }`}
+                      >
+                        {isApplied ? "✓ 적용됨" : isApplying ? "적용 중..." : "✓ 이 카피로 마케팅 페이지 적용"}
+                      </button>
                     </div>
-                    {h.subtitle && <div className="text-[10px] text-gray-600">{h.subtitle}</div>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
