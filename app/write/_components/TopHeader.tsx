@@ -7,6 +7,7 @@
 
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import type { ProgressItem } from "@/lib/export-bundle";
 
 interface MissingItem {
@@ -65,6 +66,7 @@ export function TopHeader({
   progressItems, currentTab, onGoToTab,
   progressPercent, missingItems,
 }: Props) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // 단계별 done 계산
   const stepStatuses = STEPS.map(s => {
     const list = (progressItems ?? []).filter(p => s.itemKeys.includes(p.key));
@@ -99,19 +101,21 @@ export function TopHeader({
 
   const handleExport = () => {
     if (typeof progressPercent === "number" && progressPercent < 100 && onExport && missingItems && missingItems.length > 0) {
-      const lines = missingItems.map(m => `✗ ${m.label}\n   → ${m.hint}`).join("\n\n");
-      const ok = confirm(
-        `⚠️ 패키지 ${progressPercent}% — 아직 빠진 자료가 있습니다:\n\n${lines}\n\n` +
-        `[취소]를 누르면 위 항목 만든 후 내보낼 수 있습니다.\n` +
-        `[확인]을 누르면 지금 상태 그대로 내보내기 페이지로 갑니다.`
-      );
-      if (!ok) {
-        const firstTab = missingItems[0]?.tab;
-        if (firstTab && onGoToTab) onGoToTab(firstTab);
-        return;
-      }
+      setConfirmOpen(true);
+      return;
     }
     onExport?.();
+  };
+
+  const confirmExportAnyway = () => {
+    setConfirmOpen(false);
+    onExport?.();
+  };
+
+  const goToFirstMissing = () => {
+    setConfirmOpen(false);
+    const firstTab = missingItems?.[0]?.tab;
+    if (firstTab && onGoToTab) onGoToTab(firstTab);
   };
 
   return (
@@ -219,6 +223,82 @@ export function TopHeader({
           </button>
         </div>
       </div>
+
+      {/* 내보내기 confirm modal — 빠진 자료 안내 */}
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setConfirmOpen(false)}
+        >
+          <div
+            className="bg-white text-ink-900 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 헤더 — 그라디언트 + 진행률 */}
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-6">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-3xl">⚠️</span>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight text-yellow-900">패키지 미완성</h3>
+                  <p className="text-xs text-yellow-900/80">아직 만들어야 할 자료가 있어요</p>
+                </div>
+                <div className="ml-auto text-right">
+                  <div className="text-2xl font-black text-yellow-900">{progressPercent ?? 0}%</div>
+                  <div className="text-[10px] text-yellow-900/80">완성도</div>
+                </div>
+              </div>
+              {typeof progressPercent === "number" && (
+                <div className="mt-3 w-full h-2 bg-yellow-900/15 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-yellow-900/60 transition-all"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 빠진 항목 리스트 */}
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">
+                아래 자료가 빠져 있어요. 외부 마켓 등록 시 다시 만들어야 할 수 있습니다.
+              </p>
+              <div className="space-y-2.5 mb-6">
+                {missingItems?.map((m, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold">✗</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-gray-900">{m.label}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{m.hint}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 액션 버튼 */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={goToFirstMissing}
+                  className="flex-1 py-3 bg-tiger-orange text-white font-bold rounded-lg hover:bg-orange-600 transition shadow-glow-orange-sm"
+                >
+                  ✨ 만들러 가기
+                </button>
+                <button
+                  onClick={confirmExportAnyway}
+                  className="flex-1 py-3 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:border-gray-500 hover:bg-gray-50 transition"
+                >
+                  지금 그대로 내보내기
+                </button>
+              </div>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
