@@ -131,10 +131,10 @@ Now write a single English image prompt (max 100 words). Describe ONLY the visua
     .replace(/\b\d{3,5}\s*[xX×]\s*\d{3,5}\b/g, "") // 1080x1080
     .replace(/\s{2,}/g, " ")
     .trim();
-  // Always append strong no-text constraint (text may have been removed by sanitize)
-  if (!/no text|no letters|no characters|wordless/i.test(prompt)) {
-    prompt += " WORDLESS image with absolutely NO text, NO letters, NO numbers, NO words, NO captions, NO Korean or Chinese or English characters anywhere in the image. Pure visual composition only.";
-  }
+  // 무조건 강한 no-text constraint 부착 (Imagen이 종종 한국어 시도하다 깨짐)
+  prompt = prompt
+    .replace(/\s*WORDLESS[^.]*\.?\s*$/i, "")   // 기존 wordless 문구 제거 (중복 방지)
+    + " ⚠️ ABSOLUTE NEGATIVE: No text, no letters, no numbers, no Korean characters, no Chinese characters, no Japanese characters, no English words, no captions, no labels, no signs, no logos, no symbols that resemble letters, no glyphs of any writing system. Pure abstract visual composition only. If you cannot resist drawing text, just draw a simple geometric shape instead.";
 
   // Approx cost calc — Gemini Flash output 2.50 USD/M tokens, very cheap for ~400 tokens
   const costKRW = Math.ceil((result.usage.costUSD ?? 0) * 1400);

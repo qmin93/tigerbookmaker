@@ -52,7 +52,7 @@ export function CoverVariationsBox(props: Props) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [userConcept, setUserConcept] = useState("");
   const [styleDirection, setStyleDirection] = useState<"image" | "typography" | "hybrid">("image");
-  const [imageVendor, setImageVendor] = useState<"imagen" | "openai">("imagen");
+  const [imageVendor, setImageVendor] = useState<"imagen" | "openai">("openai");
 
   const [conceptsBusy, setConceptsBusy] = useState(false);
   const [conceptsError, setConceptsError] = useState<string | null>(null);

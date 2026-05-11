@@ -127,9 +127,9 @@ export async function POST(req: Request) {
     const sdRaw = (body as any)?.styleDirection;
     const styleDirection: "image" | "typography" | "hybrid" =
       sdRaw === "typography" || sdRaw === "hybrid" ? sdRaw : "image";
-    // Wave: 이미지 모델 선택 — imagen(default) / openai(DALL-E 3 계열, 한국어 주제 이해 강함)
+    // Wave: 이미지 모델 선택 — openai(DALL-E 3, default — Imagen은 한국어 글자 깨짐 빈발) / imagen
     const imgVendorRaw = (body as any)?.imageVendor;
-    const imageVendor: "imagen" | "openai" = imgVendorRaw === "openai" ? "openai" : "imagen";
+    const imageVendor: "imagen" | "openai" = imgVendorRaw === "imagen" ? "imagen" : "openai";
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
 
     const projectRow = await getProject(projectId, userId);
