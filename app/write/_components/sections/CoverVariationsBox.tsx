@@ -114,8 +114,8 @@ export function CoverVariationsBox(props: Props) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message || `적용 실패 (${res.status})`);
       }
+      // 적용 표시 유지 (이전엔 3초 후 reset해서 사용자에게 "적용 안 된 것"처럼 보였음)
       setAppliedId(h.id);
-      setTimeout(() => setAppliedId(null), 3000);
     } catch (e: any) {
       setHeadlinesError(`적용 실패: ${e.message}`);
     } finally {
@@ -276,7 +276,7 @@ export function CoverVariationsBox(props: Props) {
                           }`}
                           title="마케팅 페이지(/book/[id])의 헤드라인으로 사용"
                         >
-                          {isApplied ? "✓ 적용됨" : isApplying ? "적용 중..." : "📝 카피로 적용"}
+                          {isApplied ? "✓ 마케팅에 반영됨" : isApplying ? "적용 중..." : "📝 카피로 적용"}
                         </button>
                         <button
                           type="button"
@@ -288,6 +288,11 @@ export function CoverVariationsBox(props: Props) {
                           {overlayingId === h.id ? "합성 중..." : "🎨 표지에 합성 (~₩50)"}
                         </button>
                       </div>
+                      {isApplied && (
+                        <div className="text-[10px] text-tiger-orange mt-1 font-medium">
+                          → /book/{projectId?.slice(0, 8)}... 페이지 hero에 노출 중
+                        </div>
+                      )}
                     </div>
                   );
                 })}
