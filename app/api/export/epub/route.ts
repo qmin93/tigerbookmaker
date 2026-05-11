@@ -55,12 +55,8 @@ function renderChapterHtml(content: string, images: any[]): string {
     }).join("\n");
   }).join("\n");
 
-  // 소제목과 다음 단락을 한 그룹으로 묶음 — page-break-inside: avoid 적용해
-  // 소제목이 페이지 끝에 외롭게 떨어지는 widow heading 차단.
-  return raw.replace(
-    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+[^>]*)?>[\s\S]*?<\/p>)/g,
-    '<div class="heading-group">$1$2</div>'
-  );
+  // widow heading 방지는 CSS만 사용 (wrap 제거 — 페이지 끝 큰 공백 부작용 방지).
+  return raw;
 }
 
 // 공통 EPUB 빌드 — POST와 GET 둘 다 사용
@@ -99,8 +95,8 @@ async function buildEpubBuffer(projectId: string, userId: string) {
       h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; page-break-after: avoid; break-after: avoid-page; }
       h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
       h4 { font-size: 1.1em; margin-top: 1.2em; }
-      p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 3; widows: 3; }
-      .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
+      p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 2; widows: 2; }
+      h3 + p, h4 + p { page-break-before: avoid; break-before: avoid; }
       ${tpl.epubCss}
     `.trim(),
   };
@@ -186,8 +182,8 @@ export async function POST(req: Request) {
         h1, h2, h3, h4 { font-weight: 700; line-height: 1.3; page-break-after: avoid; break-after: avoid-page; }
         h3 { font-size: 1.3em; margin-top: 1.5em; margin-bottom: 0.8em; color: #0a0a0a; }
         h4 { font-size: 1.1em; margin-top: 1.2em; }
-        p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 3; widows: 3; }
-        .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
+        p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 2; widows: 2; }
+        h3 + p, h4 + p { page-break-before: avoid; break-before: avoid; }
         ${tpl.epubCss}
       `.trim(),
     };

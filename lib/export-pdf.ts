@@ -46,13 +46,10 @@ function renderBody(content: string, images: BookProject["chapters"][0]["images"
     }).join("\n");
   }).join("\n");
 
-  // 소제목과 다음 단락을 한 그룹으로 묶음 — page-break-inside: avoid 적용해
-  // 소제목이 페이지 끝에 외롭게 떨어지는 widow heading 현상 차단.
-  // h3/h4 직후 첫 <p>를 함께 .heading-group div로 감쌈.
-  return raw.replace(
-    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+class="[^"]*")?>[\s\S]*?<\/p>)/g,
-    '<div class="heading-group">$1$2</div>'
-  );
+  // widow heading 방지는 CSS의 page-break-after: avoid 만 사용 (wrap 제거).
+  // 이전 wrap 방식은 heading-group이 다음 페이지에 안 들어가면 큰 공백 발생 →
+  // 페이지 활용도 떨어지는 부작용이 widow heading 회피보다 더 큼.
+  return raw;
 }
 
 export async function generatePdf(project: BookProject) {
@@ -310,13 +307,14 @@ body {
 .chapter-body p {
   margin-bottom: 10px;
   word-break: keep-all;
-  orphans: 3;
-  widows: 3;
+  orphans: 2;
+  widows: 2;
 }
-.chapter-body .heading-group {
-  /* 소제목 + 첫 단락을 한 묶음으로 — 절대 페이지 사이에서 잘리지 않게 */
-  page-break-inside: avoid;
-  break-inside: avoid-page;
+/* heading 다음 단락 강제 묶음 — h3 + 직후 p를 같은 페이지에 유지 */
+.chapter-body h3 + p,
+.chapter-body h4 + p {
+  page-break-before: avoid;
+  break-before: avoid;
 }
 .chapter-body .bullet {
   padding-left: 16px;
