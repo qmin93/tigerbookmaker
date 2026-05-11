@@ -1113,6 +1113,15 @@ function Inner() {
       if (Array.isArray(data.failed) && data.failed.length > 0) {
         setError(`${data.variations?.length ?? 0}/${cnt}장 생성. ${data.failed.length}장 실패.`);
       }
+      // 표지 다양화 생성 완료 → 사용자가 마음에 드는 거 골라야 메인 표지가 됨
+      const okCount = (data.variations ?? []).length;
+      if (okCount > 0) {
+        notify.success({
+          title: `✓ 표지 ${okCount}종 생성 완료!`,
+          message: "이미지 클릭해서 크게 보고, 마음에 드는 거 [✓ 메인 적용] 누르세요.",
+          durationMs: 7000,
+        });
+      }
     } catch (e: any) {
       if (e.message !== "잔액 부족") setError(e.message);
     } finally {
