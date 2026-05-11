@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { ImageRefineButton } from "@/components/ImageRefineButton";
+import { useNotify } from "@/lib/ui/notify";
 
 export interface CoverVariation {
   idx: number;
@@ -46,6 +47,7 @@ export function CoverVariationsBox(props: Props) {
     projectId, variations, busy, count, onCountChange,
     onGenerate, onSelect, onRefined, onBalanceChange,
   } = props;
+  const notify = useNotify();
 
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [userConcept, setUserConcept] = useState("");
@@ -86,8 +88,19 @@ export function CoverVariationsBox(props: Props) {
       }
       setHeadlines(data.headlines ?? []);
       if (typeof data.newBalance === "number") onBalanceChange(data.newBalance);
+      const n = (data.headlines ?? []).length;
+      if (n > 0) {
+        notify.success({
+          title: `✓ 후킹 카피 ${n}종 생성 완료`,
+          message: "아래 카드에서 마음에 드는 카피의 [카피로 적용] 또는 [표지에 합성] 버튼을 누르세요.",
+          durationMs: 6000,
+        });
+      } else {
+        notify.error({ title: "카피 생성 실패", message: "다시 시도해주세요. (응답이 비어있음)" });
+      }
     } catch (e: any) {
       setHeadlinesError(e.message);
+      notify.error({ title: "카피 생성 실패", message: e.message });
     } finally {
       setHeadlinesBusy(false);
     }
@@ -116,8 +129,18 @@ export function CoverVariationsBox(props: Props) {
       }
       // 적용 표시 유지 (이전엔 3초 후 reset해서 사용자에게 "적용 안 된 것"처럼 보였음)
       setAppliedId(h.id);
+      notify.success({
+        title: "✓ 마케팅 페이지에 반영됨",
+        message: `"${h.title}" 카피가 /book/${projectId?.slice(0, 8)}... 마케팅 페이지 hero에 노출됩니다.`,
+        nextStepLabel: "/book 페이지 미리보기",
+        onNextStep: () => {
+          if (projectId) window.open(`/book/${projectId}`, "_blank");
+        },
+        durationMs: 8000,
+      });
     } catch (e: any) {
       setHeadlinesError(`적용 실패: ${e.message}`);
+      notify.error({ title: "적용 실패", message: e.message });
     } finally {
       setApplyingId(null);
     }
