@@ -748,6 +748,16 @@ function Inner() {
     setBatch({ status: "idle" });
     const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
     setProject(fresh);
+    notify.success({
+      title: `✓ 본문 ${pendingIdxs.length}장 완성!`,
+      message: "다음은 본문 이미지를 자동 생성해 보세요.",
+      nextStepLabel: "본문 이미지 일괄 만들기",
+      onNextStep: () => {
+        setTab("writing");
+        setTimeout(() => document.getElementById("writing-section-chapters")?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+      },
+      durationMs: 7000,
+    });
   };
 
   const stopBatch = () => {
@@ -1125,6 +1135,16 @@ function Inner() {
       const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
       setProject(fresh);
       setCoverVariations([]); // 선택 후 그리드 닫기
+      notify.success({
+        title: "✓ 표지 선택 완료!",
+        message: "다음은 마케팅 카피를 만들어 보세요. publish 탭에 있어요.",
+        nextStepLabel: "마케팅 카피 만들러 가기",
+        onNextStep: () => {
+          setTab("publish");
+          setTimeout(() => document.getElementById("publish-section-marketing")?.scrollIntoView({ behavior: "smooth", block: "center" }), 200);
+        },
+        durationMs: 7000,
+      });
     } catch (e: any) {
       setError(e.message);
     }
@@ -1971,6 +1991,16 @@ function Inner() {
       setProject(fresh);
     } catch {}
     setImageGenBusy("");
+    notify.success({
+      title: "✓ 본문 이미지 일괄 완성!",
+      message: "다음은 표지를 만들어 보세요. 표지 다양화에서 5종 비교 가능합니다.",
+      nextStepLabel: "표지 만들러 가기",
+      onNextStep: () => {
+        setTab("writing");
+        setTimeout(() => document.getElementById("writing-section-cover")?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+      },
+      durationMs: 7000,
+    });
   };
 
   const active = project.chapters[activeIdx];
