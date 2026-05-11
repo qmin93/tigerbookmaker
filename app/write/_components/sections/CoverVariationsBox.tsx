@@ -148,6 +148,7 @@ export function CoverVariationsBox(props: Props) {
 
   // #1 표지 이미지에 텍스트 직접 합성 (Sharp + Pretendard)
   const [overlayingId, setOverlayingId] = useState<string | null>(null);
+  const [overlayPreview, setOverlayPreview] = useState<string | null>(null); // 합성 결과 base64
   const overlayOnCover = async (h: { id: string; title: string; subtitle?: string }) => {
     if (!projectId) return;
     setOverlayingId(h.id);
@@ -164,15 +165,20 @@ export function CoverVariationsBox(props: Props) {
       });
       const data = await res.json();
       if (res.status === 402) {
-        setHeadlinesError(`잔액 부족 (₩${data.shortfall ?? 50})`);
+        notify.error({ title: "잔액 부족", message: `₩${data.shortfall ?? 50} 부족` });
         return;
       }
       if (!res.ok) throw new Error(data.message || `합성 실패`);
       if (typeof data.newBalance === "number") onBalanceChange(data.newBalance);
-      // 부모에게 갱신된 cover를 noti 위해 fresh fetch는 부모가 알아서 (saveProject 등으로 갱신될 것)
-      window.location.reload();  // 가장 단순 — 표지 즉시 반영
+      // 결과 보여줌 — 페이지 reload 안 함 (사용자가 결과 즉시 확인)
+      if (data.coverBase64) setOverlayPreview(data.coverBase64);
+      notify.success({
+        title: "✓ 표지에 글씨 합성 완료!",
+        message: `"${h.title}" 카피가 표지 이미지에 합성됐어요. 아래 미리보기 또는 [내보내기]에서 결과 확인.`,
+        durationMs: 8000,
+      });
     } catch (e: any) {
-      setHeadlinesError(`합성 실패: ${e.message}`);
+      notify.error({ title: "합성 실패", message: e.message });
     } finally {
       setOverlayingId(null);
     }
@@ -259,6 +265,31 @@ export function CoverVariationsBox(props: Props) {
 
       {optionsOpen && (
         <div className="space-y-3 mb-4 p-3 bg-white border border-blue-200 rounded-lg">
+          {/* 합성된 표지 미리보기 — overlay 성공 후 즉시 노출 */}
+          {overlayPreview && (
+            <div className="pb-3 border-b border-blue-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-ink-900">🎨 합성된 표지 미리보기</label>
+                <button
+                  type="button"
+                  onClick={() => setOverlayPreview(null)}
+                  className="text-[10px] text-gray-400 hover:text-ink-900"
+                >
+                  ✕ 닫기
+                </button>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`data:image/png;base64,${overlayPreview}`}
+                alt="합성된 표지"
+                className="w-full max-w-xs mx-auto rounded border-2 border-tiger-orange shadow-glow-orange-sm"
+              />
+              <p className="text-[10px] text-tiger-orange font-bold text-center mt-1.5">
+                ✓ 메인 표지로 저장됨. 내보내기/EPUB·PDF에 반영.
+              </p>
+            </div>
+          )}
+
           {/* 0. 표지 후킹 카피 5종 — 표지 디자인과 함께 쓰면 강력 */}
           <div className="pb-3 border-b border-blue-100">
             <div className="flex items-center justify-between mb-1.5">

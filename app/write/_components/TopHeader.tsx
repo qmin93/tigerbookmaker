@@ -181,29 +181,17 @@ export function TopHeader({
           </div>
         )}
 
-        {/* 우측 — 다음 버튼 + 잔액 + 내보내기 */}
+        {/* 우측 — 다음 버튼 (미완성 시) / 잔액 / 내보내기 (다 완료면 강조) */}
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-          {progressItems && progressItems.length > 0 && (
-            allDone ? (
-              <button
-                type="button"
-                onClick={onExport}
-                disabled={exportDisabled}
-                className="px-3 py-1.5 bg-gradient-to-r from-tiger-orange to-orange-600 text-white text-xs font-bold rounded shadow-glow-orange-sm hover:opacity-90 disabled:opacity-50 transition animate-pulse"
-                title="모든 단계 완료! 내보내기로 진행"
-              >
-                🎉 내보내기 →
-              </button>
-            ) : nextStep ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="px-3 py-1.5 bg-yellow-400 text-yellow-900 text-xs font-bold rounded hover:bg-yellow-300 transition"
-                title={`다음 단계로: ${nextStep.label}`}
-              >
-                다음: {nextStep.emoji} {nextStep.label} →
-              </button>
-            ) : null
+          {progressItems && progressItems.length > 0 && !allDone && nextStep && (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="px-3 py-1.5 bg-yellow-400 text-yellow-900 text-xs font-bold rounded hover:bg-yellow-300 transition"
+              title={`다음 단계로: ${nextStep.label}`}
+            >
+              다음: {nextStep.emoji} {nextStep.label} →
+            </button>
           )}
           {balanceKrw != null && (
             <Link
@@ -213,13 +201,19 @@ export function TopHeader({
               ₩{balanceKrw.toLocaleString()}
             </Link>
           )}
+          {/* 내보내기 버튼 — 다 완료면 그라디언트·깜빡 / 미완성이면 평범한 흰색 */}
           <button
             type="button"
             onClick={handleExport}
             disabled={exportDisabled || !onExport}
-            className="px-3 py-1.5 bg-white text-ink-900 text-xs font-bold rounded hover:bg-gray-100 disabled:opacity-50 transition"
+            className={`px-3 py-1.5 text-xs font-bold rounded disabled:opacity-50 transition ${
+              allDone
+                ? "bg-gradient-to-r from-tiger-orange to-orange-600 text-white shadow-glow-orange-sm hover:opacity-90 animate-pulse"
+                : "bg-white text-ink-900 hover:bg-gray-100"
+            }`}
+            title={allDone ? "🎉 모든 단계 완료 — 내보내기" : "내보내기 (단계 미완성 시 confirm)"}
           >
-            📥 내보내기
+            {allDone ? "🎉 내보내기 →" : "📥 내보내기"}
           </button>
         </div>
       </div>
