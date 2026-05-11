@@ -1485,6 +1485,35 @@ function Inner() {
       if (!res.ok) throw new Error(data.message || `생성 실패 (${res.status})`);
       setRepurposed((prev: any) => ({ ...(prev ?? {}), [channel]: data.content }));
       if (typeof data.newBalance === "number") setBalance(data.newBalance);
+      // project state 동기화
+      try {
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+      } catch {}
+      // 채널별 다음 단계 안내 — 5채널 (instagram → youtube → blog → email → kakao) 완성 시 풀패키지
+      const channelLabels: Record<RepurposeChannel, string> = {
+        instagram: "📸 인스타", youtube: "📺 유튜브", blog: "📝 블로그", email: "📧 이메일", kakao: "💬 카톡",
+      };
+      const order: RepurposeChannel[] = ["instagram", "youtube", "blog", "email", "kakao"];
+      const fresh: any = await fetch(`/api/projects/${projectId}`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+      const repurposed = fresh?.repurposedContent ?? {};
+      const remaining = order.filter(c => !repurposed[c]);
+      if (remaining.length > 0) {
+        const next = remaining[0];
+        notify.success({
+          title: `✓ ${channelLabels[channel]} 완성! (${5 - remaining.length}/5 채널)`,
+          message: `다음은 ${channelLabels[next]}. 5채널 모두 완성하면 풀 패키지!`,
+          durationMs: 6000,
+        });
+      } else {
+        notify.success({
+          title: `🎉 풀 패키지 완성! (5/5 채널)`,
+          message: "본문·표지·마케팅·광고·5채널 재가공까지 — 진짜 풀패키지. 내보내기로 ZIP!",
+          nextStepLabel: "내보내기로",
+          onNextStep: () => router.push(`/export?id=${projectId}`),
+          durationMs: 10000,
+        });
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -1527,9 +1556,12 @@ function Inner() {
       const imgCount = (data.images ?? []).length;
       notify.success({
         title: `✓ Meta 광고 이미지 ${imgCount}장 완성!`,
-        message: "이제 모든 단계 완료. 내보내기로 ZIP 다운로드 가능합니다.",
-        nextStepLabel: "내보내기로",
-        onNextStep: () => router.push(`/export?id=${projectId}`),
+        message: "기본 출간 패키지 완성. 더 풍부하게 — 카드뉴스 5장 만들어 보세요.",
+        nextStepLabel: "카드뉴스 만들러 가기",
+        onNextStep: () => {
+          setTab("publish");
+          setTimeout(() => document.getElementById("publish-section-meta-ads")?.scrollIntoView({ behavior: "smooth", block: "end" }), 100);
+        },
         durationMs: 8000,
       });
     } catch (e: any) {
@@ -1564,6 +1596,18 @@ function Inner() {
       };
       setInfographic(next);
       if (typeof data.newBalance === "number") setBalance(data.newBalance);
+      // project state도 동기화 (PackageProgressBar 갱신)
+      try {
+        const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+        setProject(fresh);
+      } catch {}
+      notify.success({
+        title: `✓ 카드뉴스 ${(data.infographics ?? []).length}장 완성!`,
+        message: "다음은 콘텐츠 재가공 — 인스타·유튜브·블로그·이메일·카톡 5채널 자동.",
+        nextStepLabel: "콘텐츠 재가공 (extras 탭)",
+        onNextStep: () => setTab("extras"),
+        durationMs: 7000,
+      });
     } catch (e: any) {
       if (e.message !== "잔액 부족") setError(e.message);
     } finally {

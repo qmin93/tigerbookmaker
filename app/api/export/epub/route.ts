@@ -55,8 +55,17 @@ function renderChapterHtml(content: string, images: any[]): string {
     }).join("\n");
   }).join("\n");
 
-  // widow heading 방지는 CSS만 사용 (wrap 제거 — 페이지 끝 큰 공백 부작용 방지).
-  return raw;
+  // 조건부 wrap — 짧은 첫 단락만 heading-group으로 묶음 (긴 단락은 자유 흐름).
+  return raw.replace(
+    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+[^>]*)?>([\s\S]*?)<\/p>)/g,
+    (match, heading, fullPara, paraText) => {
+      const textOnly = String(paraText).replace(/<[^>]+>/g, "");
+      if (textOnly.length < 240) {
+        return `<div class="heading-group">${heading}${fullPara}</div>`;
+      }
+      return match;
+    }
+  );
 }
 
 // 공통 EPUB 빌드 — POST와 GET 둘 다 사용
@@ -97,6 +106,7 @@ async function buildEpubBuffer(projectId: string, userId: string) {
       h4 { font-size: 1.1em; margin-top: 1.2em; }
       p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 2; widows: 2; }
       h3 + p, h4 + p { page-break-before: avoid; break-before: avoid; }
+      .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
       ${tpl.epubCss}
     `.trim(),
   };
@@ -184,6 +194,7 @@ export async function POST(req: Request) {
         h4 { font-size: 1.1em; margin-top: 1.2em; }
         p { margin-bottom: 1em; text-align: justify; word-break: keep-all; orphans: 2; widows: 2; }
         h3 + p, h4 + p { page-break-before: avoid; break-before: avoid; }
+      .heading-group { page-break-inside: avoid; break-inside: avoid-page; }
         ${tpl.epubCss}
       `.trim(),
     };

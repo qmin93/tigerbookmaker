@@ -46,10 +46,20 @@ function renderBody(content: string, images: BookProject["chapters"][0]["images"
     }).join("\n");
   }).join("\n");
 
-  // widow heading 방지는 CSS의 page-break-after: avoid 만 사용 (wrap 제거).
-  // 이전 wrap 방식은 heading-group이 다음 페이지에 안 들어가면 큰 공백 발생 →
-  // 페이지 활용도 떨어지는 부작용이 widow heading 회피보다 더 큼.
-  return raw;
+  // 조건부 wrap — 짧은 첫 단락(< 240자)만 heading-group으로 묶음.
+  // 긴 첫 단락은 wrap 안 함 (큰 공백 부작용 회피).
+  // Chrome print이 page-break-after: avoid를 종종 무시하니 짧은 케이스만이라도 강제.
+  return raw.replace(
+    /(<h[34]>[^<]*<\/h[34]>)\s*(<p(?:\s+class="[^"]*")?>([\s\S]*?)<\/p>)/g,
+    (match, heading, fullPara, paraText) => {
+      // strip HTML tags from paraText for length check (img·br 등 제외)
+      const textOnly = String(paraText).replace(/<[^>]+>/g, "");
+      if (textOnly.length < 240) {
+        return `<div class="heading-group">${heading}${fullPara}</div>`;
+      }
+      return match;
+    }
+  );
 }
 
 export async function generatePdf(project: BookProject) {
@@ -315,6 +325,11 @@ body {
 .chapter-body h4 + p {
   page-break-before: avoid;
   break-before: avoid;
+}
+/* heading-group: 짧은 첫 단락 wrap (renderBody에서 조건부 부착) — 절대 분리 X */
+.chapter-body .heading-group {
+  page-break-inside: avoid;
+  break-inside: avoid-page;
 }
 .chapter-body .bullet {
   padding-left: 16px;
