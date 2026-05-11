@@ -412,6 +412,12 @@ export default function BookPage({ params }: { params: { id: string } }) {
         </section>
       )}
 
+      {/* 6.3 무료 1장 미리보기 구독 */}
+      <SubscribeSection bookId={id} themeAccentBorder={theme.accentBorder} themeBgBold={theme.bgBold} themeBgBoldHover={theme.bgBoldHover} themeTextOnBold={theme.textOnBold} />
+
+      {/* 6.4 독자 후기·평점 */}
+      <ReviewsSection bookId={id} themeAccent={theme.accent.split(" ")[0]} themeAccentBorder={theme.accentBorder} />
+
       {/* 6.5 시리즈 형제 책 — 같은 시리즈 다른 책 */}
       {data.seriesSiblings && data.seriesSiblings.length > 0 && (
         <section className="max-w-5xl mx-auto px-4 py-12 border-t border-gray-100">
@@ -484,5 +490,230 @@ export default function BookPage({ params }: { params: { id: string } }) {
         Powered by 🐯 Tigerbookmaker — {new Date(data.createdAt).getFullYear()}
       </footer>
     </div>
+  );
+}
+
+function SubscribeSection({ bookId, themeAccentBorder, themeBgBold, themeBgBoldHover, themeTextOnBold }: { bookId: string; themeAccentBorder: string; themeBgBold: string; themeBgBoldHover: string; themeTextOnBold: string }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMsg("⚠️ 올바른 이메일을 입력해주세요");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/book/${bookId}/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error);
+      setMsg(`✓ ${data.message || "이메일로 발송됐어요. 받은편지함을 확인해주세요."}`);
+      setDone(true);
+    } catch (e: any) {
+      setMsg(`⚠️ ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="max-w-3xl mx-auto px-4 py-12 border-t border-gray-100">
+      <div className={`rounded-2xl border-2 ${themeAccentBorder.replace("border-l-", "border-")} p-6 md:p-8`}>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">📧 1장 무료로 받기</h2>
+        <p className="text-sm text-gray-600 mb-4">이메일 입력하면 1장 본문을 즉시 받아볼 수 있어요. 책이 본인에게 맞는지 확인 후 결정하세요.</p>
+        {done ? (
+          <p className="text-sm text-green-700">{msg}</p>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                disabled={busy}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-tiger-orange"
+              />
+              <button
+                onClick={submit}
+                disabled={busy}
+                className={`px-6 py-3 ${themeBgBold} ${themeBgBoldHover} ${themeTextOnBold} font-bold rounded-lg transition disabled:opacity-50 whitespace-nowrap`}
+              >
+                {busy ? "발송 중..." : "📨 1장 받기"}
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-2">스팸 X. 언제든 구독 취소 가능. 작가가 다음에 새 책을 내면 알림 받을 수 있어요.</p>
+            {msg && <p className={`text-xs mt-2 ${msg.startsWith("✓") ? "text-green-700" : "text-red-700"}`}>{msg}</p>}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+interface Review {
+  id: string;
+  readerName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+function ReviewsSection({ bookId, themeAccent, themeAccentBorder }: { bookId: string; themeAccent: string; themeAccentBorder: string }) {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [avg, setAvg] = useState<number>(0);
+  const [count, setCount] = useState<number>(0);
+  const [showForm, setShowForm] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formRating, setFormRating] = useState<number>(5);
+  const [formComment, setFormComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/book/${bookId}/review`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setReviews(d.reviews ?? []);
+          setAvg(d.averageRating ?? 0);
+          setCount(d.totalCount ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, [bookId]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setSubmitMsg(null);
+    try {
+      const res = await fetch(`/api/book/${bookId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          readerName: formName,
+          readerEmail: formEmail || undefined,
+          rating: formRating,
+          comment: formComment,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "후기 등록 실패");
+      setSubmitMsg("✓ 등록됐어요. 작가 승인 후 페이지에 표시됩니다.");
+      setFormName("");
+      setFormEmail("");
+      setFormRating(5);
+      setFormComment("");
+      setTimeout(() => setShowForm(false), 2000);
+    } catch (e: any) {
+      setSubmitMsg(`⚠️ ${e.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="max-w-3xl mx-auto px-4 py-12 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <h2 className={`text-2xl font-bold border-l-4 pl-3 ${themeAccentBorder}`}>독자 후기</h2>
+        <div className="flex items-center gap-3">
+          {count > 0 && (
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="text-yellow-500 text-lg">{"★".repeat(Math.round(avg))}{"☆".repeat(5 - Math.round(avg))}</span>
+              <span className="font-bold text-gray-900">{avg.toFixed(1)}</span>
+              <span className="text-gray-500">({count})</span>
+            </div>
+          )}
+          <button
+            onClick={() => setShowForm(s => !s)}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md border ${themeAccent} ${themeAccentBorder} hover:bg-orange-50 transition`}
+          >
+            {showForm ? "취소" : "✏️ 후기 쓰기"}
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-orange-50/50 border border-orange-200 rounded-xl p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input
+              type="text"
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              placeholder="이름 (또는 닉네임)"
+              maxLength={50}
+              className="text-sm px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-tiger-orange"
+            />
+            <input
+              type="email"
+              value={formEmail}
+              onChange={e => setFormEmail(e.target.value)}
+              placeholder="이메일 (선택, 작가 답글 받기)"
+              className="text-sm px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-tiger-orange"
+            />
+          </div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-gray-600">별점:</span>
+            {[1, 2, 3, 4, 5].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setFormRating(n)}
+                className={`text-2xl transition ${n <= formRating ? "text-yellow-500" : "text-gray-300 hover:text-yellow-300"}`}
+                aria-label={`${n}점`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={formComment}
+            onChange={e => setFormComment(e.target.value)}
+            rows={4}
+            maxLength={2000}
+            placeholder="이 책을 읽고 어떤 점이 좋았나요? (10자 이상)"
+            className="w-full text-sm px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-tiger-orange resize-none"
+          />
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-gray-500">{formComment.length}/2000자 · 작가 승인 후 게시</span>
+            <button
+              onClick={submit}
+              disabled={submitting || !formName || formComment.length < 10}
+              className="px-4 py-2 text-xs bg-tiger-orange text-white font-bold rounded-md hover:bg-orange-600 disabled:opacity-50"
+            >
+              {submitting ? "전송 중..." : "후기 보내기"}
+            </button>
+          </div>
+          {submitMsg && (
+            <p className={`text-xs mt-2 ${submitMsg.startsWith("✓") ? "text-green-700" : "text-red-700"}`}>{submitMsg}</p>
+          )}
+        </div>
+      )}
+
+      {reviews.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">아직 후기가 없어요. 첫 번째 후기를 남겨주세요.</p>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map(r => (
+            <div key={r.id} className="border-b border-gray-100 pb-4 last:border-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-yellow-500">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                <span className="font-bold text-sm text-gray-900">{r.readerName}</span>
+                <span className="text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString("ko-KR")}</span>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{r.comment}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

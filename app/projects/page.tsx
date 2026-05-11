@@ -90,9 +90,14 @@ export default function ProjectsPage() {
               {activeCount}<span className="text-gray-400">권</span>
             </h1>
           </div>
-          <Link href="/new" className="inline-flex items-center gap-2 px-5 py-3 bg-tiger-orange text-white font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
-            + 새 프로젝트
-          </Link>
+          <div className="flex gap-2 flex-wrap">
+            <Link href="/import-blog" className="inline-flex items-center gap-2 px-4 py-3 border border-gray-300 text-ink-900 font-bold rounded-xl hover:border-tiger-orange hover:text-tiger-orange transition text-sm">
+              📝 블로그 → 책
+            </Link>
+            <Link href="/new" className="inline-flex items-center gap-2 px-5 py-3 bg-tiger-orange text-white font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
+              + 새 프로젝트
+            </Link>
+          </div>
         </div>
 
         {/* 탭 — 활성 / 보관함 */}
