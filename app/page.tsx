@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { RoiSimulator } from "@/components/RoiSimulator";
+import { FAQ } from "@/components/FAQ";
 import { SAMPLE_BOOKS, HERO_STATS, TRUST_ITEMS, PERFORMANCE_METRICS } from "@/lib/landing-data";
+import { getLandingStats } from "@/lib/server/db";
 
-export default function Home() {
+// 카운터는 5분마다 재검증. ISR로 DB 부담 최소화.
+export const revalidate = 300;
+
+export default async function Home() {
+  const stats = await getLandingStats();
   return (
     <main className="min-h-screen bg-[#fafafa] text-ink-900 overflow-x-hidden">
       <Header variant="default" />
@@ -74,6 +80,31 @@ export default function Home() {
                 <div className="mt-1 text-[10px] md:text-xs font-mono uppercase tracking-wider text-gray-500">{s.label}</div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Live beta counter — DB 실시간 (5분 캐시). 가입자 0명일 땐 일수만 노출. */}
+        <div className="border-t border-gray-200 bg-orange-50/40">
+          <div className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+            <span className="inline-flex items-center gap-2 font-mono text-tiger-orange">
+              <span className="w-1.5 h-1.5 rounded-full bg-tiger-orange animate-pulse" />
+              <span className="text-[10px] uppercase tracking-[0.2em] font-bold">베타 {stats.betaDays}일차</span>
+            </span>
+            {stats.userCount > 0 && (
+              <span className="text-gray-700">
+                <span className="font-mono font-bold text-ink-900">{stats.userCount.toLocaleString()}</span>
+                <span className="text-gray-500 ml-1">명 합류</span>
+              </span>
+            )}
+            {stats.bookCount > 0 && (
+              <span className="text-gray-700">
+                <span className="font-mono font-bold text-ink-900">{stats.bookCount.toLocaleString()}</span>
+                <span className="text-gray-500 ml-1">권 생성 중</span>
+              </span>
+            )}
+            {stats.userCount === 0 && stats.bookCount === 0 && (
+              <span className="text-gray-500">첫 번째 사용자가 되어보세요 — ₩5,000 크레딧</span>
+            )}
           </div>
         </div>
       </section>
@@ -291,6 +322,11 @@ export default function Home() {
         </div>
       </section>
 
+      <div className="border-t border-gray-200" />
+
+      {/* FAQ — 결제 전 마찰 해소 7문항 */}
+      <FAQ />
+
       {/* Final CTA — DARK INVERSION + tiger orange explosion */}
       <section className="relative bg-ink-900 text-white py-32 md:py-40 overflow-hidden">
         <div className="absolute inset-0 bg-radial-orange pointer-events-none" />
@@ -335,7 +371,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 }
 
 // 장르별 시그니처 디자인. 실제 cover 있으면 우선 표시, 없으면 장르 분기.
-function GenreBookCard({ cover, title, subtitle, audience, category, chapters, pages }: any) {
+function GenreBookCard({ cover, title, subtitle, audience, category, chapters, pages, kmongPrice }: any) {
   return (
     <article className="group rounded-2xl border border-gray-200 bg-white p-5 hover:border-tiger-orange hover:shadow-xl transition-all h-full">
       <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-4 ring-1 ring-gray-200 shadow-sm">
@@ -349,7 +385,14 @@ function GenreBookCard({ cover, title, subtitle, audience, category, chapters, p
           <CoverDesign category={category} title={title} subtitle={subtitle} />
         )}
       </div>
-      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange">{category}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange">{category}</div>
+        {kmongPrice ? (
+          <div className="text-[10px] font-mono px-2 py-0.5 rounded border border-tiger-orange/40 bg-orange-50 text-tiger-orange font-bold tracking-wider whitespace-nowrap">
+            크몽 권장가 ₩{kmongPrice.toLocaleString()}
+          </div>
+        ) : null}
+      </div>
       <h3 className="mt-2 text-lg font-bold text-ink-900 leading-snug line-clamp-2 min-h-[3.2rem]">{title}</h3>
       <p className="mt-1.5 text-sm text-gray-600 line-clamp-2 min-h-[2.6rem]">{subtitle}</p>
       <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-gray-500">

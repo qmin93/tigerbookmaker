@@ -1,5 +1,6 @@
 // 7장르 × 1권. GenreBookCard의 CoverDesign이 장르 보고 자동 다른 디자인.
 // 실제 png cover 안 씀 (디자인 다양성 위해 SVG 통일).
+// kmongPrice = 동일 장르 크몽 평균 단가 권장 (실제 listing 가격 아님; "이 정도로 등록 가능" 신호)
 export const SAMPLE_BOOKS = [
   {
     title: "아침 루틴, 30일이면 인생이 바뀝니다",
@@ -8,6 +9,7 @@ export const SAMPLE_BOOKS = [
     category: "자기계발서" as const,
     chapters: 12,
     pages: 65,
+    kmongPrice: 39_000,
   },
   {
     title: "월급만으로 부족함을 느끼나요",
@@ -16,6 +18,7 @@ export const SAMPLE_BOOKS = [
     category: "재테크" as const,
     chapters: 12,
     pages: 70,
+    kmongPrice: 59_000,
   },
   {
     title: "나는 그래서 회사를 그만뒀습니다",
@@ -24,6 +27,7 @@ export const SAMPLE_BOOKS = [
     category: "에세이" as const,
     chapters: 14,
     pages: 88,
+    kmongPrice: 25_000,
   },
   {
     title: "그날 밤, 도시에 비가 내렸다",
@@ -32,6 +36,7 @@ export const SAMPLE_BOOKS = [
     category: "웹소설" as const,
     chapters: 15,
     pages: 110,
+    kmongPrice: 19_000,
   },
   {
     title: "행동경제학 실무 입문",
@@ -40,6 +45,7 @@ export const SAMPLE_BOOKS = [
     category: "전문서" as const,
     chapters: 13,
     pages: 95,
+    kmongPrice: 89_000,
   },
   {
     title: "Claude Code 협업 매뉴얼",
@@ -48,6 +54,7 @@ export const SAMPLE_BOOKS = [
     category: "매뉴얼" as const,
     chapters: 11,
     pages: 72,
+    kmongPrice: 49_000,
   },
   {
     title: "노션으로 1인 사업 시작하기",
@@ -56,6 +63,7 @@ export const SAMPLE_BOOKS = [
     category: "실용서" as const,
     chapters: 12,
     pages: 60,
+    kmongPrice: 35_000,
   },
 ];
 
