@@ -52,7 +52,8 @@ export function CoverVariationsBox(props: Props) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [userConcept, setUserConcept] = useState("");
   const [styleDirection, setStyleDirection] = useState<"image" | "typography" | "hybrid">("image");
-  const [imageVendor, setImageVendor] = useState<"imagen" | "openai">("openai");
+  // imageVendor 제거 — 항상 OpenAI 사용
+  const imageVendor: "openai" = "openai";
 
   const [conceptsBusy, setConceptsBusy] = useState(false);
   const [conceptsError, setConceptsError] = useState<string | null>(null);
@@ -433,30 +434,8 @@ export function CoverVariationsBox(props: Props) {
             </div>
           </div>
 
-          {/* 4. 이미지 모델 */}
-          <div>
-            <label className="text-[11px] font-bold text-ink-900 mb-1 block">이미지 모델</label>
-            <div className="flex gap-1.5">
-              {[
-                { v: "imagen" as const, label: "Imagen 4 Fast", desc: "한국어 글자 깔끔, 추상 강함" },
-                { v: "openai" as const, label: "DALL-E 3 (gpt-image-1)", desc: "한국어 주제 이해·구체적 묘사 강함" },
-              ].map(opt => (
-                <button
-                  key={opt.v}
-                  type="button"
-                  onClick={() => setImageVendor(opt.v)}
-                  className={`text-[11px] px-2.5 py-1.5 rounded-md border font-medium transition ${
-                    imageVendor === opt.v
-                      ? "bg-ink-900 text-white border-ink-900"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-ink-900"
-                  }`}
-                  title={opt.desc}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* 모델 선택 UI 제거 — OpenAI gpt-image-1 (DALL-E 3) 단일 사용 (2026-05 정책)
+              Imagen / Cloudflare / Pollinations 모두 한국어 깨짐으로 제거 */}
         </div>
       )}
 

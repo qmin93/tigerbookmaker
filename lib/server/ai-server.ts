@@ -683,78 +683,28 @@ export type AspectRatio = "1:1" | "9:16" | "16:9" | "3:4" | "4:3";
 export async function callImageGeneration(opts: {
   prompt: string;
   timeoutMs?: number;
-  preferPaid?: boolean;  // true면 paid 모델 우선 (한국어 글자 깔끔, 표지·썸네일·인포그래픽용). 기본 false.
-  preferVendor?: "imagen" | "openai";  // preferPaid=true 시 어느 paid 모델 — 기본 openai (DALL-E 3)
-  aspectRatio?: AspectRatio;  // 기본 "1:1" — 기존 호출자 호환
+  preferPaid?: boolean;        // legacy 옵션 — 무시됨 (모든 호출이 OpenAI gpt-image-1로 단일화)
+  preferVendor?: "imagen" | "openai";  // legacy — 무시됨
+  aspectRatio?: AspectRatio;
 }): Promise<ImageResult> {
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? 30000;
   const aspectRatio: AspectRatio = opts.aspectRatio ?? "1:1";
-  const errors: string[] = [];
-  const now = Date.now();
-  // 기본 paid 모델: DALL-E 3 (Imagen은 한국어 글자 깨짐 빈발 → opt-in 으로만)
-  const preferOpenAI = opts.preferPaid && opts.preferVendor !== "imagen";
 
-  // preferPaid + (default 또는 preferVendor=openai): gpt-image-1 우선
-  // — DALL-E 3 계열, 한국어 텍스트 시도 안 함 (깔끔), 디테일 묘사 강함
-  if (preferOpenAI && process.env.OPENAI_API_KEY) {
-    try {
-      const r = await callOpenAIImage(opts.prompt, timeoutMs, aspectRatio);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
-    }
+  // 2026-05 정책: OpenAI gpt-image-1 (DALL-E 3) 단독 사용.
+  // 이유: Imagen 4 Fast / Cloudflare Flux / Pollinations 모두 한국어 텍스트 시도하다 깨짐.
+  // OpenAI는 텍스트 자체를 시도하지 않아 "깨진 한자"·"가짜 글자" 0.
+  // 비용 ~$0.04/장. 사용자 가격에 흡수.
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY 미설정 — 이미지 생성 불가");
   }
-  // preferPaid + preferVendor=imagen 명시: Imagen 4 Fast (이전 동작 호환)
-  if (opts.preferPaid && opts.preferVendor === "imagen" && process.env.GEMINI_API_KEY) {
-    try {
-      const r = await callImagenFast(opts.prompt, timeoutMs, aspectRatio);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
-    }
-  }
-  // 1순위: Cloudflare Workers AI (무료 1만/일) — quota 도달 시 1시간 skip
-  if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID && now > cloudflareDownUntil) {
-    try {
-      const r = await callCloudflareImage(opts.prompt, timeoutMs, aspectRatio);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      const msg = String(e?.message ?? e);
-      errors.push(`Cloudflare: ${msg.slice(0, 120)}`);
-      // daily quota 도달 — 1시간 skip (UTC 자정 reset되니 보수적)
-      if (msg.includes("429") || msg.includes("daily free allocation") || msg.includes("neurons")) {
-        cloudflareDownUntil = now + 60 * 60 * 1000;
-        console.warn("[image-gen] Cloudflare quota exceeded, skipping for 1h");
-      }
-    }
-  }
-  // 2순위: OpenAI gpt-image-1 (paid, 신뢰성 높음) — quota 도달 시 우선
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const r = await callOpenAIImage(opts.prompt, timeoutMs, aspectRatio);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      errors.push(`OpenAI: ${String(e?.message ?? e).slice(0, 120)}`);
-    }
-  }
-  // 3순위: Imagen 4 Fast (paid, 한국어 깔끔) — preferPaid 아닐 때 fallback
-  if (!opts.preferPaid && process.env.GEMINI_API_KEY) {
-    try {
-      const r = await callImagenFast(opts.prompt, timeoutMs, aspectRatio);
-      return { ...r, durationMs: Date.now() - started };
-    } catch (e: any) {
-      errors.push(`Imagen: ${String(e?.message ?? e).slice(0, 120)}`);
-    }
-  }
-  // 4순위: Pollinations (무료, 한국어 약함, Vercel server에서 종종 hang) — 마지막 보루, 짧은 timeout
   try {
-    const r = await callPollinations(opts.prompt, Math.min(timeoutMs, 8000), aspectRatio);
+    const r = await callOpenAIImage(opts.prompt, timeoutMs, aspectRatio);
     return { ...r, durationMs: Date.now() - started };
   } catch (e: any) {
-    errors.push(`Pollinations: ${String(e?.message ?? e).slice(0, 120)}`);
+    const msg = String(e?.message ?? e);
+    throw new Error(`이미지 생성 실패 (OpenAI gpt-image-1): ${msg.slice(0, 200)}\n잠시 후 다시 시도해 주세요.`);
   }
-  throw new Error(`모든 이미지 vendor 실패. ${errors.join(" / ") || "API 키 없음"}`);
 }
 
 // Cloudflare Flux: width/height must be multiples of 64
