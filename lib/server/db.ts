@@ -152,3 +152,33 @@ export async function updateProjectData(projectId: string, userId: string, data:
     WHERE id = ${projectId} AND user_id = ${userId}
   `;
 }
+
+// ──────────────────────────────────────────
+// Landing 페이지용 사회적 증거 카운터
+// ──────────────────────────────────────────
+
+// 베타 시작일 — 첫 결제 가능해진 시점 또는 베타 오픈일
+const BETA_START = new Date("2026-04-01T00:00:00Z");
+
+export interface LandingStats {
+  userCount: number;
+  bookCount: number;
+  betaDays: number;
+}
+
+export async function getLandingStats(): Promise<LandingStats> {
+  const betaDays = Math.max(1, Math.floor((Date.now() - BETA_START.getTime()) / 86_400_000));
+  try {
+    const [u, b] = await Promise.all([
+      sql<{ c: string }>`SELECT COUNT(*)::text AS c FROM users`,
+      sql<{ c: string }>`SELECT COUNT(*)::text AS c FROM book_projects`,
+    ]);
+    return {
+      userCount: Number(u.rows[0]?.c ?? 0),
+      bookCount: Number(b.rows[0]?.c ?? 0),
+      betaDays,
+    };
+  } catch {
+    return { userCount: 0, bookCount: 0, betaDays };
+  }
+}
