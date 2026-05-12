@@ -33,6 +33,11 @@ const config: Config = {
           100: "#f4f4f5",
           50:  "#fafafa",
         },
+        // v3 디자인 시스템 액센트 — 페이지별 컨텍스트 컬러
+        // 주황 단독 강조의 시각 피로를 해소. 페이지별 매핑은 spec 3.2 참조.
+        "deep-navy": "#1e3a8a",   // 신뢰·집중 — /new, /write, /billing, /legal
+        "soft-sand": "#fef3c7",   // 따뜻함·환영 — 랜딩 hero, 환영 모달
+        // emerald-600(#059669)은 Tailwind 기본 팔레트 그대로 사용 — "성공·돈" 컨텍스트
       },
       fontFamily: {
         sans: ['"Pretendard Variable"', '"Pretendard"', "system-ui", "sans-serif"],
