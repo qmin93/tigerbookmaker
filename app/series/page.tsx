@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { UnauthFallback } from "@/components/ui/UnauthFallback";
 
 interface SeriesGroupBook {
   id: string;
@@ -48,11 +49,7 @@ export default function SeriesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (status === "unauthenticated") {
-      router.replace("/login?next=/series");
-      return;
-    }
+    if (status !== "authenticated") return;
     fetch("/api/series")
       .then(async r => {
         if (!r.ok) throw new Error("시리즈 목록을 불러올 수 없습니다.");
@@ -104,6 +101,25 @@ export default function SeriesPage() {
       setSubmitting(false);
     }
   };
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-base">
+        <Header />
+        <UnauthFallback
+          eyebrow="시리즈"
+          title={<>같은 톤으로<br />다음 권을 빠르게.</>}
+          description="첫 책을 만든 다음, 같은 톤·말투·구조로 시리즈 다음 권을 자동 시작. 1권 만들기 5배 빨라집니다."
+          bullets={[
+            "기존 책 톤·말투 자동 복제",
+            "독자 동일 페르소나 유지",
+            "시리즈 단위 마케팅 페이지",
+          ]}
+          accent="emerald"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
+import { UnauthFallback } from "@/components/ui/UnauthFallback";
 
 interface Badges {
   bookCount: number;
@@ -76,16 +77,31 @@ export default function ChallengesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (status === "unauthenticated") {
-      router.replace("/login?next=/challenges");
-      return;
-    }
+    if (status !== "authenticated") return;
     fetch("/api/profile/badges")
       .then(r => r.ok ? r.json() : Promise.reject(new Error("등급 정보 로드 실패")))
       .then(d => setBadges(d.badges))
       .catch(e => setError(e.message));
-  }, [status, router]);
+  }, [status]);
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-base">
+        <Header />
+        <UnauthFallback
+          eyebrow="작가 챌린지"
+          title={<>책을 완성할수록<br />등급이 올라갑니다.</>}
+          description="첫 책을 끝내면 시작되는 작가 등급·챌린지 시스템. 보너스 크레딧을 받고 다음 책으로 자연스럽게 이어집니다."
+          bullets={[
+            "책 1권 완성 → 🌱 새내기 등급 + 크레딧 보너스",
+            "시리즈 시작 → 📚 시리즈 작가",
+            "수익 인증 → 💰 부수익 작가",
+          ]}
+          accent="emerald"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
