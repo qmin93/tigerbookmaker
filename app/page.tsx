@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { RoiSimulator } from "@/components/RoiSimulator";
 import { FAQ } from "@/components/FAQ";
-import { SAMPLE_BOOKS, HERO_STATS, TRUST_ITEMS, PERFORMANCE_METRICS } from "@/lib/landing-data";
+import { SAMPLE_BOOKS } from "@/lib/landing-data";
 import { getLandingStats } from "@/lib/server/db";
 
 // 카운터는 5분마다 재검증. ISR로 DB 부담 최소화.
@@ -71,18 +71,6 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="border-t border-gray-200">
-          <div className="max-w-6xl mx-auto px-6 grid grid-cols-3 md:grid-cols-6 divide-x divide-gray-200">
-            {HERO_STATS.map((s, i) => (
-              <div key={i} className="px-3 md:px-6 py-6 first:pl-0 last:pr-0">
-                <div className="font-mono text-2xl md:text-3xl font-bold text-ink-900 tracking-tight">{s.value}</div>
-                <div className="mt-1 text-[10px] md:text-xs font-mono uppercase tracking-wider text-gray-500">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Live beta counter — DB 실시간 (5분 캐시). 가입자 0명일 땐 일수만 노출. */}
         <div className="border-t border-gray-200 bg-orange-50/40">
           <div className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
@@ -139,25 +127,19 @@ export default async function Home() {
 
       <div className="border-t border-gray-200" />
 
-      {/* Capabilities — minimal list */}
+      {/* Capabilities — 직장인 부수익러 핵심 3가지만 */}
       <section className="py-24 md:py-32">
         <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>기능</Eyebrow>
+          <Eyebrow>왜 Tigerbookmaker</Eyebrow>
           <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            한국어 책 한 권을<br />처음부터 끝까지.
+            ChatGPT랑 뭐가<br />다르냐면.
           </h2>
         </div>
         <div className="mt-16 max-w-6xl mx-auto px-6 divide-y divide-gray-200 border-t border-b border-gray-200">
           {[
-            { n: "01", title: "목차도 본문도 AI", body: "주제 한 줄 → 목차 자동, 12챕터 본문 자동. 30분이면 권당 ₩4,000부터." },
-            { n: "02", title: "한국어 문체 특화", body: "해요체 통일, 번역투 차단, AI 특유 표현 금지. 책방에서 통하는 문장만." },
-            { n: "03", title: "챕터 일관성 보장", body: "앞 챕터 요약을 자동 주입 — 인물·용어·예시가 책 끝까지 일관." },
-            { n: "04", title: "내 자료 학습 (RAG)", body: "PDF · URL · 텍스트 업로드 → AI가 모두 읽고 인터뷰·목차·본문에 자동 인용. 내 지식이 그대로 책이 됩니다." },
-            { n: "05", title: "자료 자동 분석", body: "업로드한 자료에서 5 핵심 + 빠진 부분을 자동 정리. 인터뷰는 빈 부분만 5~7개 — 시간 낭비 없음." },
-            { n: "06", title: "톤 · 말투 매칭", body: "6 preset(따뜻 · 전문 · 캐주얼 · 시적 · 직설 · 유머) 또는 좋아하는 책 한 단락만 붙여넣으면 그 톤으로 집필." },
-            { n: "07", title: "책별 색상 + 마케팅 페이지", body: "책마다 6가지 테마 색상 자동 매칭. /book/[id] SNS 공유용 랜딩 + AI 카피 + OG 미리보기 자동 생성." },
-            { n: "08", title: "작가 프로필 + Meta 광고", body: "/u/[handle] 인스타 bio용 link-in-bio 한 URL · Meta Ads 헤드라인·본문·타겟팅 한 번에 받기." },
-            { n: "09", title: "선결제 · 환불 보장", body: "사용 안 한 잔액 7일 내 100% 환불. 카드 등록·정기결제 없음." },
+            { n: "01", title: "내 자료 학습 (RAG)", body: "PDF · URL · 텍스트 업로드 → AI가 모두 읽고 인터뷰·목차·본문에 자동 인용. ChatGPT는 매번 다시 설명. Tigerbookmaker는 한 번 업로드로 끝." },
+            { n: "02", title: "한국어 문체 특화", body: "해요체 통일, 번역투 차단, AI 특유 표현 금지. ChatGPT 결과 그대로 크몽 올리면 거절될 수 있는 표현 자동 회피." },
+            { n: "03", title: "크몽 등록 패키지", body: "제목 · 상세설명 · 카테고리 · 키워드 · 가격 추천 + 표지 한 번에. ChatGPT는 본문만, Tigerbookmaker는 등록 화면 그대로 복붙용까지." },
           ].map(c => (
             <div key={c.n} className="grid md:grid-cols-12 gap-6 py-8 md:py-12 group">
               <div className="md:col-span-2 font-mono text-xs text-tiger-orange uppercase tracking-wider">{c.n}</div>
@@ -165,52 +147,6 @@ export default async function Home() {
               <p className="md:col-span-7 text-gray-600 md:text-lg leading-relaxed">{c.body}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <div className="border-t border-gray-200" />
-
-      {/* Performance metrics */}
-      <section className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>실측 데이터</Eyebrow>
-          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            숫자로 증명되는<br />책 한 권의 경제학.
-          </h2>
-        </div>
-        <div className="mt-16 max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 border-t border-b border-gray-200 divide-x divide-gray-200">
-          {PERFORMANCE_METRICS.map((m, i) => (
-            <div key={i} className="px-6 py-10 first:pl-0">
-              <div className={`font-mono text-4xl md:text-6xl font-black tracking-tightest ${i === 0 ? "text-tiger-orange" : "text-ink-900"}`}>{m.value}</div>
-              <div className="mt-3 text-sm text-ink-900 font-bold">{m.label}</div>
-              <div className="mt-1 text-xs font-mono text-gray-500 uppercase tracking-wider">{m.note}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="border-t border-gray-200" />
-
-      {/* Trust */}
-      <section className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-12">
-          <div className="md:col-span-1">
-            <Eyebrow>신뢰</Eyebrow>
-            <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-              돈이 오가는 일.<br />타협 없이.
-            </h2>
-          </div>
-          <div className="md:col-span-2 divide-y divide-gray-200 border-t border-b border-gray-200">
-            {TRUST_ITEMS.map((t, i) => (
-              <div key={i} className="py-6 flex gap-6">
-                <div className="font-mono text-xs text-tiger-orange pt-1.5 w-8">0{i + 1}</div>
-                <div>
-                  <h3 className="font-bold text-ink-900 text-lg">{t.title}</h3>
-                  <p className="mt-1 text-gray-600 text-sm leading-relaxed">{t.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -284,43 +220,6 @@ export default async function Home() {
 
       {/* ROI 시뮬레이터 — A 부수익러 페르소나 */}
       <RoiSimulator />
-
-      <div className="border-t border-gray-200" />
-
-      {/* Pricing — 베타 기간 무료 안내 */}
-      <section id="pricing" className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>베타 기간</Eyebrow>
-          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            지금 가입하면<br /><span className="text-tiger-orange">₩5,000 무료 크레딧.</span>
-          </h2>
-          <p className="mt-4 text-gray-600 max-w-xl">회원가입 + 이메일 인증 시 자동 지급. 모든 신기능 포함 (RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고). 카드 등록 · 정기결제 없음.</p>
-        </div>
-        <div className="mt-12 max-w-3xl mx-auto px-6">
-          <div className="rounded-2xl p-8 md:p-10 border-2 border-tiger-orange shadow-glow-orange-sm bg-white">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-3">베타 환영 크레딧</div>
-            <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tight">
-              ₩5,000<span className="text-base text-gray-500 font-normal"> 무료</span>
-            </div>
-            <div className="mt-4 text-base text-gray-700">집필 + RAG 자료 학습 + 톤 매칭 + 마케팅 페이지 + 작가 프로필 + Meta 광고 카피 — 전부 포함.</div>
-            <div className="mt-2 text-sm text-gray-500">정식 결제는 사업자등록 완료 후 시작 — 그동안 부담 없이 써보세요.</div>
-          </div>
-        </div>
-        <div className="mt-10 max-w-3xl mx-auto px-6">
-          <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <div className="rounded-2xl p-5 md:p-6 border border-gray-200 bg-white">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">기본 혜택</div>
-              <div className="font-bold text-ink-900 mb-1">₩5,000 무료 크레딧</div>
-              <div className="text-xs text-gray-500">이메일 인증 시 자동 지급 · 신기능 전부 사용 가능</div>
-            </div>
-            <div className="rounded-2xl p-5 md:p-6 border border-tiger-orange/40 bg-orange-50">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">★ 추가 혜택</div>
-              <div className="font-bold text-ink-900 mb-1">피드백 = 크레딧</div>
-              <div className="text-xs text-gray-700">개선 의견 보내면 추가 충전</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <div className="border-t border-gray-200" />
 
