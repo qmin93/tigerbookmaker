@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
 import type { ThemeColorKey, ToneSetting } from "@/lib/storage";
 import type { LayoutKey } from "@/lib/cover-style-map";
@@ -8,6 +8,7 @@ import { genreFromBookType } from "@/lib/genre-from-book-type";
 import { getTemplate } from "@/lib/cover-templates";
 import { CoverRecommendation } from "@/components/write/CoverRecommendation";
 import { CoverStyleGallery } from "@/components/write/CoverStyleGallery";
+import { useAutoSave } from "@/lib/auto-save";
 
 interface StyleStepProps {
   projectId: string;
@@ -21,6 +22,10 @@ interface StyleStepProps {
   onBalanceChange: (b: number) => void;
   onError: (msg: string | null) => void;
   onAdvance: () => void;
+  /** v3 Phase 1.2: 부모에 자동 저장 상태 보고 (indicator UI용) */
+  onAutoSaveState?: (s: { isSyncing: boolean; lastSyncedAt: number | null; error: Error | null }) => void;
+  /** 초기 toneExcerpt (localStorage 복원 시 부모가 주입) */
+  initialToneExcerpt?: string;
 }
 
 export function StyleStep({
@@ -35,12 +40,64 @@ export function StyleStep({
   onBalanceChange,
   onError,
   onAdvance,
+  onAutoSaveState,
+  initialToneExcerpt,
 }: StyleStepProps) {
   const [toneMode, setToneMode] = useState<"auto" | "preset" | "reference-book">("auto");
-  const [toneExcerpt, setToneExcerpt] = useState("");
+  const [toneExcerpt, setToneExcerpt] = useState(initialToneExcerpt ?? "");
   const [toneBusy, setToneBusy] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [coverSaving, setCoverSaving] = useState(false);
+
+  // v3 Phase 1.2 — toneExcerpt draft + style 설정 자동 저장
+  // toneSetting/themeColor/coverLayoutKey 자체는 각 API가 즉시 저장하므로 여기는 sanity sync.
+  // toneExcerpt 는 draft (DB에 저장 안 함, localStorage 만)
+  const autoSaveData = useMemo(
+    () => ({
+      styleDraft: {
+        toneExcerpt,
+        toneMode,
+      },
+      // DB sync 용 (변경되지 않으면 onSync 안 불림)
+      themeColor,
+      toneSetting,
+      coverLayoutKey,
+    }),
+    [toneExcerpt, toneMode, themeColor, toneSetting, coverLayoutKey],
+  );
+
+  const autoSave = useAutoSave({
+    key: `tbm-autosave-project-${projectId}-style`,
+    data: autoSaveData,
+    onSync: async d => {
+      // draft 필드는 DB에 안 보냄 — localStorage 전용. DB는 캐노니컬 값만.
+      const projRes = await fetch(`/api/projects/${projectId}`);
+      if (!projRes.ok) throw new Error(`프로젝트 로드 실패 (${projRes.status})`);
+      const project = await projRes.json();
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: {
+            ...project,
+            themeColor: d.themeColor,
+            toneSetting: d.toneSetting,
+            coverLayoutKey: d.coverLayoutKey,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`자동 저장 실패 (${res.status})`);
+    },
+  });
+
+  const lastReportedRef = useRef<string>("");
+  useEffect(() => {
+    if (!onAutoSaveState) return;
+    const sig = `${autoSave.isSyncing}|${autoSave.lastSyncedAt}|${autoSave.error?.message ?? ""}`;
+    if (sig === lastReportedRef.current) return;
+    lastReportedRef.current = sig;
+    onAutoSaveState({ isSyncing: autoSave.isSyncing, lastSyncedAt: autoSave.lastSyncedAt, error: autoSave.error });
+  }, [autoSave.isSyncing, autoSave.lastSyncedAt, autoSave.error, onAutoSaveState]);
 
   const currentGenre = useMemo(() => genreFromBookType(bookType), [bookType]);
   const selectedTemplate = coverLayoutKey ? getTemplate(coverLayoutKey) : undefined;

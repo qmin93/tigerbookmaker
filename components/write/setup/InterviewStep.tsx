@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FIRST_QUESTION } from "@/lib/interview-questions";
+import { useAutoSave } from "@/lib/auto-save";
 
 interface QA {
   q: string;
@@ -24,10 +25,21 @@ interface InterviewStepProps {
   onError: (msg: string | null) => void;
   /** Called when interview is complete (saved) — parent navigates to next step */
   onComplete: () => void;
+  /** v3 Phase 1.2: 부모에 자동 저장 상태 보고 (indicator UI용) */
+  onAutoSaveState?: (s: { isSyncing: boolean; lastSyncedAt: number | null; error: Error | null }) => void;
+  /** 초기 history (localStorage 복원 시 부모가 주입) */
+  initialHistory?: QA[];
 }
 
-export function InterviewStep({ projectId, onBalanceChange, onError, onComplete }: InterviewStepProps) {
-  const [history, setHistory] = useState<QA[]>([]);
+export function InterviewStep({
+  projectId,
+  onBalanceChange,
+  onError,
+  onComplete,
+  onAutoSaveState,
+  initialHistory,
+}: InterviewStepProps) {
+  const [history, setHistory] = useState<QA[]>(initialHistory ?? []);
   const [currentQ, setCurrentQ] = useState<NextQuestion>({ ...FIRST_QUESTION });
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -37,6 +49,63 @@ export function InterviewStep({ projectId, onBalanceChange, onError, onComplete 
   useEffect(() => {
     textareaRef.current?.focus();
   }, [currentQ]);
+
+  // v3 Phase 1.2 — 인터뷰 history + currentAnswer 자동 저장
+  // history는 DB에 in-progress 저장 (완료 전에 탭 닫혀도 다음 방문 시 이어쓰기)
+  // currentAnswer 는 localStorage only (draft → DB 저장 시점은 submitAnswer)
+  // Note: updatedAt 같은 매 렌더 변하는 필드는 포함하지 않음 — content-only 변경 감지를 위해.
+  const autoSaveData = useMemo(
+    () => ({
+      interviewDraft: {
+        history,
+        currentAnswer,
+        currentQuestion: currentQ.question ?? null,
+        currentPlaceholder: currentQ.placeholder ?? null,
+        currentHint: currentQ.hint ?? null,
+      },
+    }),
+    [history, currentAnswer, currentQ.question, currentQ.placeholder, currentQ.hint],
+  );
+
+  const autoSave = useAutoSave({
+    key: `tbm-autosave-project-${projectId}-interview`,
+    data: autoSaveData,
+    enabled: !aiSummary, // 인터뷰 완료 후엔 자동 저장 멈춤 (finishNow가 명시적 저장)
+    onSync: async d => {
+      // history만 DB에 머지 — currentAnswer는 draft 이므로 DB에 안 보냄
+      const projRes = await fetch(`/api/projects/${projectId}`);
+      if (!projRes.ok) throw new Error(`프로젝트 로드 실패 (${projRes.status})`);
+      const project = await projRes.json();
+      const existingInterview = project.interview ?? {};
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: {
+            ...project,
+            interview: {
+              ...existingInterview,
+              questions: d.interviewDraft.history,
+              // completedAt 은 finishNow 에서만 설정 — in-progress 표시
+              inProgress: true,
+              updatedAt: Date.now(),
+            },
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`자동 저장 실패 (${res.status})`);
+    },
+  });
+
+  // 자동 저장 상태를 부모(setup/page.tsx)에 보고 — AutoSaveIndicator 렌더에 사용
+  const lastReportedRef = useRef<string>("");
+  useEffect(() => {
+    if (!onAutoSaveState) return;
+    const sig = `${autoSave.isSyncing}|${autoSave.lastSyncedAt}|${autoSave.error?.message ?? ""}`;
+    if (sig === lastReportedRef.current) return;
+    lastReportedRef.current = sig;
+    onAutoSaveState({ isSyncing: autoSave.isSyncing, lastSyncedAt: autoSave.lastSyncedAt, error: autoSave.error });
+  }, [autoSave.isSyncing, autoSave.lastSyncedAt, autoSave.error, onAutoSaveState]);
 
   const askNextQuestion = async (newHistory: QA[]) => {
     setBusy("loading-next");
