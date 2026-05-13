@@ -22,6 +22,9 @@ import { runEmailRecovery } from "@/lib/server/email-recovery";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+// 매시간 실행이 캐시되면 안 됨 — 결과·timestamp 항상 fresh
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   // Vercel Cron 보안 — CRON_SECRET 검증
@@ -35,13 +38,15 @@ export async function GET(req: Request) {
 
   try {
     const result = await runEmailRecovery();
-    return NextResponse.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
-      ...result,
-    });
+    return NextResponse.json(
+      { ok: true, timestamp: new Date().toISOString(), ...result },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     console.error("[email-recovery] failed:", err);
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: String(err) },
+      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 }
