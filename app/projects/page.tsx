@@ -85,15 +85,14 @@ export default function ProjectsPage() {
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
         <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
           <div>
-            <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">내 책</p>
+            {/* 페이지 액센트: emerald-600 (수익 컨텍스트) — clean-redesign v3 spec 3.2 */}
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-emerald-600 mb-2">📚 내 책</p>
             <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
               {activeCount}<span className="text-gray-400">권</span>
             </h1>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Link href="/import-blog" className="inline-flex items-center gap-2 px-4 py-3 border border-gray-300 text-ink-900 font-bold rounded-xl hover:border-tiger-orange hover:text-tiger-orange transition text-sm">
-              📝 블로그 → 책
-            </Link>
+            {/* defer 페이지 /import-blog 링크 제거. 대신 /publish (KEEP)로 변경 */}
             <Link href="/new" className="inline-flex items-center gap-2 px-5 py-3 bg-tiger-orange text-white font-bold rounded-xl shadow-glow-orange-sm hover:bg-orange-600 transition">
               + 새 프로젝트
             </Link>
@@ -181,6 +180,16 @@ export default function ProjectsPage() {
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-tiger-orange transition-all" style={{ width: `${pct}%` }} />
                     </div>
+                  </div>
+
+                  {/* ROI 수익 입력 진입점 — 본격 ROIBadge 와이어업은 /api/projects가 spent·earned 데이터 반환 후 (후속 PR) */}
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <Link
+                      href={`/book/${p.id}?edit=revenue`}
+                      className="inline-flex items-center gap-1.5 text-xs text-emerald-600 hover:underline font-bold"
+                    >
+                      💰 판매 수익 입력
+                    </Link>
                   </div>
 
                   <div className="flex gap-2 mt-4">
