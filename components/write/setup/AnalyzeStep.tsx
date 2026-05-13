@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAutoSave } from "@/lib/auto-save";
 
 interface ReferenceItem {
   id: string;
@@ -26,6 +27,10 @@ interface AnalyzeStepProps {
   onError: (msg: string | null) => void;
   /** Called when user clicks "다음 단계 →" */
   onAdvance: () => void;
+  /** v3 Phase 1.2: 부모에 자동 저장 상태 보고 (indicator UI용) */
+  onAutoSaveState?: (s: { isSyncing: boolean; lastSyncedAt: number | null; error: Error | null }) => void;
+  /** 초기 draft (localStorage 복원 시 부모가 주입) */
+  initialDraft?: { refUrlInput?: string; refTextInput?: string; refYoutubeInput?: string };
 }
 
 export function AnalyzeStep({
@@ -35,14 +40,61 @@ export function AnalyzeStep({
   onBalanceChange,
   onError,
   onAdvance,
+  onAutoSaveState,
+  initialDraft,
 }: AnalyzeStepProps) {
   const [references, setReferences] = useState<ReferenceItem[]>([]);
   const [refUploadBusy, setRefUploadBusy] = useState(false);
   const [refUploadMode, setRefUploadMode] = useState<"none" | "url" | "text" | "youtube">("none");
-  const [refUrlInput, setRefUrlInput] = useState("");
-  const [refTextInput, setRefTextInput] = useState("");
-  const [refYoutubeInput, setRefYoutubeInput] = useState("");
+  const [refUrlInput, setRefUrlInput] = useState(initialDraft?.refUrlInput ?? "");
+  const [refTextInput, setRefTextInput] = useState(initialDraft?.refTextInput ?? "");
+  const [refYoutubeInput, setRefYoutubeInput] = useState(initialDraft?.refYoutubeInput ?? "");
   const [summaryBusy, setSummaryBusy] = useState(false);
+
+  // v3 Phase 1.2 — draft 텍스트 입력 자동 저장 (DB는 referencesSummary만 sync, draft는 localStorage 전용)
+  const autoSaveData = useMemo(
+    () => ({
+      analyzeDraft: {
+        refUrlInput,
+        refTextInput,
+        refYoutubeInput,
+      },
+      // canonical → DB sync
+      referencesSummary,
+    }),
+    [refUrlInput, refTextInput, refYoutubeInput, referencesSummary],
+  );
+
+  const autoSave = useAutoSave({
+    key: `tbm-autosave-project-${projectId}-analyze`,
+    data: autoSaveData,
+    onSync: async d => {
+      // referencesSummary 변경 시에만 DB sync. draft는 localStorage 전용.
+      const projRes = await fetch(`/api/projects/${projectId}`);
+      if (!projRes.ok) throw new Error(`프로젝트 로드 실패 (${projRes.status})`);
+      const project = await projRes.json();
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: {
+            ...project,
+            referencesSummary: d.referencesSummary,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`자동 저장 실패 (${res.status})`);
+    },
+  });
+
+  const lastReportedRef = useRef<string>("");
+  useEffect(() => {
+    if (!onAutoSaveState) return;
+    const sig = `${autoSave.isSyncing}|${autoSave.lastSyncedAt}|${autoSave.error?.message ?? ""}`;
+    if (sig === lastReportedRef.current) return;
+    lastReportedRef.current = sig;
+    onAutoSaveState({ isSyncing: autoSave.isSyncing, lastSyncedAt: autoSave.lastSyncedAt, error: autoSave.error });
+  }, [autoSave.isSyncing, autoSave.lastSyncedAt, autoSave.error, onAutoSaveState]);
 
   useEffect(() => {
     if (!projectId) return;
