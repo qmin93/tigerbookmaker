@@ -23,6 +23,20 @@ import {
   ProjectNotFoundError,
   ChapterNotFoundError,
 } from "@/lib/server/generate-chapter";
+import { sendBookCompletionEmail } from "@/lib/server/notify-book-completion";
+
+// fire-and-forget: 이메일 실패가 워커 응답을 막지 않게 await 없이 호출.
+// 에러는 sendBookCompletionEmail 내부에서 catch + log됨.
+function notifyCompletionFireAndForget(opts: {
+  userId: string;
+  projectId: string;
+  status: "completed" | "failed";
+  errorMessage?: string;
+}) {
+  void sendBookCompletionEmail(opts).catch((e) => {
+    console.error("[book-generation-worker] notify failure swallowed:", e);
+  });
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Vercel Hobby 한계
@@ -69,6 +83,12 @@ export async function GET(req: Request) {
     const progress = await getChapterProgress(job.project_id, job.user_id);
     if (!progress) {
       await advanceJob(job.id, { status: "failed", errorMessage: "프로젝트를 찾을 수 없음" });
+      notifyCompletionFireAndForget({
+        userId: job.user_id,
+        projectId: job.project_id,
+        status: "failed",
+        errorMessage: "프로젝트를 찾을 수 없음",
+      });
       return NextResponse.json({ ...result, finalStatus: "failed", error: "PROJECT_NOT_FOUND" });
     }
     const { total, pendingIdxs } = progress;
@@ -76,6 +96,11 @@ export async function GET(req: Request) {
     // 모두 이미 작성되어 있으면 즉시 completed
     if (pendingIdxs.length === 0) {
       await advanceJob(job.id, { status: "completed", currentChapterIdx: total });
+      notifyCompletionFireAndForget({
+        userId: job.user_id,
+        projectId: job.project_id,
+        status: "completed",
+      });
       return NextResponse.json({ ...result, finalStatus: "completed", processedChapters: 0 });
     }
 
@@ -107,9 +132,16 @@ export async function GET(req: Request) {
         await advanceJob(job.id, { currentChapterIdx: idx + 1 });
       } catch (e: any) {
         if (e instanceof InsufficientBalanceError) {
+          const errorMessage = `잔액 부족 (${e.required}원 필요, ${e.current}원 보유). ${idx + 1}장에서 중단.`;
           await advanceJob(job.id, {
             status: "failed",
-            errorMessage: `잔액 부족 (${e.required}원 필요, ${e.current}원 보유). ${idx + 1}장에서 중단.`,
+            errorMessage,
+          });
+          notifyCompletionFireAndForget({
+            userId: job.user_id,
+            projectId: job.project_id,
+            status: "failed",
+            errorMessage,
           });
           return NextResponse.json({
             ...result,
@@ -118,18 +150,32 @@ export async function GET(req: Request) {
           });
         }
         if (e instanceof ProjectNotFoundError || e instanceof ChapterNotFoundError) {
+          const errorMessage = `${idx + 1}장 처리 중 ${e.name}. 프로젝트가 삭제되었거나 변경됐습니다.`;
           await advanceJob(job.id, {
             status: "failed",
-            errorMessage: `${idx + 1}장 처리 중 ${e.name}. 프로젝트가 삭제되었거나 변경됐습니다.`,
+            errorMessage,
+          });
+          notifyCompletionFireAndForget({
+            userId: job.user_id,
+            projectId: job.project_id,
+            status: "failed",
+            errorMessage,
           });
           return NextResponse.json({ ...result, finalStatus: "failed", error: e.name });
         }
         // 기타 AI 실패 — 큐 자체는 fail 처리 (사용자가 UI에서 재시작 가능)
         const msg = (e?.message ?? String(e)).slice(0, 500);
         console.error("[book-generation-worker] chapter failed:", { jobId: job.id, idx, error: msg });
+        const errorMessage = `${idx + 1}장 생성 실패: ${msg}`;
         await advanceJob(job.id, {
           status: "failed",
-          errorMessage: `${idx + 1}장 생성 실패: ${msg}`,
+          errorMessage,
+        });
+        notifyCompletionFireAndForget({
+          userId: job.user_id,
+          projectId: job.project_id,
+          status: "failed",
+          errorMessage,
         });
         return NextResponse.json({ ...result, finalStatus: "failed", error: msg });
       }
@@ -141,6 +187,11 @@ export async function GET(req: Request) {
     if (finalProgress && finalProgress.pendingIdxs.length === 0) {
       await advanceJob(job.id, { status: "completed", currentChapterIdx: finalProgress.total });
       result.finalStatus = "completed";
+      notifyCompletionFireAndForget({
+        userId: job.user_id,
+        projectId: job.project_id,
+        status: "completed",
+      });
     } else {
       // 아직 pending 있으면 다음 tick으로
       await advanceJob(job.id, {
@@ -157,6 +208,12 @@ export async function GET(req: Request) {
     const current = await getJobStatus(job.id).catch(() => null);
     if (current && current.status === "processing") {
       await advanceJob(job.id, { status: "failed", errorMessage: msg }).catch(() => {});
+      notifyCompletionFireAndForget({
+        userId: job.user_id,
+        projectId: job.project_id,
+        status: "failed",
+        errorMessage: msg,
+      });
     }
     return NextResponse.json({
       ok: false,
