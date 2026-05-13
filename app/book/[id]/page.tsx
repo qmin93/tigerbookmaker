@@ -5,10 +5,12 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { getTheme } from "@/lib/theme-colors";
 import { TEMPLATES, type TemplateKey } from "@/lib/templates";
 import type { ThemeColorKey, MarketingMeta } from "@/lib/storage";
 import { FlipbookPreview } from "@/components/FlipbookPreview";
+import { BookEditor, type BookEditorFields } from "@/components/book/BookEditor";
 
 interface ChapterMeta {
   id?: string;
@@ -71,11 +73,46 @@ function getOrAssignVariant(bookId: string): "A" | "B" {
 
 export default function BookPage({ params }: { params: { id: string } }) {
   const { id } = params;
+  const { status } = useSession();
   const [data, setData] = useState<BookData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   // Wave B5: A/B variant — data 도착 후 abTest.enabled 확인 후 cookie 할당.
   const [variantId, setVariantId] = useState<"A" | "B" | null>(null);
+
+  // BookEditor wireup — 작가 본인만 편집 모드 노출
+  const [isOwner, setIsOwner] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !id) return;
+    // /api/projects/[id]는 auth + owner only — 200이면 소유자, 그 외엔 아님
+    fetch(`/api/projects/${id}`)
+      .then(r => setIsOwner(r.ok))
+      .catch(() => setIsOwner(false));
+  }, [status, id]);
+
+  const saveEditor = async (next: BookEditorFields) => {
+    if (!data) return;
+    const patch = {
+      marketingMeta: {
+        ...(data.marketingMeta ?? {}),
+        tagline: next.hook,
+        description: next.description,
+        authorName: data.marketingMeta?.authorName,
+        authorBio: data.marketingMeta?.authorBio,
+      },
+    };
+    const res = await fetch(`/api/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: patch }),
+    });
+    if (!res.ok) throw new Error(`저장 실패 (${res.status})`);
+    // 마케팅 페이지 데이터 재로드
+    const fresh = await fetch(`/api/book/${id}`).then(r => r.ok ? r.json() : null);
+    if (fresh) setData(fresh);
+  };
 
   useEffect(() => {
     fetch(`/api/book/${id}`)
@@ -178,8 +215,37 @@ export default function BookPage({ params }: { params: { id: string } }) {
     }
   };
 
+  // 편집 모드용 initial 필드 (BookEditor)
+  const editorFields: BookEditorFields | null = data ? {
+    title: data.topic,
+    hook: data.marketingMeta?.tagline ?? "",
+    description: data.marketingMeta?.description ?? data.kmongCopy?.kmongDescription ?? "",
+    targetAudience: data.audience,
+    tags: "",
+  } : null;
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      {/* 작가 모드 — 본인만 보이는 편집 패널 */}
+      {isOwner && (
+        <div className="sticky top-0 z-50 bg-emerald-600 text-white px-4 py-2 text-sm flex items-center justify-between gap-3">
+          <span className="font-bold">👁 작가 모드 — 본인만 보입니다</span>
+          <button
+            onClick={() => setEditMode(m => !m)}
+            className="px-3 py-1 rounded bg-white text-emerald-600 font-bold text-xs hover:bg-gray-100"
+          >
+            {editMode ? "✕ 편집 닫기" : "✏️ 상세페이지 편집"}
+          </button>
+        </div>
+      )}
+      {isOwner && editMode && editorFields && (
+        <div className="bg-emerald-600/5 border-b border-emerald-600/20 px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <BookEditor initial={editorFields} onSave={saveEditor} />
+          </div>
+        </div>
+      )}
+
       {/* 1. Header bar — 작은 Tiger 로고만 (minimal chrome) */}
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
