@@ -59,7 +59,26 @@ export type LayoutKey =
   | "manual-oreilly"
   | "manual-isometric"
   | "neon-cyberpunk"
-  | "minimal-tech";
+  | "minimal-tech"
+  // PR #2: BOLD 카테고리 확장
+  | "pop-art"
+  | "graffiti"
+  | "manga-comic"
+  // PR #2: EDITORIAL 카테고리 확장
+  | "monocle-magazine"
+  // PR #2: TECH 카테고리 확장
+  | "glitch-vhs"
+  // PR #2: RETRO 카테고리
+  | "kpop-y2k"
+  | "retro-80s"
+  // PR #2: SOFT 카테고리
+  | "botanical"
+  | "kawaii-pastel"
+  // PR #2: EXPERIMENTAL 카테고리 확장
+  | "collage-zine"
+  // PR #2: 실용서 베스트셀러 톤 (Marie Kondo / Notion 가이드북)
+  | "practical-hands"
+  | "practical-before-after";
 
 export interface GenreMatch {
   /** 추천 레이아웃 (자동 추천 시 앞에서 3개를 사용) */
