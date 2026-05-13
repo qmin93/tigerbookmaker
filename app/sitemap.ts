@@ -1,5 +1,5 @@
-// Next.js 동적 sitemap.xml — Wave 5
-// 정적 페이지 + 공개 책 (shareEnabled) + 모든 작가 프로필.
+// Next.js 동적 sitemap.xml
+// KEEP 페이지 + 공개 책. 작가 프로필(/u/*)은 spec v3에서 DEFER라 제외.
 
 import type { MetadataRoute } from "next";
 import { sql } from "@vercel/postgres";
@@ -13,7 +13,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "https://tigerbookmaker.vercel.app";
 
   let books: Array<{ id: string; updated_at: string }> = [];
-  let profiles: Array<{ handle: string; updated_at: string }> = [];
 
   try {
     const r = await sql<{ id: string; updated_at: string }>`
@@ -26,30 +25,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // DB 미가용 시 정적 페이지만 반환
   }
 
-  try {
-    const r = await sql<{ handle: string; updated_at: string }>`
-      SELECT handle, updated_at FROM user_profiles
-      ORDER BY updated_at DESC LIMIT 1000
-    `;
-    profiles = r.rows;
-  } catch {
-    // ignore
-  }
-
   const now = new Date();
   return [
-    { url: baseUrl, lastModified: now, priority: 1.0 },
-    { url: `${baseUrl}/pricing`, lastModified: now, priority: 0.8 },
-    { url: `${baseUrl}/login`, lastModified: now, priority: 0.5 },
+    { url: baseUrl, lastModified: now, priority: 1.0, changeFrequency: "weekly" },
+    { url: `${baseUrl}/pricing`, lastModified: now, priority: 0.9, changeFrequency: "monthly" },
+    { url: `${baseUrl}/publish`, lastModified: now, priority: 0.8, changeFrequency: "monthly" },
+    { url: `${baseUrl}/login`, lastModified: now, priority: 0.5, changeFrequency: "yearly" },
+    { url: `${baseUrl}/legal/terms`, lastModified: now, priority: 0.3, changeFrequency: "yearly" },
+    { url: `${baseUrl}/legal/privacy`, lastModified: now, priority: 0.3, changeFrequency: "yearly" },
+    { url: `${baseUrl}/legal/refund`, lastModified: now, priority: 0.3, changeFrequency: "yearly" },
     ...books.map((b) => ({
       url: `${baseUrl}/book/${b.id}`,
       lastModified: new Date(b.updated_at),
       priority: 0.7,
-    })),
-    ...profiles.map((p) => ({
-      url: `${baseUrl}/u/${p.handle}`,
-      lastModified: new Date(p.updated_at),
-      priority: 0.6,
+      changeFrequency: "weekly" as const,
     })),
   ];
 }

@@ -3,9 +3,14 @@ import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "가격 — Tigerbookmaker",
+  title: "Tigerbookmaker 가격 — 권당 ₩4,000, 베타 ₩5,000 무료 크레딧",
   description:
-    "지금은 베타 — 모든 기능 무료. ₩5,000 무료 크레딧 자동 지급. 카드 등록 · 정기결제 없음.",
+    "한국어 AI 전자책 권당 ₩4,000부터. 베타 기간 ₩5,000 무료 크레딧 자동 지급. 충전식 · 카드 등록 없음 · 7일 100% 환불.",
+  keywords: ["AI 전자책 가격", "크몽 부수익 비용", "AI 책 만들기 가격"],
+  openGraph: {
+    title: "Tigerbookmaker 가격 — 권당 ₩4,000부터",
+    description: "베타 ₩5,000 무료 크레딧. 충전식. 권당 ₩4,000~₩21,300 시나리오별 비용 안내.",
+  },
 };
 
 export default function PricingPage() {
