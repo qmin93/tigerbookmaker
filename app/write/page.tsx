@@ -29,6 +29,8 @@ import { OpsTab } from "./_components/tabs/OpsTab";
 import { QualityScore, type QualityScoreData } from "@/components/write/QualityScore";
 import { ChapterRegenerateButton } from "@/components/write/ChapterRegenerateButton";
 import { BookQualityBadge } from "@/components/write/BookQualityBadge";
+// v3 Phase 4.2 — 완성 축하 피드 (사회적 증거)
+import { CompletionFeed } from "@/components/write/CompletionFeed";
 
 type BatchState =
   | { status: "idle" }
@@ -3305,8 +3307,12 @@ function Inner() {
       />
 
       {/* v3 Phase 2.2 — 책 통과 가능성 배지 (heuristic, AI 호출 없음) */}
+      {/* v3 Phase 4.2 — 완성 축하 피드 (왼쪽), BookQualityBadge (오른쪽) — 같은 행 공유 */}
       {projectId && (
-        <div className="max-w-[1600px] mx-auto px-4 pt-2 flex justify-end">
+        <div className="max-w-[1600px] mx-auto px-4 pt-2 flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0 max-w-md w-full sm:w-auto">
+            <CompletionFeed />
+          </div>
           <BookQualityBadge bookId={projectId} />
         </div>
       )}
