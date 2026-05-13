@@ -1,10 +1,33 @@
 // Sharp-based SVG text overlay for AI-generated meta ad images.
 // Replaces unreliable Korean text rendering by Imagen with precise SVG composition.
+//
+// PR #2 확장: `templateKey` (LayoutKey) 인자로 `lib/cover-templates` 의 풍부한 layout 정의를
+// 그대로 그려준다. 기존 5개 string 템플릿("minimal"|"bold"|"story"|"quote"|"cta") 은 backward-compat 유지.
 
 import sharp from "sharp";
 import { PRETENDARD_BOLD_BASE64 } from "@/lib/fonts/pretendard-base64";
+import { getTemplate } from "@/lib/cover-templates";
+import type { LayoutKey } from "@/lib/cover-style-map";
+import type {
+  CoverTemplate,
+  OverlayBackground,
+  OverlayDecoration,
+  OverlayPosition,
+  OverlayTextBlock,
+} from "@/lib/cover-templates/types";
 
 export type OverlayTemplate = "minimal" | "bold" | "story" | "quote" | "cta";
+
+/** 표지의 풍부한 텍스트 슬롯. PR #2 `templateKey` 경로에서 사용. */
+export interface CoverFields {
+  title: string;
+  subtitle?: string;
+  author?: string;
+  badge?: string;
+  series?: string;
+  publisher?: string;
+  tagline?: string;
+}
 
 export interface OverlayOptions {
   imageBase64: string;
@@ -12,14 +35,50 @@ export interface OverlayOptions {
   height: number;
   headline: string;        // 큰 글자 (헤드라인)
   subhead?: string;        // 작은 글자
-  template: OverlayTemplate;
+  /** 레거시 5개 템플릿. templateKey 와 동시 지정 시 templateKey 가 우선. */
+  template?: OverlayTemplate;
+  /**
+   * PR #2 신규: `lib/cover-templates` 의 LayoutKey.
+   * 지정되면 해당 템플릿의 overlay 정의(background + decorations + textBlocks)를 그대로 그린다.
+   *
+   * 추가 텍스트 필드(author/badge/series/...)는 `fields` 인자로 전달한다. 미전달 시:
+   *   - title  ← headline
+   *   - subtitle ← subhead
+   *   - 나머지는 ""(빈 문자열) 처리.
+   */
+  templateKey?: LayoutKey;
+  /** templateKey 사용 시 추가 텍스트 슬롯들. */
+  fields?: Partial<CoverFields>;
   brandText?: string;      // 하단 워터마크 (default "🐯 Tigerbookmaker")
 }
 
 export async function overlayTextOnImage(opts: OverlayOptions): Promise<string> {
-  const { imageBase64, width, height, headline, subhead, template, brandText } = opts;
+  const { imageBase64, width, height, headline, subhead, template, templateKey, fields, brandText } = opts;
 
-  const svg = generateOverlaySvg({ width, height, headline, subhead, template, brandText });
+  // PR #2 경로: templateKey 우선 적용.
+  let svg: string;
+  if (templateKey) {
+    const tpl = getTemplate(templateKey);
+    if (tpl) {
+      const resolvedFields: CoverFields = {
+        title: fields?.title ?? headline,
+        subtitle: fields?.subtitle ?? subhead,
+        author: fields?.author,
+        badge: fields?.badge,
+        series: fields?.series,
+        publisher: fields?.publisher,
+        tagline: fields?.tagline,
+      };
+      svg = generateCoverTemplateSvg({ template: tpl, width, height, fields: resolvedFields, brandText });
+    } else {
+      // 정의되지 않은 LayoutKey — 레거시 "bold" 폴백.
+      svg = generateOverlaySvg({ width, height, headline, subhead, template: "bold", brandText });
+    }
+  } else {
+    // 기존 경로: 5개 string 템플릿.
+    const legacyTemplate: OverlayTemplate = template ?? "bold";
+    svg = generateOverlaySvg({ width, height, headline, subhead, template: legacyTemplate, brandText });
+  }
 
   const inputBuffer = Buffer.from(imageBase64, "base64");
   const overlayBuffer = Buffer.from(svg);
@@ -31,6 +90,223 @@ export async function overlayTextOnImage(opts: OverlayOptions): Promise<string> 
     .toBuffer();
 
   return result.toString("base64");
+}
+
+// ─────────────────────────────────────────────────────────
+// PR #2: CoverTemplate.overlay 정의를 그대로 SVG 로 렌더.
+// 합성 순서: background → decorations → textBlocks (가장 위).
+// ─────────────────────────────────────────────────────────
+function generateCoverTemplateSvg(opts: {
+  template: CoverTemplate;
+  width: number;
+  height: number;
+  fields: CoverFields;
+  brandText?: string;
+}): string {
+  const { template, width, height, fields, brandText = "🐯 Tigerbookmaker" } = opts;
+  const overlay = template.overlay;
+
+  const fontFace = PRETENDARD_BOLD_BASE64
+    ? `@font-face { font-family: 'Pretendard'; src: url(data:font/woff2;base64,${PRETENDARD_BOLD_BASE64}) format('woff2'); font-weight: 700; }`
+    : "";
+
+  const parts: string[] = [];
+
+  if (overlay.background) parts.push(renderBackground(overlay.background, width, height));
+  for (const deco of overlay.decorations ?? []) parts.push(renderDecoration(deco, width, height));
+  for (const block of overlay.textBlocks) {
+    const value = fields[block.field];
+    if (value && typeof value === "string" && value.trim()) {
+      parts.push(renderTextBlock(block, value, width, height));
+    }
+  }
+
+  if (brandText && brandText.trim()) {
+    parts.push(
+      `<text x="${width * 0.5}" y="${height - 16}" font-family="Pretendard, sans-serif" font-weight="700" font-size="${Math.floor(width / 60)}" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">${escapeXml(brandText)}</text>`,
+    );
+  }
+
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>${fontFace}</style>${parts.join("\n")}</svg>`;
+}
+
+function renderBackground(bg: OverlayBackground, w: number, h: number): string {
+  const { x, y, width: areaW, height: areaH } = areaToRect(bg.area, w, h);
+  const opacity = bg.opacity ?? 1;
+  const rx = bg.cornerRadiusPx ?? 0;
+
+  if (bg.gradient) {
+    const gradId = `bg-${Math.floor(Math.random() * 1e9)}`;
+    const stops = parseGradientStops(bg.gradient);
+    const angleDeg = parseGradientAngle(bg.gradient);
+    const { x1, y1, x2, y2 } = angleToSvgGradient(angleDeg);
+    const stopsXml = stops.map(s => `<stop offset="${s.offset}" stop-color="${s.color}"/>`).join("");
+    return `<defs><linearGradient id="${gradId}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">${stopsXml}</linearGradient></defs><rect x="${x}" y="${y}" width="${areaW}" height="${areaH}" fill="url(#${gradId})" opacity="${opacity}" rx="${rx}"/>`;
+  }
+
+  const color = bg.color ?? "rgba(0,0,0,0)";
+  return `<rect x="${x}" y="${y}" width="${areaW}" height="${areaH}" fill="${color}" opacity="${opacity}" rx="${rx}"/>`;
+}
+
+function renderDecoration(deco: OverlayDecoration, w: number, h: number): string {
+  const sz = deco.size ?? {};
+  const dw = (sz.width ?? 0) * w;
+  const dh = (sz.height ?? 0) * h;
+  const anchor = positionToAnchor(deco.position, w, h);
+  const offX = deco.offsetPx?.[0] ?? 0;
+  const offY = deco.offsetPx?.[1] ?? 0;
+
+  switch (deco.type) {
+    case "divider-line": {
+      const x = anchor.x + offX;
+      const y = anchor.y + offY;
+      return `<rect x="${x}" y="${y}" width="${Math.max(dw, 1)}" height="${Math.max(dh, 1)}" fill="${deco.color}"/>`;
+    }
+    case "badge-pill": {
+      const x = anchor.x + offX;
+      const y = anchor.y + offY;
+      const r = Math.min(dw, dh) * 0.5;
+      return `<rect x="${x}" y="${y}" width="${dw}" height="${dh}" fill="${deco.color}" rx="${r}" ry="${r}"/>`;
+    }
+    case "circle": {
+      const radius = (sz.width ?? 0.1) * w * 0.5;
+      const cx = anchor.x + offX;
+      const cy = anchor.y + offY;
+      return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${deco.color}"/>`;
+    }
+    case "frame-border": {
+      const fw = (sz.width ?? 0.94) * w;
+      const fh = (sz.height ?? 0.94) * h;
+      const fx = (w - fw) * 0.5 + offX;
+      const fy = (h - fh) * 0.5 + offY;
+      return `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" fill="none" stroke="${deco.color}" stroke-width="1.5"/>`;
+    }
+  }
+}
+
+function renderTextBlock(block: OverlayTextBlock, value: string, w: number, h: number): string {
+  const anchor = positionToAnchor(block.position, w, h);
+  const offX = block.offsetPx?.[0] ?? 0;
+  const offY = block.offsetPx?.[1] ?? 0;
+  const x = anchor.x + offX;
+  const y = anchor.y + offY;
+
+  const fontSize = Math.max(8, Math.round(block.font.sizeRatio * w));
+  const family = block.font.family ?? "Pretendard, sans-serif";
+  const weight = block.font.weight;
+  const italic = block.font.italic ? `font-style="italic"` : "";
+  const align = block.align ?? defaultAlignForPosition(block.position);
+  const letterSpacing = block.letterSpacing ? `letter-spacing="${block.letterSpacing}em"` : "";
+  const shadow = block.shadow ? `style="filter: drop-shadow(${cssShadowToSvg(block.shadow)});"` : "";
+
+  const maxW = (block.maxWidth ?? 0.84) * w;
+  const charPx = fontSize * 0.55;
+  const maxChars = Math.max(6, Math.floor(maxW / charPx));
+  const lineHeight = block.lineHeight ?? 1.1;
+  const lineHeightPx = fontSize * lineHeight;
+  const transformed = applyTextTransform(value, block.textTransform);
+  const lines = wrapText(transformed, maxChars);
+
+  const tspans = lines
+    .map((line, i) => {
+      const dy = i === 0 ? 0 : lineHeightPx;
+      return `<tspan x="${x}" dy="${dy}">${escapeXml(line)}</tspan>`;
+    })
+    .join("");
+
+  return `<text x="${x}" y="${y}" font-family="${family}" font-weight="${weight}" font-size="${fontSize}" ${italic} fill="${block.color}" text-anchor="${align}" ${letterSpacing} ${shadow}>${tspans}</text>`;
+}
+
+function areaToRect(area: OverlayBackground["area"], w: number, h: number) {
+  switch (area) {
+    case "full":         return { x: 0, y: 0, width: w, height: h };
+    case "top-half":     return { x: 0, y: 0, width: w, height: h * 0.5 };
+    case "bottom-half":  return { x: 0, y: h * 0.5, width: w, height: h * 0.5 };
+    case "top-third":    return { x: 0, y: 0, width: w, height: h * 0.34 };
+    case "bottom-third": return { x: 0, y: h * 0.66, width: w, height: h * 0.34 };
+  }
+}
+
+function positionToAnchor(pos: OverlayPosition, w: number, h: number): { x: number; y: number } {
+  switch (pos) {
+    case "top-left":      return { x: 0,         y: 0 };
+    case "top-center":    return { x: w * 0.5,   y: 0 };
+    case "top-right":     return { x: w,         y: 0 };
+    case "center-left":   return { x: 0,         y: h * 0.5 };
+    case "center":        return { x: w * 0.5,   y: h * 0.5 };
+    case "center-right":  return { x: w,         y: h * 0.5 };
+    case "bottom-left":   return { x: 0,         y: h };
+    case "bottom-center": return { x: w * 0.5,   y: h };
+    case "bottom-right":  return { x: w,         y: h };
+    case "top-bleed":     return { x: 0,         y: 0 };
+    case "bottom-bleed":  return { x: 0,         y: h };
+  }
+}
+
+function defaultAlignForPosition(pos: OverlayPosition): "start" | "middle" | "end" {
+  if (pos.endsWith("right")) return "end";
+  if (pos.endsWith("center") || pos === "center" || pos === "top-bleed" || pos === "bottom-bleed") return "middle";
+  return "start";
+}
+
+function applyTextTransform(s: string, t: OverlayTextBlock["textTransform"]): string {
+  if (t === "uppercase") return s.toUpperCase();
+  if (t === "lowercase") return s.toLowerCase();
+  return s;
+}
+
+function cssShadowToSvg(shadow: string): string {
+  return shadow.split(",")[0]?.trim() ?? "";
+}
+
+/** 매우 단순한 CSS linear-gradient 파서. */
+function parseGradientStops(g: string): Array<{ offset: string; color: string }> {
+  const inner = g.replace(/^linear-gradient\(/, "").replace(/\)$/, "");
+  const parts = splitCssArgs(inner);
+  const stops = parts.slice(1);
+  return stops.map((s, i) => {
+    const trimmed = s.trim();
+    const m = trimmed.match(/^(.+?)\s+(\d+(?:\.\d+)?)%$/);
+    if (m) return { color: m[1], offset: `${m[2]}%` };
+    const evenly = (i / Math.max(1, stops.length - 1)) * 100;
+    return { color: trimmed, offset: `${evenly}%` };
+  });
+}
+
+function parseGradientAngle(g: string): number {
+  const m = g.match(/linear-gradient\(\s*(-?\d+(?:\.\d+)?)deg/);
+  return m ? Number(m[1]) : 180;
+}
+
+/** CSS gradient angle(deg) → SVG x1/y1/x2/y2 (0~1). */
+function angleToSvgGradient(angleDeg: number): { x1: string; y1: string; x2: string; y2: string } {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  const dx = Math.cos(rad);
+  const dy = Math.sin(rad);
+  const x1 = (0.5 - dx * 0.5).toFixed(3);
+  const y1 = (0.5 - dy * 0.5).toFixed(3);
+  const x2 = (0.5 + dx * 0.5).toFixed(3);
+  const y2 = (0.5 + dy * 0.5).toFixed(3);
+  return { x1, y1, x2, y2 };
+}
+
+/** ", " 로 분할하되 괄호 안의 콤마는 보존. */
+function splitCssArgs(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let buf = "";
+  for (const ch of s) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      out.push(buf);
+      buf = "";
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) out.push(buf);
+  return out.map(s => s.trim());
 }
 
 function generateOverlaySvg(opts: {
