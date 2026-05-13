@@ -131,6 +131,16 @@ function Inner() {
   const [streamingText, setStreamingText] = useState<string>("");
   const [streamingChapterIdx, setStreamingChapterIdx] = useState<number | null>(null);
   const [batch, setBatch] = useState<BatchState>({ status: "idle" });
+  // v3 Phase 1.3 — 백그라운드 본문 생성 큐 상태
+  const [queueJob, setQueueJob] = useState<null | {
+    jobId: string;
+    status: string;
+    currentChapterIdx: number;
+    totalChapters: number;
+    etaMinutes: number | null;
+    errorMessage: string | null;
+  }>(null);
+  const [queueBusy, setQueueBusy] = useState(false);
   const [editingContent, setEditingContent] = useState<string | null>(null);
   const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [imageGenBusy, setImageGenBusy] = useState<string>("");
@@ -450,6 +460,92 @@ function Inner() {
     } finally {
       setTranslateBusy(false);
       setTimeout(() => setTranslateMsg(null), 6000);
+    }
+  };
+
+  // ─── v3 Phase 1.3: 백그라운드 본문 생성 큐 폴링 ───
+  // active job이 있으면 5초마다 status fetch. completed/cancelled면 폴링 종료.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/generation-status`);
+        if (!res.ok) {
+          if (!cancelled) timer = setTimeout(tick, 15000); // 에러 시 백오프
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        setQueueJob(data.active ?? null);
+        // 활성 job이 있고 종료 상태(failed 포함, completed/cancelled는 active=null로 옴) 아니면 계속 폴링
+        if (data.active && ["queued", "processing"].includes(data.active.status)) {
+          timer = setTimeout(tick, 5000);
+        } else if (data.active && data.active.status === "failed") {
+          // 실패 시 폴링은 멈추고 노출만 유지 (사용자가 dismiss할 때까지)
+          timer = null;
+        } else {
+          // active=null (completed/cancelled) — 책 최신화 한 번
+          fetch(`/api/projects/${projectId}`).then(r => r.ok ? r.json() : null).then(p => {
+            if (p && !cancelled) setProject(p);
+          }).catch(() => {});
+          timer = null;
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(tick, 15000);
+      }
+    };
+
+    // 첫 로드 시 한 번 즉시 fetch
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // projectId만 의존 — queueJob 자체는 폴링 내부에서 setState
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const startBackgroundGeneration = async () => {
+    if (!projectId || queueBusy) return;
+    setQueueBusy(true);
+    try {
+      const res = await fetch(`/api/generate/chapter?queue=true`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "ACTIVE_JOB_EXISTS") {
+          notify.info({ title: "이미 진행 중", message: data.message ?? "다른 본문 생성 작업이 진행 중입니다." });
+        } else if (data.error === "NO_CHAPTERS") {
+          setError("프로젝트에 챕터가 없습니다. 먼저 목차를 생성하세요.");
+        } else {
+          setError(data.message ?? data.error ?? "백그라운드 본문 생성 시작 실패");
+        }
+        return;
+      }
+      // 즉시 상태 표시 — 첫 polling tick 전 placeholder
+      setQueueJob({
+        jobId: data.jobId,
+        status: "queued",
+        currentChapterIdx: 0,
+        totalChapters: data.totalChapters,
+        etaMinutes: data.totalChapters * 2,
+        errorMessage: null,
+      });
+      notify.success({
+        title: "✓ 백그라운드 본문 생성 시작",
+        message: `${data.totalChapters}장 처리 시작. 탭 닫아도 진행됩니다. 약 ${data.totalChapters * 2}분 후 완료.`,
+        durationMs: 7000,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? "백그라운드 본문 생성 시작 실패");
+    } finally {
+      setQueueBusy(false);
     }
   };
 
@@ -2112,17 +2208,57 @@ function Inner() {
   // === 본문 탭 슬롯 ===
   // 일괄 집필 + 챕터 추가/목차 재생성 + 본문 이미지 일괄
   // (크몽 패키지 버튼은 kmongPackageBox로 분리됨)
+  // v3 Phase 1.3: 백그라운드 큐 상태 시각화 (queued/processing은 진행 중, failed는 에러 표시)
+  const queueActive = !!queueJob && ["queued", "processing"].includes(queueJob.status);
+  const queueFailed = !!queueJob && queueJob.status === "failed";
+  const queuePct = queueJob && queueJob.totalChapters > 0
+    ? Math.round((queueJob.currentChapterIdx / queueJob.totalChapters) * 100)
+    : 0;
+
   const bulkWritingControls = (
     <div className="space-y-1">
       <button
         onClick={() => startBatch(0)}
-        disabled={!!loading || batch.status === "running"}
+        disabled={!!loading || batch.status === "running" || queueActive}
         className="w-full px-3 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-50 disabled:shadow-none"
       >
         {batch.status === "running"
           ? `진행 중...${batch.cumulativeCostKRW > 0 ? ` (₩${batch.cumulativeCostKRW.toLocaleString()})` : ""}`
           : "⚡ 전체 일괄 집필"}
       </button>
+      {/* v3 Phase 1.3 — 백그라운드 본문 생성 큐 */}
+      <button
+        onClick={startBackgroundGeneration}
+        disabled={!!loading || batch.status === "running" || queueBusy || queueActive}
+        title="탭을 닫아도 서버에서 계속 처리됩니다. 약 25분 후 완료 알림."
+        className="w-full px-3 py-2 bg-ink-900 text-white rounded-lg text-xs font-bold hover:bg-ink-800 transition disabled:opacity-50"
+      >
+        {queueBusy
+          ? "큐 등록 중..."
+          : queueActive
+            ? `백그라운드 진행 중 — ${queueJob!.currentChapterIdx}/${queueJob!.totalChapters}장 (${queuePct}%)`
+            : "🌙 백그라운드로 본문 생성 시작"}
+      </button>
+      {queueActive && (
+        <div className="px-1 py-1 text-[10px] text-gray-500 leading-tight">
+          상태: {queueJob!.status === "queued" ? "대기 중 (1분 안에 시작)" : "처리 중"}
+          {queueJob!.etaMinutes !== null && queueJob!.etaMinutes > 0 ? ` · 약 ${queueJob!.etaMinutes}분 남음` : ""}
+          <br />
+          탭 닫아도 OK — 서버가 끝까지 처리합니다.
+        </div>
+      )}
+      {queueFailed && (
+        <div className="px-2 py-1.5 bg-red-50 border border-red-200 rounded text-[10px] text-red-700">
+          <div className="font-bold mb-0.5">백그라운드 생성 실패</div>
+          <div className="leading-tight">{queueJob!.errorMessage ?? "알 수 없는 오류"}</div>
+          <button
+            onClick={() => setQueueJob(null)}
+            className="mt-1 underline hover:no-underline"
+          >
+            닫기
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-1">
         <button onClick={() => setAddChapterOpen(true)} disabled={!!loading} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-[#fafafa] hover:border-gray-400 transition">
           + 챕터 추가

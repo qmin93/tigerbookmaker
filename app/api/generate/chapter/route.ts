@@ -1,26 +1,30 @@
 // POST /api/generate/chapter
 // 챕터 1개 본문 생성 — 견적 → 잔액 체크 → AI 호출 (streaming) → 요약 → 차감 → 로그
 // 응답: NDJSON ReadableStream — {type:"chunk",text:...} | {type:"done",...} | {type:"error",message}
+//
+// v3 Phase 1.3 (2026-05-13):
+//  - 코어 로직을 lib/server/generate-chapter.ts로 추출 (worker와 공유).
+//  - ?queue=true (또는 body.queue: true) — 큐 모드: 즉시 enqueue하고 jobId 반환.
+//    동기 본문 생성 대신 백그라운드 워커가 처리. UI는 /api/projects/[id]/generation-status로 폴링.
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { estimateCost } from "@/lib/cost-estimate";
-import { callAIServer, callAIServerWithFallback, callStreamWithFallback, type AIModel } from "@/lib/server/ai-server";
-void callAIServer;
-import { getModelChain, type Tier } from "@/lib/tiers";
-import {
-  getUser, getProject, updateProjectData,
-  deductBalance, logAIUsage, USD_TO_KRW,
-} from "@/lib/server/db";
-import { SYSTEM_WRITER, chapterPrompt, summaryPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/server/rate-limit";
-import { ragSearch, hasReferences } from "@/lib/server/rag";
+import { logAIUsage, getProject } from "@/lib/server/db";
+import {
+  generateChapter,
+  InsufficientBalanceError,
+  ProjectNotFoundError,
+  ChapterNotFoundError,
+  FIXED_COST_PER_CHAPTER_KRW,
+} from "@/lib/server/generate-chapter";
+import {
+  enqueueBookGeneration,
+  ActiveJobExistsError,
+} from "@/lib/server/book-generation-queue";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Vercel Hobby 한계 (Pro 업그레이드 시 300으로)
-
-// 가격 정책 (Sang-nim 10x 인상, 2026-05): 본문 1챕터 ₩300 (was ~₩37)
-const FIXED_COST_PER_CHAPTER_KRW = 300;
 
 export async function POST(req: Request) {
   try {
@@ -42,215 +46,123 @@ export async function POST(req: Request) {
     }
 
     // 2. 입력 파싱
+    const url = new URL(req.url);
+    const queueFromQuery = url.searchParams.get("queue") === "true";
     const body = await req.json().catch(() => ({}));
-    const { projectId, chapterIdx, model: explicitModel } = body;
-    if (!projectId || typeof chapterIdx !== "number") {
-      return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
+    const { projectId, chapterIdx, model: explicitModel, queue: queueFromBody } = body;
+    const queueMode = queueFromQuery || queueFromBody === true;
+
+    if (!projectId) {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "projectId required" }, { status: 400 });
     }
 
-    // 3. 프로젝트 로드
+    // ─── Queue 모드: 백그라운드 작업으로 등록 ───
+    if (queueMode) {
+      // 큐 모드는 책 1권 전체 처리 — chapterIdx 무시. total_chapters는 프로젝트에서 읽음.
+      const projectRow = await getProject(projectId, userId);
+      if (!projectRow) {
+        return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
+      }
+      const chapters: any[] = projectRow.data?.chapters ?? [];
+      if (chapters.length === 0) {
+        return NextResponse.json({
+          error: "NO_CHAPTERS",
+          message: "프로젝트에 챕터가 없습니다. 먼저 목차를 생성하세요.",
+        }, { status: 400 });
+      }
+      try {
+        const { jobId } = await enqueueBookGeneration({
+          projectId,
+          userId,
+          totalChapters: chapters.length,
+        });
+        return NextResponse.json({
+          ok: true,
+          mode: "queue",
+          jobId,
+          totalChapters: chapters.length,
+          message: "백그라운드 본문 생성 시작. 1분 안에 첫 챕터부터 처리됩니다.",
+        });
+      } catch (e: any) {
+        if (e instanceof ActiveJobExistsError) {
+          return NextResponse.json({
+            error: "ACTIVE_JOB_EXISTS",
+            message: "이미 진행 중인 본문 생성이 있습니다. 완료 후 다시 시도하세요.",
+            jobId: e.jobId,
+            jobStatus: e.status,
+          }, { status: 409 });
+        }
+        throw e;
+      }
+    }
+
+    // ─── 기존 동기 모드 (back-compat) ───
+    if (typeof chapterIdx !== "number") {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "chapterIdx required" }, { status: 400 });
+    }
+
+    // 3. 사전 검증 — 프로젝트 & 챕터 존재 확인 (lib 안에서도 검증하지만,
+    //    streaming 시작 전에 에러 응답 가능하도록 미리 한 번 더 체크)
     const projectRow = await getProject(projectId, userId);
     if (!projectRow) {
       return NextResponse.json({ error: "PROJECT_NOT_FOUND" }, { status: 404 });
     }
-    const project = projectRow.data;
-    const ch = project.chapters?.[chapterIdx];
-    if (!ch) {
+    if (!projectRow.data.chapters?.[chapterIdx]) {
       return NextResponse.json({ error: "CHAPTER_NOT_FOUND" }, { status: 404 });
     }
 
-    // tier 기반 모델 chain (사용자가 명시 model 보냈으면 그것만 사용)
-    const tier: Tier = (project as any).tier ?? "basic";
-    let candidates: AIModel[];
-    if (explicitModel) {
-      candidates = [explicitModel as AIModel];
-    } else {
-      candidates = getModelChain(tier);
-      if (candidates.length === 0) {
-        return NextResponse.json({
-          error: "TIER_UNAVAILABLE",
-          message: `${tier} 티어 사용 가능한 모델이 없습니다. 관리자에게 문의하세요.`,
-        }, { status: 503 });
-      }
-    }
-    const model: AIModel = candidates[0]; // 견적용 (실제 호출은 chain 전체)
-
-    // 4. 견적 + 잔액 체크
-    const estimate = estimateCost("chapter", project, model);
-    const user = await getUser(userId);
-    if (!user) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
-
-    // 새 가격 정책: 본문 1챕터 ₩300 고정. token-based 견적은 logging용으로만 사용.
-    const requiredBalanceKRW = FIXED_COST_PER_CHAPTER_KRW;
-    if (user.balance_krw < requiredBalanceKRW) {
-      return NextResponse.json({
-        error: "INSUFFICIENT_BALANCE",
-        message: `잔액이 부족합니다. ${requiredBalanceKRW.toLocaleString()}원 이상 충전 후 시도하세요.`,
-        required: requiredBalanceKRW,
-        current: user.balance_krw,
-        shortfall: requiredBalanceKRW - user.balance_krw,
-        estimate: `본문 1챕터 ₩${FIXED_COST_PER_CHAPTER_KRW.toLocaleString()}`,
-      }, { status: 402 });
-    }
-
-    // 4.5. RAG 자동 주입 — references 있으면 챕터 제목 기반으로 관련 청크 검색
-    // (ReadableStream 밖에서 실행해 controller 에러를 회피, 결과는 closure로 전달)
-    let chapterChunks: Awaited<ReturnType<typeof ragSearch>> = [];
-    let ragHadReferences = false;
-    let ragFailed = false;
-    try {
-      ragHadReferences = await hasReferences(projectId);
-      if (ragHadReferences) {
-        chapterChunks = await ragSearch({
-          projectId,
-          query: `${ch.title}${ch.subtitle ? " — " + ch.subtitle : ""}`,
-          topN: 4,
-          maxDistance: 0.7,
-        });
-      }
-    } catch (e: any) {
-      // 자료가 있는데 RAG가 실패 — 본문 생성은 진행하되 사용자/Vercel 로그에 명시
-      ragFailed = true;
-      console.error("[chapter] RAG search FAILED — chapter will be generic, not using user references:", { projectId, chapterIdx, error: e?.message });
-    }
-
-    const toneSetting = (project as any).toneSetting ?? undefined;
-
-    // 5. AI 호출 (streaming) + 6. 차감 + 7. 요약 — 모두 ReadableStream 안에서
+    // 4. AI 호출 (streaming) — ReadableStream 안에서 lib 호출
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const send = (obj: any) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
-        // RAG 실패 경고 — 자료 있었는데 검색 실패한 경우 사용자에게 알림
-        if (ragFailed && ragHadReferences) {
-          send({ type: "warning", code: "RAG_FAILED", message: "자료 검색이 실패해 일반 본문이 생성됩니다. 잠시 후 다시 시도하면 자료가 반영됩니다." });
-        }
-        let fullText = "";
-        let bodyUsage: any = null;
-        let actualModel: AIModel = candidates[0];
+
         try {
-          const gen = callStreamWithFallback({
-            candidates,
-            system: SYSTEM_WRITER,
-            user: chapterPrompt(project, chapterIdx, ch.title, ch.subtitle, chapterChunks, toneSetting),
-            timeoutMs: 55000,
+          const result = await generateChapter({
+            projectId,
+            userId,
+            chapterIdx,
+            explicitModel,
+            onChunk: (text) => send({ type: "chunk", text }),
           });
-          for await (const evt of gen) {
-            if (evt.model) actualModel = evt.model;
-            if (evt.type === "chunk") {
-              fullText += evt.text;
-              send({ type: "chunk", text: evt.text });
-            } else if (evt.type === "done") {
-              bodyUsage = evt.usage;
-            }
+
+          if (result.ragFailed && result.ragHadReferences) {
+            send({
+              type: "warning",
+              code: "RAG_FAILED",
+              message: "자료 검색이 실패해 일반 본문이 생성됐습니다. 잠시 후 다시 시도하면 자료가 반영됩니다.",
+            });
           }
-        } catch (e: any) {
-          // 본문 호출 실패 — failed 로그 + error chunk + close
-          await logAIUsage({
-            userId, task: "chapter", model: actualModel,
-            inputTokens: 0, outputTokens: 0, thoughtsTokens: 0,
-            cacheReadTokens: 0, cacheWriteTokens: 0,
-            costUSD: 0, costKRW: 0, durationMs: 0,
-            projectId, chapterIdx,
-            status: "failed", errorMessage: e?.message?.slice(0, 500),
-          }).catch(() => {});
-          send({ type: "error", message: e?.message || "AI 호출 실패" });
-          controller.close();
-          return;
-        }
 
-        if (!bodyUsage) {
-          send({ type: "error", message: "Gemini stream이 usage 없이 끝남" });
-          controller.close();
-          return;
-        }
-
-        // 6. 비용 차감 + 로그 — 새 가격 정책: 본문 1챕터 ₩300 고정 (raw API cost는 cost_usd로만 기록)
-        const costKRW = FIXED_COST_PER_CHAPTER_KRW;
-        const { id: usageId } = await logAIUsage({
-          userId, task: "chapter", model: actualModel,
-          inputTokens: bodyUsage.inputTokens,
-          outputTokens: bodyUsage.outputTokens,
-          thoughtsTokens: bodyUsage.thoughtsTokens,
-          cacheReadTokens: 0, cacheWriteTokens: 0,
-          costUSD: bodyUsage.costUSD,
-          costKRW,
-          durationMs: bodyUsage.durationMs,
-          projectId, chapterIdx,
-          status: "success",
-        });
-
-        let newBalance = user.balance_krw;
-        const r = await deductBalance({
-          userId, amountKRW: costKRW, aiUsageId: usageId,
-          reason: `${chapterIdx + 1}장 집필 (${actualModel})`,
-        });
-        newBalance = r.newBalance;
-
-        // 7. 요약 (동기, 실패해도 본문엔 영향 X) — fallback chain 적용
-        // Gemini Flash → Flash Lite → 2.5 Flash Lite 순차 시도. 한 vendor 다운되어도 다음 시도.
-        // 본문이 너무 길면 (8000자 초과) 앞 6000자만 prompt에 — token·timeout 안전 마진.
-        let summary = "";
-        let summaryCostKRW = 0;
-        let summaryNewBalance = newBalance;
-        const summaryCandidates: AIModel[] = [
-          "gemini-flash-latest",
-          "gemini-flash-lite-latest",
-          "gemini-2.5-flash-lite",
-        ];
-        const truncatedText = fullText.length > 8000 ? fullText.slice(0, 6000) + "\n\n[...본문 일부 생략...]" : fullText;
-        try {
-          const sumResult = await callAIServerWithFallback({
-            candidates: summaryCandidates,
-            system: "당신은 책 챕터를 200~300자로 압축하는 요약가입니다.",
-            user: summaryPrompt(ch.title, truncatedText),
-            maxTokens: 512,
-            temperature: 0.3,
-            timeoutMs: 30000,
-            retries: 2,
+          send({
+            type: "done",
+            text: result.fullText,
+            summary: result.summary,
+            usage: { costKRW: result.costKRW },
+            summaryCostKRW: 0,
+            newBalance: result.newBalance,
           });
-          summary = sumResult.text.trim();
-          // 새 가격 정책: 챕터 ₩300에 요약 포함. 추가 차감 X. raw API cost는 cost_usd로만 기록.
-          summaryCostKRW = 0;
-          await logAIUsage({
-            userId, task: "summary", model: sumResult.actualModel,
-            inputTokens: sumResult.usage.inputTokens,
-            outputTokens: sumResult.usage.outputTokens,
-            thoughtsTokens: sumResult.usage.thoughtsTokens,
-            cacheReadTokens: sumResult.usage.cacheReadTokens,
-            cacheWriteTokens: sumResult.usage.cacheWriteTokens,
-            costUSD: sumResult.usage.costUSD,
-            costKRW: 0,
-            durationMs: sumResult.usage.durationMs,
-            projectId, chapterIdx,
-            status: "success",
-          });
+          controller.close();
         } catch (e: any) {
-          await logAIUsage({
-            userId, task: "summary", model: "gemini-flash-latest",
-            inputTokens: 0, outputTokens: 0, thoughtsTokens: 0,
-            cacheReadTokens: 0, cacheWriteTokens: 0,
-            costUSD: 0, costKRW: 0, durationMs: 0,
-            projectId, chapterIdx,
-            status: "failed", errorMessage: e?.message?.slice(0, 500),
-          }).catch(() => {});
+          if (e instanceof InsufficientBalanceError) {
+            send({
+              type: "error",
+              code: "INSUFFICIENT_BALANCE",
+              message: `잔액이 부족합니다. ${e.required.toLocaleString()}원 이상 충전 후 시도하세요.`,
+              required: e.required,
+              current: e.current,
+              shortfall: e.required - e.current,
+              estimate: `본문 1챕터 ₩${FIXED_COST_PER_CHAPTER_KRW.toLocaleString()}`,
+            });
+          } else if (e instanceof ProjectNotFoundError) {
+            send({ type: "error", code: "PROJECT_NOT_FOUND", message: "프로젝트를 찾을 수 없습니다." });
+          } else if (e instanceof ChapterNotFoundError) {
+            send({ type: "error", code: "CHAPTER_NOT_FOUND", message: "챕터를 찾을 수 없습니다." });
+          } else {
+            send({ type: "error", message: e?.message ?? "AI 호출 실패" });
+          }
+          controller.close();
         }
-
-        // 8. 프로젝트 업데이트
-        const updatedChapters = [...project.chapters];
-        updatedChapters[chapterIdx] = { ...ch, content: fullText, summary };
-        await updateProjectData(projectId, userId, { ...project, chapters: updatedChapters });
-
-        // 9. done 이벤트 (metadata)
-        send({
-          type: "done",
-          text: fullText,
-          summary,
-          usage: { ...bodyUsage, costKRW },
-          summaryCostKRW,
-          newBalance: summaryNewBalance,
-        });
-        controller.close();
       },
     });
 
@@ -264,6 +176,7 @@ export async function POST(req: Request) {
   } catch (e: any) {
     // 마지막 안전망 — try 밖 throw 되어 "An error occurred"가 사용자에게 가는 상황 방지
     console.error("[/api/generate/chapter] uncaught:", e);
+    void logAIUsage; // tsc dead-code elim 방지 (logAIUsage는 lib generate-chapter 내부에서 호출됨)
     return NextResponse.json({
       error: "INTERNAL_ERROR",
       message: e?.message || String(e),
