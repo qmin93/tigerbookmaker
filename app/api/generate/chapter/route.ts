@@ -22,6 +22,7 @@ import {
   enqueueBookGeneration,
   ActiveJobExistsError,
 } from "@/lib/server/book-generation-queue";
+import { triggerBookGenerationWorker } from "@/lib/server/trigger-book-generation-worker";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // Vercel Hobby 한계 (Pro 업그레이드 시 300으로)
@@ -76,12 +77,14 @@ export async function POST(req: Request) {
           userId,
           totalChapters: chapters.length,
         });
+        // 워커 즉시 self-trigger (cron 의존 제거). fire-and-forget — 응답을 막지 않음.
+        triggerBookGenerationWorker();
         return NextResponse.json({
           ok: true,
           mode: "queue",
           jobId,
           totalChapters: chapters.length,
-          message: "백그라운드 본문 생성 시작. 1분 안에 첫 챕터부터 처리됩니다.",
+          message: "백그라운드 본문 생성 시작. 즉시 첫 챕터부터 처리됩니다.",
         });
       } catch (e: any) {
         if (e instanceof ActiveJobExistsError) {

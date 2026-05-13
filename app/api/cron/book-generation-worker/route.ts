@@ -24,6 +24,7 @@ import {
   ChapterNotFoundError,
 } from "@/lib/server/generate-chapter";
 import { sendBookCompletionEmail } from "@/lib/server/notify-book-completion";
+import { triggerBookGenerationWorker } from "@/lib/server/trigger-book-generation-worker";
 
 // fire-and-forget: 이메일 실패가 워커 응답을 막지 않게 await 없이 호출.
 // 에러는 sendBookCompletionEmail 내부에서 catch + log됨.
@@ -117,6 +118,7 @@ export async function GET(req: Request) {
           status: "queued", // 다음 worker tick이 claim할 수 있도록
         });
         result.finalStatus = "queued_continue";
+        triggerBookGenerationWorker(); // self-chain — 다음 tick 즉시 시작
         return NextResponse.json(result);
       }
 
@@ -199,6 +201,7 @@ export async function GET(req: Request) {
         currentChapterIdx: finalProgress?.pendingIdxs[0] ?? job.current_chapter_idx + result.processedChapters,
       });
       result.finalStatus = "queued_continue";
+      triggerBookGenerationWorker(); // self-chain — 다음 tick 즉시 시작
     }
     return NextResponse.json(result);
   } catch (e: any) {
