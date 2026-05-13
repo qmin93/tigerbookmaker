@@ -3,6 +3,8 @@ import { Header } from "@/components/Header";
 import { RoiSimulator } from "@/components/RoiSimulator";
 import { FAQ } from "@/components/FAQ";
 import { TrustBar } from "@/components/ui/TrustBar";
+import { ChatGPTCompare } from "@/components/home/ChatGPTCompare";
+import { Infographic } from "@/components/home/Infographic";
 import { SAMPLE_BOOKS } from "@/lib/landing-data";
 import { getLandingStats } from "@/lib/server/db";
 
@@ -216,6 +218,14 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <div className="border-t border-gray-200" />
+
+      {/* ChatGPT 비교표 — 차별화 시각화 */}
+      <ChatGPTCompare />
+
+      {/* 인포그래픽 — 30분 vs 5시간 + 핵심 4 통계 */}
+      <Infographic />
 
       <div className="border-t border-gray-200" />
 
