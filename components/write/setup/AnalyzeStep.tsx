@@ -431,7 +431,7 @@ export function AnalyzeStep({
 
       {/* AI 자료 분석 */}
       {references.length > 0 && (
-        <div className="p-5 bg-yellow-50/50 border border-tiger-orange/40 rounded-xl">
+        <div data-micro-step="1" data-micro-label="AI 요약 확인" className="p-5 bg-yellow-50/50 border border-tiger-orange/40 rounded-xl">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-ink-900">🤖 AI 자료 분석</h3>
             {referencesSummary && (

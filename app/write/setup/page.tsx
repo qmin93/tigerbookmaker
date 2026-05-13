@@ -9,6 +9,7 @@ import { AnalyzeStep, type ReferencesSummaryView } from "@/components/write/setu
 import { InterviewStep } from "@/components/write/setup/InterviewStep";
 import { StyleStep } from "@/components/write/setup/StyleStep";
 import { TocStep } from "@/components/write/setup/TocStep";
+import { MicroModeWrapper } from "@/components/write/setup/MicroModeWrapper";
 import { AutoSaveIndicator } from "@/components/write/AutoSaveIndicator";
 import { CompletionFeed } from "@/components/write/CompletionFeed";
 import { loadAutoSaved, loadAutoSavedAt } from "@/lib/auto-save";
@@ -290,56 +291,64 @@ function Inner() {
         </div>
 
         {currentStep === "analyze" && projectId && (
-          <AnalyzeStep
-            projectId={projectId}
-            referencesSummary={referencesSummary}
-            onSummaryChange={setReferencesSummary}
-            onBalanceChange={setBalance}
-            onError={setError}
-            onAdvance={() => goToStep("interview")}
-            onAutoSaveState={setAutoSaveState}
-            initialDraft={restoredDrafts.analyze}
-          />
+          <MicroModeWrapper substep="analyze">
+            <AnalyzeStep
+              projectId={projectId}
+              referencesSummary={referencesSummary}
+              onSummaryChange={setReferencesSummary}
+              onBalanceChange={setBalance}
+              onError={setError}
+              onAdvance={() => goToStep("interview")}
+              onAutoSaveState={setAutoSaveState}
+              initialDraft={restoredDrafts.analyze}
+            />
+          </MicroModeWrapper>
         )}
 
         {currentStep === "interview" && projectId && (
-          <InterviewStep
-            projectId={projectId}
-            onBalanceChange={setBalance}
-            onError={setError}
-            onComplete={() => {
-              // Refresh project so interview.completedAt is reflected in completedSteps
-              fetch(`/api/projects/${projectId}`)
-                .then(r => (r.ok ? r.json() : null))
-                .then(p => p && setProject(p))
-                .catch(() => {});
-              goToStep("style");
-            }}
-            onAutoSaveState={setAutoSaveState}
-            initialHistory={restoredDrafts.interview?.history}
-          />
+          <MicroModeWrapper substep="interview">
+            <InterviewStep
+              projectId={projectId}
+              onBalanceChange={setBalance}
+              onError={setError}
+              onComplete={() => {
+                // Refresh project so interview.completedAt is reflected in completedSteps
+                fetch(`/api/projects/${projectId}`)
+                  .then(r => (r.ok ? r.json() : null))
+                  .then(p => p && setProject(p))
+                  .catch(() => {});
+                goToStep("style");
+              }}
+              onAutoSaveState={setAutoSaveState}
+              initialHistory={restoredDrafts.interview?.history}
+            />
+          </MicroModeWrapper>
         )}
 
         {currentStep === "style" && projectId && (
-          <StyleStep
-            projectId={projectId}
-            bookType={project.type}
-            themeColor={themeColor}
-            toneSetting={toneSetting}
-            coverLayoutKey={coverLayoutKey}
-            onThemeColorChange={setThemeColor}
-            onToneSettingChange={setToneSetting}
-            onCoverLayoutChange={setCoverLayoutKey}
-            onBalanceChange={setBalance}
-            onError={setError}
-            onAdvance={() => goToStep("toc")}
-            onAutoSaveState={setAutoSaveState}
-            initialToneExcerpt={restoredDrafts.style?.toneExcerpt}
-          />
+          <MicroModeWrapper substep="style">
+            <StyleStep
+              projectId={projectId}
+              bookType={project.type}
+              themeColor={themeColor}
+              toneSetting={toneSetting}
+              coverLayoutKey={coverLayoutKey}
+              onThemeColorChange={setThemeColor}
+              onToneSettingChange={setToneSetting}
+              onCoverLayoutChange={setCoverLayoutKey}
+              onBalanceChange={setBalance}
+              onError={setError}
+              onAdvance={() => goToStep("toc")}
+              onAutoSaveState={setAutoSaveState}
+              initialToneExcerpt={restoredDrafts.style?.toneExcerpt}
+            />
+          </MicroModeWrapper>
         )}
 
         {currentStep === "toc" && projectId && (
-          <TocStep projectId={projectId} onAdvance={() => router.push(`/write?id=${projectId}`)} />
+          <MicroModeWrapper substep="toc">
+            <TocStep projectId={projectId} onAdvance={() => router.push(`/write?id=${projectId}`)} />
+          </MicroModeWrapper>
         )}
 
         {error && (

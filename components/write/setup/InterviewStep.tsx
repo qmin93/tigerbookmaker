@@ -191,7 +191,7 @@ export function InterviewStep({
 
   return (
     <section className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div data-hide-in-micro="header" className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-ink-900">2단계 · AI 인터뷰</h2>
           <p className="text-xs text-gray-500 mt-1">
@@ -222,7 +222,7 @@ export function InterviewStep({
       </div>
 
       {history.length > 0 && (
-        <details open className="text-sm">
+        <details data-hide-in-micro="history" open className="text-sm">
           <summary className="cursor-pointer text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange mb-2">
             지금까지 답변 ({history.length}개)
           </summary>
