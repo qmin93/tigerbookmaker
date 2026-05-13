@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
 import type { ThemeColorKey, ToneSetting } from "@/lib/storage";
+import type { LayoutKey } from "@/lib/cover-style-map";
+import { genreFromBookType } from "@/lib/genre-from-book-type";
+import { getTemplate } from "@/lib/cover-templates";
+import { CoverRecommendation } from "@/components/write/CoverRecommendation";
+import { CoverStyleGallery } from "@/components/write/CoverStyleGallery";
 
 interface StyleStepProps {
   projectId: string;
+  bookType: string;
   themeColor: ThemeColorKey;
   toneSetting: ToneSetting | null;
+  coverLayoutKey: LayoutKey | null;
   onThemeColorChange: (k: ThemeColorKey) => void;
   onToneSettingChange: (t: ToneSetting | null) => void;
+  onCoverLayoutChange: (key: LayoutKey | null) => void;
   onBalanceChange: (b: number) => void;
   onError: (msg: string | null) => void;
   onAdvance: () => void;
@@ -17,10 +25,13 @@ interface StyleStepProps {
 
 export function StyleStep({
   projectId,
+  bookType,
   themeColor,
   toneSetting,
+  coverLayoutKey,
   onThemeColorChange,
   onToneSettingChange,
+  onCoverLayoutChange,
   onBalanceChange,
   onError,
   onAdvance,
@@ -28,6 +39,11 @@ export function StyleStep({
   const [toneMode, setToneMode] = useState<"auto" | "preset" | "reference-book">("auto");
   const [toneExcerpt, setToneExcerpt] = useState("");
   const [toneBusy, setToneBusy] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [coverSaving, setCoverSaving] = useState(false);
+
+  const currentGenre = useMemo(() => genreFromBookType(bookType), [bookType]);
+  const selectedTemplate = coverLayoutKey ? getTemplate(coverLayoutKey) : undefined;
 
   const updateThemeColor = async (next: ThemeColorKey) => {
     onThemeColorChange(next);
@@ -64,7 +80,30 @@ export function StyleStep({
     }
   };
 
-  const canAdvance = !!toneSetting;
+  const updateCoverLayoutKey = async (next: LayoutKey) => {
+    // 낙관적 업데이트 — UI 즉시 반영
+    onCoverLayoutChange(next);
+    setCoverSaving(true);
+    onError(null);
+    try {
+      // 기존 project.data 머지를 위해 GET → PUT (InterviewStep 과 같은 패턴)
+      const projRes = await fetch(`/api/projects/${projectId}`);
+      if (!projRes.ok) throw new Error(`프로젝트 로드 실패 (${projRes.status})`);
+      const project = await projRes.json();
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: { ...project, coverLayoutKey: next } }),
+      });
+      if (!res.ok) throw new Error(`표지 톤 저장 실패 (${res.status})`);
+    } catch (e: any) {
+      onError(e.message);
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
+  const canAdvance = !!toneSetting && !!coverLayoutKey;
 
   return (
     <section className="space-y-6">
@@ -190,12 +229,79 @@ export function StyleStep({
         )}
       </div>
 
+      {/* 표지 톤 선택 (Spec PR #3) */}
+      <div className="p-5 bg-orange-50/40 border border-tiger-orange/30 rounded-xl">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-bold text-ink-900">🖼️ 표지 톤 선택</h3>
+          {coverLayoutKey && (
+            <button
+              onClick={() => onCoverLayoutChange(null)}
+              className="text-[10px] text-gray-400 hover:text-red-600"
+            >
+              다시 선택
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-600 mb-3">
+          표지 레이아웃을 선택하세요. 책 장르에 맞는 3가지 톤을 자동 추천합니다.
+        </p>
+
+        {!coverLayoutKey && (
+          <CoverRecommendation
+            genre={currentGenre}
+            selectedKey={coverLayoutKey}
+            onSelect={k => updateCoverLayoutKey(k)}
+            onOpenGallery={() => setGalleryOpen(true)}
+          />
+        )}
+
+        {coverLayoutKey && (
+          <div className="bg-white rounded-lg p-3 border border-tiger-orange/20">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="text-xs font-bold text-ink-900">
+                현재 표지 톤: {selectedTemplate?.label ?? coverLayoutKey}
+                {coverSaving && <span className="ml-2 text-[10px] text-gray-400">저장 중…</span>}
+              </div>
+              <button
+                onClick={() => setGalleryOpen(true)}
+                className="text-[11px] font-bold text-tiger-orange hover:text-orange-700 underline underline-offset-2 whitespace-nowrap"
+              >
+                다른 스타일 보기 →
+              </button>
+            </div>
+            {selectedTemplate ? (
+              <p className="text-[11px] text-gray-600 leading-snug">
+                {selectedTemplate.description}
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-500 italic">
+                이 LayoutKey 는 v1.5 에서 추가될 예정입니다 — 다른 스타일을 골라 주세요.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <CoverStyleGallery
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        onSelect={k => updateCoverLayoutKey(k)}
+        selectedKey={coverLayoutKey}
+        currentGenre={currentGenre}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={onAdvance}
           disabled={!canAdvance}
           className="px-6 py-2.5 bg-tiger-orange text-white rounded-xl font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-50"
-          title={!canAdvance ? "톤을 먼저 결정하세요" : undefined}
+          title={
+            !canAdvance
+              ? !toneSetting
+                ? "톤을 먼저 결정하세요"
+                : "표지 톤을 선택하세요"
+              : undefined
+          }
         >
           다음 단계 →
         </button>
