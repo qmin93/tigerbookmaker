@@ -29,91 +29,38 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Plan cards */}
-      <section className="pb-12">
+      {/* 직장인 부수익러 요약 카드 — "그래서 얼마?" 답을 즉시 */}
+      <section className="pb-8">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-5">
-            {/* Card 1 — 베타 (현재) */}
-            <div className="relative rounded-2xl border-2 border-tiger-orange bg-white p-6 shadow-glow-orange flex flex-col">
-              <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-tiger-orange/10 text-tiger-orange text-xs font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-tiger-orange animate-pulse" />
-                진행 중
+          <div className="rounded-2xl border-2 border-tiger-orange bg-white p-6 md:p-8 shadow-glow-orange">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-1">👤 직장인 부수익러 추천</div>
+                <h2 className="text-2xl md:text-3xl font-black tracking-tight text-ink-900">
+                  베타 ₩0 → 권당 ₩7,400 → 크몽 ₩40,000
+                </h2>
               </div>
-              <h3 className="mt-4 text-xl font-black tracking-tight text-ink-900">베타 (현재)</h3>
-              <div className="mt-3">
-                <div className="text-3xl font-black text-ink-900 tracking-tight">₩0</div>
-                <div className="mt-1 text-sm text-tiger-orange font-bold">+ ₩5,000 무료 크레딧</div>
-              </div>
-              <ul className="mt-6 space-y-2.5 text-sm text-gray-700 flex-1">
-                <Feature>모든 신기능 (RAG · 톤 매칭 · 마케팅)</Feature>
-                <Feature>link-in-bio · Meta 광고 자동 생성</Feature>
-                <Feature>콘텐츠 재가공 (블로그·SNS·뉴스레터)</Feature>
-                <Feature>잔액 7일 내 100% 환불</Feature>
-              </ul>
               <Link
                 href="/login"
-                className="mt-6 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition shrink-0"
               >
-                지금 시작하기 <span>→</span>
+                지금 시작 →
               </Link>
             </div>
-
-            {/* Card 2 — 개인 (예정) */}
-            <div className="relative rounded-2xl border border-gray-200 bg-white p-6 flex flex-col">
-              <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
-                출시 예정
-              </div>
-              <h3 className="mt-4 text-xl font-black tracking-tight text-ink-900">개인</h3>
-              <div className="mt-3">
-                <div className="text-3xl font-black text-ink-900 tracking-tight">
-                  ₩5,000<span className="text-base font-bold text-gray-500">/월</span>
-                </div>
-                <div className="mt-1 text-sm text-gray-500">또는 ₩50,000/년 (2개월 무료)</div>
-              </div>
-              <ul className="mt-6 space-y-2.5 text-sm text-gray-700 flex-1">
-                <Feature>무제한 책</Feature>
-                <Feature>모든 신기능 포함</Feature>
-                <Feature>우선 지원</Feature>
-                <Feature>사용량 분석 대시보드</Feature>
-              </ul>
-              <button
-                disabled
-                className="mt-6 inline-flex items-center justify-center px-5 py-3 rounded-xl bg-gray-100 text-gray-500 font-bold cursor-not-allowed"
-              >
-                베타 사용자는 영구 할인
-              </button>
-            </div>
-
-            {/* Card 3 — 팀 (예정) */}
-            <div className="relative rounded-2xl border border-gray-200 bg-white p-6 flex flex-col">
-              <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
-                출시 예정
-              </div>
-              <h3 className="mt-4 text-xl font-black tracking-tight text-ink-900">팀</h3>
-              <div className="mt-3">
-                <div className="text-3xl font-black text-ink-900 tracking-tight">
-                  ₩30,000<span className="text-base font-bold text-gray-500">/월</span>
-                </div>
-                <div className="mt-1 text-sm text-gray-500">또는 맞춤형</div>
-              </div>
-              <ul className="mt-6 space-y-2.5 text-sm text-gray-700 flex-1">
-                <Feature>5명까지</Feature>
-                <Feature>팀 워크스페이스</Feature>
-                <Feature>공유 자료 (RAG)</Feature>
-                <Feature>API 접근</Feature>
-                <Feature>가격 협의 가능</Feature>
-              </ul>
-              <a
-                href="mailto:qmin93@gmail.com?subject=Tigerbookmaker%20%ED%8C%80%20%ED%94%8C%EB%9E%9C%20%EB%AC%B8%EC%9D%98"
-                className="mt-6 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-gray-300 text-ink-900 font-bold hover:border-ink-900 hover:bg-gray-50 transition"
-              >
-                관심 표시하기
-              </a>
-            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              ₩5,000 무료 크레딧으로 첫 책 시도 → 표준 패키지 ₩7,400 × 5권 (한 달) = 총 ₩37,000
+              → 크몽 평균 ₩40k 판매가 × 5권 = <span className="font-bold text-emerald-600">월 ₩200k 부수익 가능</span>
+            </p>
           </div>
+        </div>
+      </section>
+
+      {/* 권당 비용 시나리오 */}
+      <section className="pb-12">
+        <div className="max-w-4xl mx-auto px-6">
 
           {/* 권당 비용 시나리오 — 새 가격 정책 (Sang-nim 10x 인상, 2026-05) */}
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 md:p-8">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8">
             <h3 className="text-lg md:text-xl font-black tracking-tight text-ink-900 mb-1">
               권당 비용 시나리오
             </h3>
@@ -144,16 +91,21 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* 기능별 가격 상세 표 */}
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 md:p-8">
-            <h3 className="text-lg md:text-xl font-black tracking-tight text-ink-900 mb-1">
-              📋 기능별 가격 상세 (충전식)
-            </h3>
-            <p className="text-sm text-gray-600 mb-5">
-              사용한 기능만큼만 잔액에서 차감. 안 쓰면 비용 0원. 필요할 때 ₩10,000 / ₩30,000 / ₩50,000 단위로 충전.
-            </p>
+          {/* 기능별 가격 상세 표 — 접힘 (직장인은 시나리오 카드로 충분) */}
+          <details className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 md:p-8 group">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg md:text-xl font-black tracking-tight text-ink-900 mb-1">
+                  📋 기능별 가격 상세 (충전식)
+                </h3>
+                <p className="text-sm text-gray-600">
+                  필요한 기능만 골라 쓰는 충전식. 자세히 보기 ↓
+                </p>
+              </div>
+              <span className="text-tiger-orange text-2xl font-mono transition-transform group-open:rotate-45 shrink-0">+</span>
+            </summary>
 
-            <div className="space-y-6">
+            <div className="space-y-6 mt-6">
               {/* 필수 기능 */}
               <div>
                 <div className="text-xs font-mono uppercase tracking-wider text-tiger-orange font-bold mb-3">📝 책 본문 (필수)</div>
@@ -212,7 +164,7 @@ export default function PricingPage() {
                 <div className="text-sm text-ink-900">크몽 1권 ₩5,000 판매 × 5권 = <span className="font-bold">표준 패키지 본전 + ₩4,200 흑자</span></div>
               </div>
             </div>
-          </div>
+          </details>
 
           {/* 베타 사용자 혜택 박스 */}
           <div className="mt-8 rounded-2xl border border-tiger-orange/30 bg-orange-50/60 p-6 md:p-8">
