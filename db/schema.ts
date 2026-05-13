@@ -19,6 +19,11 @@ export const users = pgTable("users", {
   signupBonusGiven: boolean("signup_bonus_given").notNull().default(false),
   // v3 Phase 3.3 — 첫 책 완성 보너스 (1회 한정 ₩5,000). migration 0015.
   firstBookBonusGiven: boolean("first_book_bonus_given").notNull().default(false),
+  // v3 Phase 4.4 — 텔레그램 봇 알림 연동 (베타). migration 0016.
+  // 사용자가 봇과 /link <token> 으로 연결 → telegram_chat_id 채워짐.
+  telegramChatId: text("telegram_chat_id"),
+  telegramLinkedAt: timestamp("telegram_linked_at", { withTimezone: true }),
+  telegramLinkToken: text("telegram_link_token"),
   passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

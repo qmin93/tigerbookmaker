@@ -82,6 +82,82 @@ export default function ProfileEditPage() {
   const [analyticsData, setAnalyticsData] = useState<Array<{ date: string; bookViews: number; profileViews: number }> | null>(null);
   const [analyticsBusy, setAnalyticsBusy] = useState(false);
 
+  // 🤖 텔레그램 알림 연결
+  const [telegramLinked, setTelegramLinked] = useState<boolean>(false);
+  const [telegramLinkedAt, setTelegramLinkedAt] = useState<string | null>(null);
+  const [telegramBotUsername, setTelegramBotUsername] = useState<string>("tigerbookmaker_bot");
+  const [telegramToken, setTelegramToken] = useState<string | null>(null);
+  const [telegramBotUrl, setTelegramBotUrl] = useState<string | null>(null);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
+  const [telegramTokenCopied, setTelegramTokenCopied] = useState(false);
+
+  const loadTelegramStatus = async () => {
+    try {
+      const res = await fetch("/api/profile/telegram/link");
+      if (!res.ok) return;
+      const data = await res.json();
+      setTelegramLinked(!!data.linked);
+      setTelegramLinkedAt(data.linkedAt ?? null);
+      if (data.botUsername) setTelegramBotUsername(data.botUsername);
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadTelegramStatus();
+  }, []);
+
+  const startTelegramLink = async () => {
+    setTelegramBusy(true);
+    setTelegramError(null);
+    try {
+      const res = await fetch("/api/profile/telegram/link", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || `토큰 발급 실패 (${res.status})`);
+      setTelegramToken(data.token);
+      setTelegramBotUrl(data.botUrl ?? null);
+      if (data.botUsername) setTelegramBotUsername(data.botUsername);
+    } catch (e: any) {
+      setTelegramError(e.message ?? "토큰 발급 실패");
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  const unlinkTelegram = async () => {
+    if (!confirm("텔레그램 연결을 해제하시겠어요? 책 완성 알림 DM이 더 이상 발송되지 않습니다.")) return;
+    setTelegramBusy(true);
+    setTelegramError(null);
+    try {
+      const res = await fetch("/api/profile/telegram/link", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || data.error || `연결 해제 실패 (${res.status})`);
+      }
+      setTelegramLinked(false);
+      setTelegramLinkedAt(null);
+      setTelegramToken(null);
+      setTelegramBotUrl(null);
+    } catch (e: any) {
+      setTelegramError(e.message ?? "연결 해제 실패");
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  const copyTelegramCommand = async () => {
+    if (!telegramToken) return;
+    try {
+      await navigator.clipboard.writeText(`/link ${telegramToken}`);
+      setTelegramTokenCopied(true);
+      setTimeout(() => setTelegramTokenCopied(false), 2000);
+    } catch {}
+  };
+
+  const checkTelegramAgain = async () => {
+    await loadTelegramStatus();
+  };
+
   // 📧 구독자 알림 발송 modal
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [notifyBooks, setNotifyBooks] = useState<Array<{ id: string; topic: string }>>([]);
@@ -443,6 +519,104 @@ export default function ProfileEditPage() {
                 </div>
               </div>
             )}
+
+            {/* 🤖 텔레그램 알림 연결 (v3 Phase 4.4 베타) */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                <div>
+                  <div className="text-base font-bold text-ink-900">🤖 텔레그램 알림 연결</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    책 완성 시 이메일과 함께 <strong>텔레그램 DM</strong>으로도 알려드립니다 (베타).
+                  </div>
+                </div>
+                {telegramLinked && (
+                  <span className="text-xs font-mono uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">
+                    ✓ 연결됨
+                  </span>
+                )}
+              </div>
+
+              {telegramError && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">{telegramError}</div>
+              )}
+
+              {telegramLinked ? (
+                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-xs text-gray-600">
+                    {telegramLinkedAt && (
+                      <>연결 시각: {new Date(telegramLinkedAt).toLocaleString("ko-KR")}</>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={unlinkTelegram}
+                    disabled={telegramBusy}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-md hover:bg-gray-200 transition disabled:opacity-40"
+                  >
+                    {telegramBusy ? "처리 중..." : "연결 해제"}
+                  </button>
+                </div>
+              ) : telegramToken ? (
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                  <div className="text-xs text-gray-700 leading-relaxed">
+                    <div className="font-bold text-ink-900 mb-2">📲 다음 3단계로 연결을 완료하세요</div>
+                    <ol className="space-y-2 list-decimal list-inside">
+                      <li>
+                        텔레그램에서{" "}
+                        <a
+                          href={telegramBotUrl ?? `https://t.me/${telegramBotUsername}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-tiger-orange font-mono font-bold hover:underline"
+                        >
+                          @{telegramBotUsername}
+                        </a>{" "}
+                        봇 열기
+                      </li>
+                      <li>
+                        아래 명령어를 그대로 복사해 봇에 보내기
+                        <div className="mt-2 flex items-center gap-2 flex-wrap bg-gray-50 border border-gray-200 rounded-lg p-2">
+                          <code className="font-mono text-xs text-ink-900 break-all flex-1 min-w-0">
+                            /link {telegramToken}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={copyTelegramCommand}
+                            className="px-3 py-1.5 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition whitespace-nowrap"
+                          >
+                            {telegramTokenCopied ? "✓ 복사됨" : "복사"}
+                          </button>
+                        </div>
+                      </li>
+                      <li>
+                        봇이 "연결 완료" 메시지를 보내면 끝.{" "}
+                        <button
+                          type="button"
+                          onClick={checkTelegramAgain}
+                          className="text-tiger-orange font-bold hover:underline"
+                        >
+                          상태 새로고침
+                        </button>
+                      </li>
+                    </ol>
+                  </div>
+                  <div className="text-[11px] text-gray-500 leading-relaxed">
+                    💡 이 코드는 1회용입니다. 연결 후 다시 사용할 수 없어요.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={startTelegramLink}
+                    disabled={telegramBusy}
+                    className="px-3 py-2 bg-tiger-orange text-white text-xs font-bold rounded-md hover:bg-orange-600 transition disabled:opacity-40"
+                  >
+                    {telegramBusy ? "코드 발급 중..." : "🤖 텔레그램 연결하기"}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* 📧 구독자 알림 발송 */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
