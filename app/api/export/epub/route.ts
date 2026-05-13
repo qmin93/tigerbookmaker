@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { getProject } from "@/lib/server/db";
 import { getTemplate } from "@/lib/templates";
 import { parseMultimedia, multimediaTokenToEpubHtml } from "@/lib/templates/_multimedia";
+import { awardFirstBookBonusIfEligible } from "@/lib/server/first-book-bonus";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -127,6 +128,14 @@ export async function GET(req: Request) {
     if (!projectId) return new Response("INVALID_INPUT", { status: 400 });
 
     const { buf, filename } = await buildEpubBuffer(projectId, session.user.id);
+
+    // v3 Phase 3.3 — 첫 책 완성 보너스 자동 지급 (실패해도 export는 계속)
+    try {
+      await awardFirstBookBonusIfEligible(session.user.id, projectId);
+    } catch (e) {
+      console.error("[first-book-bonus] award failed (GET epub)", e);
+    }
+
     // RFC 5987 — 한국어 파일명 안전 인코딩
     const encoded = encodeURIComponent(filename);
     return new Response(new Uint8Array(buf), {
@@ -202,10 +211,23 @@ export async function POST(req: Request) {
     const buf: Buffer = await epubFn(options, chapters);
     const base64 = buf.toString("base64");
 
+    // v3 Phase 3.3 — 첫 책 완성 보너스 자동 지급 (실패해도 export는 계속)
+    let bonusAwarded = false;
+    let newBalance: number | undefined;
+    try {
+      const result = await awardFirstBookBonusIfEligible(userId, projectId);
+      bonusAwarded = result.awarded;
+      newBalance = result.newBalance;
+    } catch (e) {
+      console.error("[first-book-bonus] award failed (POST epub)", e);
+    }
+
     return NextResponse.json({
       ok: true,
       base64,
       filename: `${project.topic.slice(0, 50).replace(/[^\w가-힣\s]/g, "")}.epub`,
+      // v3 Phase 3.3 — UI가 축하 모달 띄울 수 있도록 응답에 포함
+      firstBookBonus: bonusAwarded ? { amountKrw: 5000, newBalance } : null,
     });
   } catch (e: any) {
     console.error("[/api/export/epub] uncaught:", e);

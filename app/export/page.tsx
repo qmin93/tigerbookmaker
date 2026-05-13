@@ -5,6 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import type { BookProject } from "@/lib/storage";
 import { calculateProgress, generateBundle } from "@/lib/export-bundle";
 
+interface BonusAward {
+  amountKrw: number;
+  newBalance: number;
+}
+
 function Inner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -13,6 +18,28 @@ function Inner() {
   const [busy, setBusy] = useState<string>("");
   const [bundleStatus, setBundleStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  // v3 Phase 3.3 — 첫 책 완성 보너스 (₩5,000) 축하 모달 트리거
+  const [bonus, setBonus] = useState<BonusAward | null>(null);
+
+  // 모든 export 성공 후 호출. PDF/DOCX/Bundle 등 클라이언트 export에 공통 사용.
+  // EPUB은 서버에서 자체 호출하므로 중복 호출돼도 멱등 (already_given).
+  const tryAwardBonus = async () => {
+    if (!projectId || bonus) return; // 이미 받은 경우 skip
+    try {
+      const r = await fetch("/api/export/award-bonus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.awarded) {
+        setBonus({ amountKrw: 5000, newBalance: d.newBalance });
+      }
+    } catch {
+      // swallow — 보너스 실패가 export 흐름을 막으면 안 됨
+    }
+  };
 
   useEffect(() => {
     if (!projectId) {
@@ -64,6 +91,7 @@ function Inner() {
     try {
       const { generateDocx } = await import("@/lib/export-docx");
       await generateDocx(project);
+      await tryAwardBonus();
     } catch (e: any) { setError(e.message); }
     setBusy("");
   };
@@ -72,6 +100,7 @@ function Inner() {
     try {
       const { generatePdf } = await import("@/lib/export-pdf");
       await generatePdf(project);
+      await tryAwardBonus();
     } catch (e: any) { setError(e.message); }
     setBusy("");
   };
@@ -80,6 +109,8 @@ function Inner() {
     try {
       const { generateEpub } = await import("@/lib/export-epub");
       await generateEpub(project);
+      // EPUB은 서버에서 award 호출하지만 클라이언트 모달 트리거를 위해 별도 polling
+      await tryAwardBonus();
     } catch (e: any) { setError(e.message); }
     setBusy("");
   };
@@ -92,6 +123,7 @@ function Inner() {
         setBundleStatus(`${p.label} (${p.current}/${p.total})`);
       });
       setBundleStatus("완료 — 다운로드 시작됨");
+      await tryAwardBonus();
       setTimeout(() => setBundleStatus(""), 3000);
     } catch (e: any) {
       setError(`통합 ZIP 생성 실패: ${e.message}`);
@@ -102,6 +134,57 @@ function Inner() {
 
   return (
     <main className="min-h-screen bg-[#fafafa]">
+    {/* v3 Phase 3.3 — 첫 책 완성 보너스 축하 모달 */}
+    {bonus && (
+      <div
+        className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4"
+        onClick={() => setBonus(null)}
+      >
+        <div
+          className="bg-white rounded-2xl max-w-md w-full p-7 md:p-9 shadow-2xl text-center"
+          onClick={e => e.stopPropagation()}
+          role="dialog"
+          aria-label="첫 책 완성 보너스"
+        >
+          <div className="text-6xl mb-3">🎉</div>
+          <h2 className="text-2xl font-black tracking-tight text-ink-900 mb-2">
+            첫 책 완성!
+          </h2>
+          <p className="text-gray-700 mb-4">
+            진짜 책 한 권 끝냈어요. 직장인 부수익러로 한 걸음 더 가까워졌습니다.
+          </p>
+          <div className="rounded-xl bg-orange-50 border-2 border-tiger-orange/40 px-4 py-3 mb-5">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-1">
+              완성 보너스 자동 충전
+            </div>
+            <div className="text-2xl font-black text-ink-900">
+              ₩{bonus.amountKrw.toLocaleString()}
+            </div>
+            <div className="text-xs text-gray-600 mt-1">
+              현재 잔액: <span className="font-mono font-bold">₩{bonus.newBalance.toLocaleString()}</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mb-5">
+            다음 책 만들 때 자동 차감됩니다. 1회 한정.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBonus(null)}
+              className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50"
+            >
+              닫기
+            </button>
+            <Link
+              href="/new"
+              className="flex-1 py-2.5 bg-tiger-orange text-white rounded-lg text-sm font-bold hover:bg-orange-600 flex items-center justify-center"
+            >
+              두 번째 책 시작 →
+            </Link>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="max-w-2xl mx-auto px-6 py-12 md:py-16">
       <Link href={`/write?id=${projectId}`} className="text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 집필로</Link>
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">내보내기</p>
