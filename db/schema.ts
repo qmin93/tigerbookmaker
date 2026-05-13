@@ -173,3 +173,20 @@ export const referenceChunks = pgTable("reference_chunks", {
   // embedding vector(768) — Drizzle 직접 type 없음. 필요 시 raw SQL 사용
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── 백그라운드 본문 생성 큐 (v3 Phase 1.3 — 2026-05-13) ───
+// 사용자가 본문 생성 클릭 → 큐에 적재 → /api/cron/book-generation-worker 가 1분 간격으로 처리.
+// status는 SQL CHECK 제약으로 강제 ('queued' | 'processing' | 'completed' | 'failed' | 'cancelled').
+// 동시 1 사용자 1 작업 (lib enqueue 함수에서 거부).
+export const bookGenerationJobs = pgTable("book_generation_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => bookProjects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("queued"),
+  currentChapterIdx: integer("current_chapter_idx").notNull().default(0),
+  totalChapters: integer("total_chapters").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
