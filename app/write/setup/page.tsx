@@ -10,6 +10,7 @@ import { InterviewStep } from "@/components/write/setup/InterviewStep";
 import { StyleStep } from "@/components/write/setup/StyleStep";
 import { TocStep } from "@/components/write/setup/TocStep";
 import type { ThemeColorKey, ToneSetting } from "@/lib/storage";
+import type { LayoutKey } from "@/lib/cover-style-map";
 
 const VALID_STEPS: SetupStepKey[] = ["analyze", "interview", "style", "toc"];
 
@@ -29,6 +30,7 @@ function Inner() {
   const [referencesSummary, setReferencesSummary] = useState<ReferencesSummaryView | null>(null);
   const [toneSetting, setToneSetting] = useState<ToneSetting | null>(null);
   const [themeColor, setThemeColor] = useState<ThemeColorKey>("orange");
+  const [coverLayoutKey, setCoverLayoutKey] = useState<LayoutKey | null>(null);
   const [refCount, setRefCount] = useState<number | null>(null);
 
   // ──── Project load ────
@@ -52,6 +54,7 @@ function Inner() {
         if (p.referencesSummary) setReferencesSummary(p.referencesSummary);
         if (p.toneSetting) setToneSetting(p.toneSetting);
         if (p.themeColor) setThemeColor(p.themeColor);
+        if (p.coverLayoutKey) setCoverLayoutKey(p.coverLayoutKey as LayoutKey);
       })
       .catch(e => setError(e.message));
   }, [projectId, router]);
@@ -83,13 +86,15 @@ function Inner() {
     if (!project) return null;
     const hasInterview = !!project.interview?.completedAt;
     const hasTone = !!toneSetting;
-    if (hasInterview && hasTone) return "toc";
-    if (hasInterview && !hasTone) return "style";
+    const hasCover = !!coverLayoutKey;
+    // style 단계는 tone + coverLayoutKey 둘 다 있어야 완료 (Spec PR #3)
+    if (hasInterview && hasTone && hasCover) return "toc";
+    if (hasInterview && (!hasTone || !hasCover)) return "style";
     // Interview not done
     if ((refCount ?? 0) === 0) return "analyze";
     if (referencesSummary) return "interview";
     return "analyze";
-  }, [project, refCount, referencesSummary, toneSetting]);
+  }, [project, refCount, referencesSummary, toneSetting, coverLayoutKey]);
 
   const currentStep: SetupStepKey | null = isValidStep(stepParam) ? stepParam : defaultStep;
 
@@ -115,9 +120,9 @@ function Inner() {
     const done: SetupStepKey[] = [];
     if (refCount === 0 || referencesSummary) done.push("analyze");
     if (project?.interview?.completedAt) done.push("interview");
-    if (toneSetting) done.push("style");
+    if (toneSetting && coverLayoutKey) done.push("style");
     return done;
-  }, [refCount, referencesSummary, project, toneSetting]);
+  }, [refCount, referencesSummary, project, toneSetting, coverLayoutKey]);
 
   if (!project) {
     return (
@@ -193,10 +198,13 @@ function Inner() {
         {currentStep === "style" && projectId && (
           <StyleStep
             projectId={projectId}
+            bookType={project.type}
             themeColor={themeColor}
             toneSetting={toneSetting}
+            coverLayoutKey={coverLayoutKey}
             onThemeColorChange={setThemeColor}
             onToneSettingChange={setToneSetting}
+            onCoverLayoutChange={setCoverLayoutKey}
             onBalanceChange={setBalance}
             onError={setError}
             onAdvance={() => goToStep("toc")}

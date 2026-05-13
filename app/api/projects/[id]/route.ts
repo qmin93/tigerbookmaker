@@ -54,6 +54,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     courseSlides: p.data?.courseSlides,           // 강의 슬라이드
     translations: p.data?.translations,           // 영/일 번역
     toneSetting: p.data?.toneSetting,
+    coverLayoutKey: p.data?.coverLayoutKey,  // Spec PR #3: 표지 톤 선택
     referencesSummary: p.data?.referencesSummary,
     seriesMembership: p.data?.seriesMembership,
     createdAt: p.created_at,
