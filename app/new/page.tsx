@@ -136,8 +136,10 @@ export default function NewProjectPage() {
           />
         </Field>
         <Field label="책 유형">
+          {/* 직장인 부수익러 메인 6 카테고리만 노출. 나머지(전문서/요리책/여행기/매거진/인터뷰집/포트폴리오/강의노트/동화)는
+              실제 사용 누적되면 단계적 추가 — 첫 책 만드는 사람 결정 부담 ↓ */}
           <div className="flex gap-2 flex-wrap">
-            {(["자기계발서", "실용서", "에세이", "매뉴얼", "재테크", "웹소설", "전문서", "요리책", "여행기", "매거진", "인터뷰집", "포트폴리오", "강의노트", "동화"] as const).map(t => (
+            {(["실용서", "자기계발서", "재테크", "에세이", "매뉴얼", "웹소설"] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setType(t)}
@@ -165,9 +167,12 @@ export default function NewProjectPage() {
 
         <div>
           <label className="block text-xs font-mono uppercase tracking-wider text-gray-600 mb-2">테마 색상</label>
+          {/* 12 preset → 6 featured. 첫 책 만드는 사람 결정 부담 ↓.
+              나머지 6색은 색상 picker로 직접 입력 가능 (가장 가까운 preset에 자동 매핑). */}
           <div className="grid grid-cols-6 gap-2">
-            {(Object.keys(THEME_COLOR_PRESETS) as ThemeColorKey[]).map(key => {
+            {(["orange", "blue", "emerald", "violet", "red", "amber"] as ThemeColorKey[]).map(key => {
               const t = THEME_COLOR_PRESETS[key];
+              if (!t) return null;
               const selected = themeColor === key;
               return (
                 <button
@@ -223,6 +228,21 @@ export default function NewProjectPage() {
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
         )}
+
+        {/* 라이브 비용 미리보기 — 결제 직전 마찰 ↓ */}
+        <div className="rounded-xl bg-orange-50 border border-tiger-orange/30 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-tiger-orange font-bold mb-0.5">예상 비용</div>
+            <div className="text-sm text-ink-900">
+              <span className="font-mono font-bold">₩4,000~</span>
+              <span className="text-gray-500 ml-1.5">라이트 시나리오 (본문 + 표지)</span>
+            </div>
+          </div>
+          <div className="text-right text-xs">
+            <div className="text-tiger-orange font-bold">₩5,000 무료 크레딧</div>
+            <div className="text-gray-500">첫 책 무료</div>
+          </div>
+        </div>
 
         <button
           onClick={create}
