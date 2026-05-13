@@ -43,6 +43,31 @@ export default function PublishPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ platform: Platform; message: string; delegate?: string; guide?: any } | null>(null);
 
+  // Meta 광고 이미지 — 3비율 (feed/story/link) 자동 생성
+  const [metaBusy, setMetaBusy] = useState(false);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [metaImages, setMetaImages] = useState<Array<{ type: string; base64: string; aspectRatio: string }> | null>(null);
+
+  const generateMetaImages = async () => {
+    if (!selectedProjectId) return;
+    setMetaBusy(true);
+    setMetaError(null);
+    try {
+      const res = await fetch("/api/generate/meta-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: selectedProjectId }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || `생성 실패 (${res.status})`);
+      setMetaImages(d.images || []);
+    } catch (e) {
+      setMetaError(e instanceof Error ? e.message : "생성 실패");
+    } finally {
+      setMetaBusy(false);
+    }
+  };
+
   // 페이지 진입 시: 플랫폼 메타 + 내 책 목록 동시 fetch
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -145,6 +170,57 @@ export default function PublishPage() {
                   </option>
                 ))}
               </select>
+            </section>
+
+            {/* 선택 — Meta 광고 이미지 (3비율 자동) */}
+            <section className="mb-10">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-600 font-bold mb-3">선택 · 광고 이미지 만들기</div>
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 md:p-6">
+                <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-black text-ink-900 mb-1">🎯 Meta 광고 이미지 3비율</h3>
+                    <p className="text-sm text-gray-600">
+                      Feed (1:1) · Story (9:16) · Link (16:9) — 책 한 권당 3장. 헤드라인·CTA 합성된 채로 다운로드.
+                    </p>
+                  </div>
+                  <button
+                    onClick={generateMetaImages}
+                    disabled={metaBusy || !selectedProjectId}
+                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl min-h-[44px] hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {metaBusy ? "생성 중..." : metaImages ? "다시 생성 (₩1,500)" : "이미지 생성 (₩1,500)"}
+                  </button>
+                </div>
+                {metaError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">{metaError}</div>
+                )}
+                {metaImages && metaImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {metaImages.map((img, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`data:image/png;base64,${img.base64}`}
+                            alt={`${img.type} ${img.aspectRatio}`}
+                            className="w-full h-auto"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-mono text-gray-500 uppercase">{img.type} · {img.aspectRatio}</span>
+                          <a
+                            href={`data:image/png;base64,${img.base64}`}
+                            download={`tigerbookmaker-${img.type}-${img.aspectRatio.replace(":", "x")}.png`}
+                            className="text-emerald-600 font-bold hover:underline"
+                          >
+                            ↓ 다운로드
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
 
             {/* Step 2 — 플랫폼 선택 */}
