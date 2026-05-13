@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
+import { LiveCounter } from "@/components/write/LiveCounter";
 import { FIRST_QUESTION } from "@/lib/interview-questions";
 import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
 import type { ThemeColorKey } from "@/lib/storage";
@@ -370,6 +371,10 @@ function Inner() {
     <main className="min-h-screen bg-[#fafafa]">
       <Header />
       <div className="max-w-3xl mx-auto px-6 py-10 md:py-16">
+        {/* Phase 4.1 — 라이브 카운터 (사회적 증거) */}
+        <div className="mb-6 flex justify-center sm:justify-start">
+          <LiveCounter />
+        </div>
         <div className="flex items-center justify-between mb-8">
           <Link href="/projects" className="text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책</Link>
           {showSkipBtn && (

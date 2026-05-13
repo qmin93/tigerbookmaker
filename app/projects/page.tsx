@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/Header";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { LiveCounter } from "@/components/write/LiveCounter";
 import { getTheme } from "@/lib/theme-colors";
 import type { ThemeColorKey } from "@/lib/storage";
 
@@ -83,6 +84,10 @@ export default function ProjectsPage() {
         userEmail={session?.user?.email}
       />
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
+        {/* Phase 4.1 — 라이브 카운터 (사회적 증거) */}
+        <div className="mb-4 flex justify-center sm:justify-start">
+          <LiveCounter />
+        </div>
         <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
           <div>
             {/* 페이지 액센트: emerald-600 (수익 컨텍스트) — clean-redesign v3 spec 3.2 */}
