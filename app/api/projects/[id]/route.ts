@@ -39,6 +39,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     shareEnabled: p.data?.shareEnabled === true,
     shareLinks: p.data?.shareLinks,
     noImages: p.data?.noImages === true,
+    imagesDisabled: p.data?.imagesDisabled === true,
     themeColor: p.data?.themeColor ?? "orange",
     template: p.data?.template ?? "minimal",
     marketingMeta: p.data?.marketingMeta,
@@ -69,7 +70,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const projectId = params.id;
 
   const body = await req.json().catch(() => ({}));
-  const { themeColor, template, marketingMeta, metaAdPackage, repurposedContent, coverFromVariation, cover } = body ?? {};
+  const { themeColor, template, marketingMeta, metaAdPackage, repurposedContent, coverFromVariation, cover, imagesDisabled } = body ?? {};
 
   const projectRow = await getProject(projectId, userId);
   if (!projectRow) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -207,6 +208,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         images: [...others, newCover],
       };
     }
+  }
+
+  // 본문 이미지 활성/비활성 토글 (spec PR #4 — 본문 이미지 OFF / 라이트 시나리오 회귀)
+  if (imagesDisabled !== undefined) {
+    if (typeof imagesDisabled !== "boolean") {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "imagesDisabled는 boolean이어야 합니다" }, { status: 400 });
+    }
+    updates.imagesDisabled = imagesDisabled;
   }
 
   if (Object.keys(updates).length === 0) {

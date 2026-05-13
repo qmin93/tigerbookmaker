@@ -29,6 +29,8 @@ import { OpsTab } from "./_components/tabs/OpsTab";
 import { QualityScore, type QualityScoreData } from "@/components/write/QualityScore";
 import { ChapterRegenerateButton } from "@/components/write/ChapterRegenerateButton";
 import { BookQualityBadge } from "@/components/write/BookQualityBadge";
+// Spec PR #4 — 본문 이미지 활성화 + 주제 기반 자동 추천 (디폴트 ON)
+import BulkImageGenerator from "@/components/write/BulkImageGenerator";
 // v3 Phase 4.2 — 완성 축하 피드 (사회적 증거)
 import { CompletionFeed } from "@/components/write/CompletionFeed";
 
@@ -2276,21 +2278,39 @@ function Inner() {
     </div>
   );
 
-  const bulkImageControls = (
-    <>
-      {missingImageCount > 0 ? (
+  // Spec PR #4 — 본문 이미지 활성화 + 주제 기반 자동 추천. 디폴트 ON.
+  // BulkImageGenerator가 자체 UI로 추천/일괄 생성/챕터별 선택/OFF 옵션을 제공한다.
+  // 기존 "본문 이미지 일괄" 버튼은 누락된 placeholder가 있을 때만 backward compat용 quick action으로 노출.
+  const bulkImageControls = projectId ? (
+    <div className="space-y-2">
+      <BulkImageGenerator
+        projectId={projectId}
+        chapters={project.chapters as any}
+        imagesDisabled={(project as any)?.imagesDisabled}
+        onProjectRefresh={async () => {
+          try {
+            const fresh = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+            setProject(fresh);
+          } catch {}
+        }}
+        onBalanceChange={(b) => setBalance(b)}
+        onTopUpNeeded={async (shortfall) => { await askTopUp(shortfall); }}
+      />
+      {missingImageCount > 0 && !(project as any)?.imagesDisabled && (
         <button
           onClick={generateAllChapterImages}
           disabled={!!loading || !!imageGenBusy || batch.status === "running"}
-          className="w-full px-3 py-2 bg-orange-50 border border-tiger-orange/40 text-tiger-orange rounded-lg text-xs font-bold hover:bg-orange-100 transition disabled:opacity-50"
-          title={`본문에 누락된 이미지 ${missingImageCount}개를 한 번에 생성`}
+          className="w-full px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-[11px] hover:bg-gray-50 transition disabled:opacity-50"
+          title={`기존 방식: 본문에 누락된 이미지 ${missingImageCount}개를 placeholder 순서대로 생성`}
         >
-          {imageGenBusy.startsWith("[IMAGE:") ? `🖼️ ${imageGenBusy}` : `🖼️ 본문 이미지 일괄 (${missingImageCount}개)`}
+          {imageGenBusy.startsWith("[IMAGE:")
+            ? `🖼️ ${imageGenBusy}`
+            : `기존 placeholder 일괄 (${missingImageCount}개)`}
         </button>
-      ) : (
-        <p className="text-[11px] text-gray-500 px-1">누락된 본문 이미지 없음.</p>
       )}
-    </>
+    </div>
+  ) : (
+    <p className="text-[11px] text-gray-500 px-1">프로젝트 로딩 중...</p>
   );
 
   // 표지 다양화 — CoverVariationsBox로 분리. WritingTab에 standalone 노출.
