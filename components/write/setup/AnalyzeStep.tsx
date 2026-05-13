@@ -246,7 +246,7 @@ export function AnalyzeStep({
 
   return (
     <section className="space-y-6">
-      <div>
+      <div data-hide-in-micro="header">
         <h2 className="text-lg font-bold text-ink-900">1단계 · 자료 분석</h2>
         <p className="text-xs text-gray-500 mt-1">
           참고 자료를 업로드하고 AI가 핵심을 정리하게 하세요. 자료 없이 인터뷰만으로 진행해도 OK.
@@ -254,7 +254,7 @@ export function AnalyzeStep({
       </div>
 
       {/* 레퍼런스 업로드 */}
-      <div className="p-5 bg-orange-50/50 border border-tiger-orange/30 rounded-xl">
+      <div data-micro-step="0" data-micro-label="자료 업로드" className="p-5 bg-orange-50/50 border border-tiger-orange/30 rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-ink-900">📚 참고 자료 ({references.length})</h3>
           {refUploadMode === "none" && (
