@@ -93,27 +93,24 @@ export default function BillingPage() {
         <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">충전한 만큼만.</h1>
         <p className="text-gray-600 mb-6">사용 안 한 잔액은 7일 내 100% 환불.</p>
 
-        {/* 베타 — 테스트 결제 안내 */}
-        <div className="mb-10 p-4 rounded-xl bg-yellow-50 border border-yellow-300 text-sm">
-          <div className="font-bold text-yellow-900 mb-1">🧪 베타 — 테스트 결제 모드</div>
-          <p className="text-yellow-800 leading-relaxed">
-            지금은 토스 sandbox 결제예요. <strong>실제 카드 청구 안 됨</strong>, 어떤 카드번호든 통과합니다.
-            결제 흐름·잔액 반영·영수증을 미리 체험할 수 있습니다.
-            정식 결제는 사업자등록 + 토스 가맹점 심사 완료 후 활성화 예정.
-          </p>
+        {/* 베타 안내 — 한 줄로 압축 */}
+        <div className="mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 border border-yellow-300 text-xs">
+          <span className="text-yellow-900">🧪</span>
+          <span className="text-yellow-900 font-bold">베타 sandbox</span>
+          <span className="text-yellow-800">실제 카드 청구 X · 정식 결제는 가맹점 심사 후</span>
         </div>
 
-        {/* 현재 잔액 */}
-        <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200 mb-10">
-          <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-2">현재 잔액</div>
-          <div className="font-mono text-5xl md:text-6xl font-black text-ink-900 tracking-tightest">
+        {/* 현재 잔액 + 충전 패키지 — 한 카드로 통합 */}
+        <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200 mb-8">
+          <div className="flex items-baseline justify-between mb-1">
+            <div className="text-xs font-mono uppercase tracking-wider text-gray-500">현재 잔액</div>
+            {user?.total_spent != null && user.total_spent > 0 && (
+              <div className="text-xs font-mono text-gray-400">누적 사용 ₩{user.total_spent.toLocaleString()}</div>
+            )}
+          </div>
+          <div className="font-mono text-4xl md:text-5xl font-black text-ink-900 tracking-tightest">
             ₩{user?.balance_krw?.toLocaleString() ?? "—"}
           </div>
-          {user?.total_spent != null && (
-            <div className="text-xs font-mono text-gray-400 mt-3 uppercase tracking-wider">
-              누적 사용 ₩{user.total_spent.toLocaleString()}
-            </div>
-          )}
         </div>
 
         {/* 충전 패키지 */}
