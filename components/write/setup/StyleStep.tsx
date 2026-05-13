@@ -172,7 +172,7 @@ export function StyleStep({
       </div>
 
       {/* 색상 테마 */}
-      <div className="p-4 bg-white border border-gray-200 rounded-xl">
+      <div data-micro-step="0" data-micro-label="색상 선택" className="p-4 bg-white border border-gray-200 rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-ink-900">🎨 색상</h3>
           <span className="text-[10px] text-gray-500">언제든 변경 가능</span>
@@ -198,7 +198,7 @@ export function StyleStep({
       </div>
 
       {/* 톤·말투 설정 */}
-      <div className="p-5 bg-purple-50/50 border border-purple-300 rounded-xl">
+      <div data-micro-step="1" data-micro-label="톤·말투" className="p-5 bg-purple-50/50 border border-purple-300 rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-ink-900">🎙️ 톤·말투 설정</h3>
           {toneSetting && (
@@ -287,7 +287,7 @@ export function StyleStep({
       </div>
 
       {/* 표지 톤 선택 (Spec PR #3) */}
-      <div className="p-5 bg-orange-50/40 border border-tiger-orange/30 rounded-xl">
+      <div data-micro-step="2" data-micro-label="표지 레이아웃" className="p-5 bg-orange-50/40 border border-tiger-orange/30 rounded-xl">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-ink-900">🖼️ 표지 톤 선택</h3>
           {coverLayoutKey && (
