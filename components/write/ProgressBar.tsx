@@ -11,6 +11,15 @@ export const SETUP_STEPS: { key: SetupStepKey; label: string; minutes: number }[
   { key: "toc", label: "목차", minutes: 2 },
 ];
 
+// v3 Phase 3.4 — 진행 격려 메시지. 단계마다 짧은 친근 문구.
+// 사용자 인내심 ↑ 동기 ↑ (spec §3.6).
+export const ENCOURAGEMENT_BY_STEP: Record<SetupStepKey, string> = {
+  analyze: "잘 시작했어요!",
+  interview: "절반 가까이",
+  style: "마지막 단계까지 5분",
+  toc: "마무리 단계",
+};
+
 export const STEP_INDEX: Record<SetupStepKey, number> = {
   analyze: 0,
   interview: 1,
@@ -97,6 +106,11 @@ export function ProgressBar({ currentStep, completedSteps = [], compact }: Progr
             <span className="hidden sm:inline"> · {SETUP_STEPS[currentIdx].label}</span>
           </span>
           <span>약 {minutesLeft}분 남음</span>
+        </div>
+
+        {/* v3 Phase 3.4 — 진행 격려 메시지 (subtle, small) */}
+        <div className="mt-1 text-[11px] sm:text-xs text-tiger-orange/90 font-medium">
+          {ENCOURAGEMENT_BY_STEP[currentStep]}
         </div>
       </div>
     </div>

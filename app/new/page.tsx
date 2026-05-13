@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Header } from "@/components/Header";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { THEME_COLOR_PRESETS } from "@/lib/theme-colors";
 import type { ThemeColorKey } from "@/lib/storage";
 import type { BookType } from "@/lib/templates";
+import { getExampleFork } from "@/lib/example-forks";
 
 interface TierInfo {
   id: "basic" | "pro" | "premium";
@@ -46,18 +48,25 @@ function findClosestPreset(hex: string): ThemeColorKey | null {
   return bestKey;
 }
 
-export default function NewProjectPage() {
+function NewProjectInner() {
   const r = useRouter();
-  const [topic, setTopic] = useState("");
-  const [audience, setAudience] = useState("");
-  const [type, setType] = useState<BookType>("실용서");
-  const [targetPages, setTargetPages] = useState(120);
+  const params = useSearchParams();
+  const forkId = params.get("fork");
+  // fork id가 유효한 예제 ID와 매칭되면 prefill에 사용 (URL 변조 안전)
+  const forkPreset = getExampleFork(forkId);
+
+  const [topic, setTopic] = useState(forkPreset?.topic ?? "");
+  const [audience, setAudience] = useState(forkPreset?.audience ?? "");
+  const [type, setType] = useState<BookType>(forkPreset?.type ?? "실용서");
+  const [targetPages, setTargetPages] = useState(forkPreset?.targetPages ?? 120);
   const [tier, setTier] = useState<"basic" | "pro" | "premium">("pro");
   const [tiers, setTiers] = useState<TierInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noImages, setNoImages] = useState(false);
-  const [themeColor, setThemeColor] = useState<ThemeColorKey>("orange");
+  const [themeColor, setThemeColor] = useState<ThemeColorKey>(forkPreset?.themeColor ?? "orange");
+  // v3 Phase 3.2 — 튜토리얼 강제 재실행 트리거
+  const [tourForceOpen, setTourForceOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
@@ -74,7 +83,12 @@ export default function NewProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, audience, type, targetPages, tier, noImages, themeColor }),
       });
-      if (res.status === 401) { r.push("/login?redirect=/new"); return; }
+      if (res.status === 401) {
+        // fork 정보 보존하며 로그인 후 리다이렉트
+        const redirect = forkId ? `/new?fork=${encodeURIComponent(forkId)}` : "/new";
+        r.push(`/login?redirect=${encodeURIComponent(redirect)}`);
+        return;
+      }
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message || `생성 실패 (${res.status})`);
@@ -90,11 +104,57 @@ export default function NewProjectPage() {
   return (
     <main className="min-h-screen bg-[#fafafa]">
     <Header />
+    {/* v3 Phase 3.2 — /new 페이지 첫 방문 in-app 튜토리얼 */}
+    <OnboardingTour
+      variant="new"
+      forceOpen={tourForceOpen}
+      onClose={() => setTourForceOpen(false)}
+    />
     <div className="max-w-2xl mx-auto px-6 py-16">
       <Link href="/projects" className="inline-block py-2 text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책 목록</Link>
+
+      {/* v3 Phase 3.1 — fork 진입 시 안내 */}
+      {forkPreset && (
+        <div className="mt-4 mb-6 rounded-xl border-2 border-tiger-orange/40 bg-orange-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-1">
+                📚 예제 책에서 시작
+              </div>
+              <p className="text-sm text-ink-900 font-bold mb-1">
+                {forkPreset.topic}
+              </p>
+              <p className="text-xs text-gray-700">
+                본인 주제로 바꿔서 만드세요 — 카피본이 아니라 새 프로젝트입니다.
+              </p>
+            </div>
+            <Link
+              href="/examples"
+              className="shrink-0 text-[11px] text-tiger-orange hover:underline"
+            >
+              ← 갤러리
+            </Link>
+          </div>
+        </div>
+      )}
+
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">새 프로젝트</p>
       <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">새 책 시작.</h1>
-      <p className="text-gray-600 mb-6">기본 정보 입력 → 다음 단계에서 자료 업로드 + AI 인터뷰.</p>
+      <p className="text-gray-600 mb-2">기본 정보 입력 → 다음 단계에서 자료 업로드 + AI 인터뷰.</p>
+
+      {/* v3 Phase 3.2 — 튜토리얼 다시 보기 진입점 */}
+      <div className="mb-6 flex items-center gap-3 text-[11px]">
+        <button
+          onClick={() => setTourForceOpen(true)}
+          className="text-gray-500 hover:text-tiger-orange underline underline-offset-2"
+        >
+          🎓 튜토리얼 다시 보기
+        </button>
+        <span className="text-gray-300">·</span>
+        <Link href="/examples" className="text-gray-500 hover:text-tiger-orange underline underline-offset-2">
+          📚 예제 책 갤러리
+        </Link>
+      </div>
 
       {/* 3-step process indicator — /new는 1단계, 자료 업로드는 2단계임을 명확히 */}
       <div className="grid grid-cols-3 gap-2 mb-10">
@@ -118,7 +178,7 @@ export default function NewProjectPage() {
       <div className="space-y-5 bg-white p-6 md:p-8 rounded-2xl border border-gray-200">
         {/* 티어 선택 UI는 베타 기간 중 숨김. default "pro"로 자동 — 필요해지면 부활.
             tiers fetch 코드는 살려뒀음 (TIER_AVAILABILITY 데이터 기록용). */}
-        <Field label="주제 (한 줄)">
+        <Field label="주제 (한 줄)" tourTarget="topic">
           <textarea
             value={topic}
             onChange={e => setTopic(e.target.value)}
@@ -127,7 +187,7 @@ export default function NewProjectPage() {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none"
           />
         </Field>
-        <Field label="대상 독자">
+        <Field label="대상 독자" tourTarget="audience">
           <input
             value={audience}
             onChange={e => setAudience(e.target.value)}
@@ -135,7 +195,7 @@ export default function NewProjectPage() {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none"
           />
         </Field>
-        <Field label="책 유형">
+        <Field label="책 유형" tourTarget="type">
           {/* 직장인 부수익러 메인 6 카테고리만 노출. 나머지(전문서/요리책/여행기/매거진/인터뷰집/포트폴리오/강의노트/동화)는
               실제 사용 누적되면 단계적 추가 — 첫 책 만드는 사람 결정 부담 ↓ */}
           <div className="flex gap-2 flex-wrap">
@@ -247,6 +307,7 @@ export default function NewProjectPage() {
         <button
           onClick={create}
           disabled={!topic || !audience || busy}
+          data-tour="submit"
           className="w-full bg-tiger-orange text-white py-3.5 rounded-xl font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-40 disabled:shadow-none"
         >
           {busy ? "생성 중..." : "다음 → 📚 자료 업로드 + AI 인터뷰 →"}
@@ -260,9 +321,21 @@ export default function NewProjectPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export default function NewProjectPage() {
   return (
-    <div>
+    <Suspense fallback={<Center>로딩 중...</Center>}>
+      <NewProjectInner />
+    </Suspense>
+  );
+}
+
+function Center({ children }: { children: React.ReactNode }) {
+  return <main className="min-h-screen flex items-center justify-center bg-[#fafafa] text-gray-500">{children}</main>;
+}
+
+function Field({ label, children, tourTarget }: { label: string; children: React.ReactNode; tourTarget?: string }) {
+  return (
+    <div data-tour={tourTarget}>
       <label className="block text-sm font-semibold mb-2">{label}</label>
       {children}
     </div>

@@ -17,6 +17,8 @@ export const users = pgTable("users", {
   totalCharged: integer("total_charged").notNull().default(0),
   totalSpent: integer("total_spent").notNull().default(0),
   signupBonusGiven: boolean("signup_bonus_given").notNull().default(false),
+  // v3 Phase 3.3 — 첫 책 완성 보너스 (1회 한정 ₩5,000). migration 0015.
+  firstBookBonusGiven: boolean("first_book_bonus_given").notNull().default(false),
   passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
