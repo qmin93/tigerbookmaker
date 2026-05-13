@@ -8,8 +8,22 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/Header";
 import { UnauthFallback } from "@/components/ui/UnauthFallback";
+import InfographicGenerator from "@/components/write/InfographicGenerator";
 
 type Platform = "kmong" | "bookk" | "upaper";
+
+interface InfographicSlideCache {
+  slideNum: number;
+  base64: string;
+}
+interface InfographicCache {
+  template: "minimal" | "bold" | "dark";
+  slides: InfographicSlideCache[];
+  generatedAt: number;
+}
+interface ReferencesSummaryCache {
+  keyPoints?: string[];
+}
 
 interface Project {
   id: string;
@@ -47,6 +61,10 @@ export default function PublishPage() {
   const [metaBusy, setMetaBusy] = useState(false);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [metaImages, setMetaImages] = useState<Array<{ type: string; base64: string; aspectRatio: string }> | null>(null);
+
+  // 인포그래픽 카드뉴스 — referencesSummary.keyPoints 필요, 캐시 사용
+  const [infographicCache, setInfographicCache] = useState<InfographicCache | null>(null);
+  const [referencesSummary, setReferencesSummary] = useState<ReferencesSummaryCache | null>(null);
 
   const generateMetaImages = async () => {
     if (!selectedProjectId) return;
@@ -90,6 +108,30 @@ export default function PublishPage() {
       })
       .catch(() => {});
   }, [status]);
+
+  // selectedProjectId 변경 시: 인포그래픽 캐시 + referencesSummary 로드
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setInfographicCache(null);
+      setReferencesSummary(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/projects/${selectedProjectId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d) return;
+        setInfographicCache(d.infographic ?? null);
+        setReferencesSummary(d.referencesSummary ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInfographicCache(null);
+          setReferencesSummary(null);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [selectedProjectId]);
 
   const generate = async () => {
     if (!selectedProjectId || !selectedPlatform) return;
@@ -222,6 +264,14 @@ export default function PublishPage() {
                 )}
               </div>
             </section>
+
+            {/* 선택 — 인포그래픽 카드뉴스 (인스타·트위터 공유용, 5장 PNG) */}
+            <InfographicGenerator
+              projectId={selectedProjectId}
+              referencesSummary={referencesSummary}
+              cached={infographicCache}
+              onBalanceChange={() => { /* 잔액 표시는 별도 — 추후 통합 */ }}
+            />
 
             {/* Step 2 — 플랫폼 선택 */}
             <section className="mb-10">
