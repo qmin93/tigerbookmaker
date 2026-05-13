@@ -11,8 +11,10 @@ import {
   getUser, getProject, updateProjectData,
   deductBalance, logAIUsage,
 } from "@/lib/server/db";
-import { overlayTextOnImage, type OverlayTemplate } from "@/lib/server/image-overlay";
+import { overlayTextOnImage, type OverlayTemplate, type CoverFields } from "@/lib/server/image-overlay";
 import { rateLimit } from "@/lib/server/rate-limit";
+import { getAllTemplateKeys } from "@/lib/cover-templates";
+import type { LayoutKey } from "@/lib/cover-style-map";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -35,6 +37,16 @@ export async function POST(req: Request) {
     const subhead = (body as any)?.subhead ? String((body as any).subhead).trim().slice(0, 100) : undefined;
     const tplRaw = (body as any)?.template;
     const template: OverlayTemplate = VALID_TEMPLATES.includes(tplRaw) ? tplRaw : "bold";
+
+    // PR #2 신규: templateKey (LayoutKey) — 정의되어 있으면 풍부한 cover-templates 사용.
+    const validTemplateKeys = new Set<string>(getAllTemplateKeys());
+    const tplKeyRaw = (body as any)?.templateKey;
+    const templateKey: LayoutKey | undefined =
+      typeof tplKeyRaw === "string" && validTemplateKeys.has(tplKeyRaw) ? (tplKeyRaw as LayoutKey) : undefined;
+
+    // 추가 텍스트 슬롯 (author/badge/series/publisher/tagline).
+    const rawFields = (body as any)?.fields;
+    const fields: Partial<CoverFields> | undefined = rawFields && typeof rawFields === "object" ? sanitizeFields(rawFields) : undefined;
 
     if (!projectId) return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
     if (!headline) return NextResponse.json({ error: "INVALID_INPUT", message: "헤드라인 필수" }, { status: 400 });
@@ -80,7 +92,9 @@ export async function POST(req: Request) {
         height: 1024,
         headline,
         subhead,
-        template,
+        template,        // 레거시 5개 string 템플릿 (fallback)
+        templateKey,     // PR #2: LayoutKey — 정의되어 있으면 우선
+        fields,          // PR #2: 추가 텍스트 슬롯
         brandText: " ",  // 표지엔 워터마크 X
       });
     } catch (e: any) {
@@ -136,7 +150,7 @@ export async function POST(req: Request) {
     });
     const { newBalance } = await deductBalance({
       userId, amountKRW: FIXED_COST_KRW, aiUsageId: usageId,
-      reason: `표지 텍스트 합성 (${template})`,
+      reason: `표지 텍스트 합성 (${templateKey ?? template})`,
     });
 
     return NextResponse.json({
@@ -152,4 +166,16 @@ export async function POST(req: Request) {
       message: e?.message || String(e),
     }, { status: 500 });
   }
+}
+
+/** body.fields 의 안전한 trim + 길이 제한. */
+function sanitizeFields(input: any): Partial<CoverFields> {
+  const out: Partial<CoverFields> = {};
+  for (const k of ["title", "subtitle", "author", "badge", "series", "publisher", "tagline"] as const) {
+    const v = input?.[k];
+    if (typeof v === "string" && v.trim()) {
+      out[k] = v.trim().slice(0, 120);
+    }
+  }
+  return out;
 }

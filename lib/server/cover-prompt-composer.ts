@@ -129,6 +129,30 @@ function describeLayout(key: LayoutKey): string {
       return "Neon cyberpunk cityscape or interface composition with deep blacks and electric accent colors; leave the bottom band darker for a title overlay.";
     case "minimal-tech":
       return "Minimal tech composition: monospace grid feel, one small terminal-cursor or code-bracket motif, vast negative space for the title.";
+    case "pop-art":
+      return "Roy Lichtenstein-inspired pop art composition: halftone Ben-Day dot pattern, saturated primary colors (red / yellow / blue), comic-style bold outlines, leave the lower third clean for a speech-bubble-style title slot.";
+    case "graffiti":
+      return "Urban graffiti / street art composition: spray-paint textures on a brick or concrete wall, drip effects, layered tags and stencils, leave one large blank panel reserved for a clean title overlay.";
+    case "manga-comic":
+      return "Japanese manga / comic page composition: speed lines, halftone screentone shading, dynamic angled paneling, dramatic black-and-white ink work with a single accent color and a clean dialog-box area for the title.";
+    case "monocle-magazine":
+      return "Monocle magazine editorial composition: confident sans-serif masthead area at the top, a single hero photograph below, refined color palette of cream, navy and burgundy, generous gutters and column structure.";
+    case "glitch-vhs":
+      return "Glitch VHS aesthetic composition: scanlines, RGB channel-shift, chromatic aberration, VHS tracking artifacts and tape noise, retro CRT vignette, leave a darker band along the bottom for a title overlay.";
+    case "kpop-y2k":
+      return "K-pop Y2K composition: holographic chrome gradients of hot pink, lavender and cyan, sparkle and star motifs, glossy bubble surfaces, leave a clean center block for a stylized title with metallic sheen aesthetic.";
+    case "retro-80s":
+      return "Retro 80s synthwave composition: sunset gradient from magenta to orange to deep purple, perspective neon grid horizon, chrome accents and palm silhouettes, leave the upper-center band clean for a chunky retro title.";
+    case "botanical":
+      return "Botanical editorial composition: soft watercolor leaves, eucalyptus and pampas, muted sage and cream palette, hand-drawn elegance, leave the center quiet for a delicate serif title.";
+    case "kawaii-pastel":
+      return "Kawaii pastel composition: soft pastel pinks, mint and butter yellow, rounded cloud and bunny / heart shapes, hand-illustrated charm, leave the lower band clean for a friendly rounded title.";
+    case "collage-zine":
+      return "Indie magazine collage / zine composition: torn paper edges, mixed photographic clippings on slightly rotated planes, masking-tape pieces, handwritten margin notes, leave one rectangular white sticker area reserved for the title.";
+    case "practical-hands":
+      return "Marie Kondo-style practical how-to composition: top half showing real hands at work on a clean desk or notebook with natural light, bottom half a clean white frosted-glass band reserved for a confident title and a small result badge.";
+    case "practical-before-after":
+      return "Before / after comparison composition: vertical split with the left side a desaturated 'before' scene and the right side a bright clean 'after' scene, a small circular badge centered on the split, lower band reserved for a bold title.";
   }
 }
 
