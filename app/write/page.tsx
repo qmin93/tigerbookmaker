@@ -25,6 +25,10 @@ import { WritingTab } from "./_components/tabs/WritingTab";
 import { PublishTab } from "./_components/tabs/PublishTab";
 import { ExtrasTab } from "./_components/tabs/ExtrasTab";
 import { OpsTab } from "./_components/tabs/OpsTab";
+// v3 Phase 2 — 챕터 품질·재생성 + 책 통과 가능성
+import { QualityScore, type QualityScoreData } from "@/components/write/QualityScore";
+import { ChapterRegenerateButton } from "@/components/write/ChapterRegenerateButton";
+import { BookQualityBadge } from "@/components/write/BookQualityBadge";
 
 type BatchState =
   | { status: "idle" }
@@ -3300,6 +3304,13 @@ function Inner() {
         missingItems={projectProgress.details.filter(d => !d.done).map(d => ({ label: d.label, hint: d.hint, tab: d.tab }))}
       />
 
+      {/* v3 Phase 2.2 — 책 통과 가능성 배지 (heuristic, AI 호출 없음) */}
+      {projectId && (
+        <div className="max-w-[1600px] mx-auto px-4 pt-2 flex justify-end">
+          <BookQualityBadge bookId={projectId} />
+        </div>
+      )}
+
       {error && (
         <div className="max-w-[1600px] mx-auto px-4 py-2">
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
@@ -3334,22 +3345,63 @@ function Inner() {
               onDismiss={() => setBatch({ status: "idle" })}
             />
             {active && (
-              <ChapterContentNew
-                chapterIdx={activeIdx}
-                totalChapters={project.chapters.length}
-                title={active.title}
-                subtitle={active.subtitle}
-                hasContent={!!active.content}
-                busyGenerating={streamingChapterIdx === activeIdx || (loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`))}
-                onGenerate={!active.content ? () => generateChapter(activeIdx) : undefined}
-                onPreview={active.content ? () => setPreviewModal({ chapterIdx: activeIdx }) : undefined}
-                onAIEdit={active.content && editingContent === null ? () => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false }) : undefined}
-                onDirectEdit={active.content && editingContent === null ? () => setEditingContent(active.content) : undefined}
-                onRegenerate={active.content && editingContent === null ? () => generateChapter(activeIdx) : undefined}
-                emptyHint={chapterEmptyHint}
-              >
-                {chapterContentChildren}
-              </ChapterContentNew>
+              <>
+                <ChapterContentNew
+                  chapterIdx={activeIdx}
+                  totalChapters={project.chapters.length}
+                  title={active.title}
+                  subtitle={active.subtitle}
+                  hasContent={!!active.content}
+                  busyGenerating={streamingChapterIdx === activeIdx || (loading.startsWith(`${activeIdx + 1}`) || loading.includes(`${activeIdx + 1}/`))}
+                  onGenerate={!active.content ? () => generateChapter(activeIdx) : undefined}
+                  onPreview={active.content ? () => setPreviewModal({ chapterIdx: activeIdx }) : undefined}
+                  onAIEdit={active.content && editingContent === null ? () => setEditChat({ chapterIdx: activeIdx, instruction: "", proposal: null, busy: false }) : undefined}
+                  onDirectEdit={active.content && editingContent === null ? () => setEditingContent(active.content) : undefined}
+                  onRegenerate={active.content && editingContent === null ? () => generateChapter(activeIdx) : undefined}
+                  emptyHint={chapterEmptyHint}
+                >
+                  {chapterContentChildren}
+                </ChapterContentNew>
+
+                {/* v3 Phase 2 — 챕터 품질 점수 + 자연어 재생성 */}
+                {projectId && active.content && editingContent === null && streamingChapterIdx !== activeIdx && (
+                  <div className="max-w-3xl mx-auto px-4 md:px-6 pb-8 space-y-3">
+                    <QualityScore
+                      chapterIdx={activeIdx}
+                      projectId={projectId}
+                      chapterContentLength={active.content.length}
+                      cachedScore={(active as any).qualityScore as QualityScoreData | undefined}
+                      balanceKrw={balance}
+                      onScored={(d) => {
+                        // 잔액 동기화 + 챕터 캐시 업데이트
+                        setBalance(d.newBalance);
+                        const chapters = [...project.chapters];
+                        chapters[activeIdx] = {
+                          ...chapters[activeIdx],
+                          qualityScore: { score: d.score, suggestions: d.suggestions, generatedAt: d.generatedAt },
+                        } as any;
+                        setProject({ ...project, chapters });
+                      }}
+                    />
+                    <div className="flex items-center justify-end">
+                      <ChapterRegenerateButton
+                        chapterIdx={activeIdx}
+                        projectId={projectId}
+                        chapterContentLength={active.content.length}
+                        balanceKrw={balance}
+                        onSuccess={(newContent, newBalance) => {
+                          setBalance(newBalance);
+                          const chapters = [...project.chapters];
+                          // 재생성 시 qualityScore·summary 무효화 (서버도 동일)
+                          const { qualityScore: _q, summary: _s, ...rest } = (chapters[activeIdx] as any);
+                          chapters[activeIdx] = { ...rest, content: newContent };
+                          setProject({ ...project, chapters });
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         }
