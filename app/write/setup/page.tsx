@@ -10,6 +10,7 @@ import { InterviewStep } from "@/components/write/setup/InterviewStep";
 import { StyleStep } from "@/components/write/setup/StyleStep";
 import { TocStep } from "@/components/write/setup/TocStep";
 import { AutoSaveIndicator } from "@/components/write/AutoSaveIndicator";
+import { CompletionFeed } from "@/components/write/CompletionFeed";
 import { loadAutoSaved, loadAutoSavedAt } from "@/lib/auto-save";
 import type { ThemeColorKey, ToneSetting } from "@/lib/storage";
 import type { LayoutKey } from "@/lib/cover-style-map";
@@ -281,6 +282,11 @@ function Inner() {
           <p className="text-xs text-gray-500 mt-1">
             {project.audience} · {project.type}
           </p>
+        </div>
+
+        {/* v3 Phase 4.2 — 완성 축하 피드 (사회적 증거) */}
+        <div className="mb-6">
+          <CompletionFeed />
         </div>
 
         {currentStep === "analyze" && projectId && (
