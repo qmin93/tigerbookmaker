@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { RoiSimulator } from "@/components/RoiSimulator";
 import { FAQ } from "@/components/FAQ";
+import { TrustBar } from "@/components/ui/TrustBar";
 import { SAMPLE_BOOKS } from "@/lib/landing-data";
 import { getLandingStats } from "@/lib/server/db";
 
@@ -225,6 +226,9 @@ export default async function Home() {
 
       {/* FAQ — 결제 전 마찰 해소 7문항 */}
       <FAQ />
+
+      {/* 신뢰 배지 — 다크 CTA 직전, 결제 의심 해소 */}
+      <TrustBar />
 
       {/* Final CTA — DARK INVERSION + tiger orange explosion */}
       <section className="relative bg-ink-900 text-white py-32 md:py-40 overflow-hidden">
