@@ -80,6 +80,54 @@ export default function PreorderPage() {
     return () => clearInterval(id);
   }, []);
 
+  // Cursor follow dot
+  const cursorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    let tx = 0, ty = 0, x = 0, y = 0;
+    const onMove = (e: MouseEvent) => {
+      tx = e.clientX;
+      ty = e.clientY;
+    };
+    const tick = () => {
+      x += (tx - x) * 0.18;
+      y += (ty - y) * 0.18;
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    window.addEventListener("mousemove", onMove);
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Scroll-reveal — IntersectionObserver
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).style.opacity = "1";
+            (e.target as HTMLElement).style.transform = "translateY(0)";
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -80px 0px" }
+    );
+    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((el) => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(32px)";
+      el.style.transition = "opacity 700ms cubic-bezier(0.22,1,0.36,1), transform 700ms cubic-bezier(0.22,1,0.36,1)";
+      io.observe(el);
+    });
+    return () => io.disconnect();
+  }, []);
+
   // Magnetic button effect
   const btnRef = useRef<HTMLButtonElement>(null);
   function onBtnMove(e: React.MouseEvent<HTMLButtonElement>) {
@@ -222,6 +270,26 @@ export default function PreorderPage() {
       <Grain />
       <FloatingDecor />
 
+      {/* 마우스 따라가는 작은 점 */}
+      <div
+        ref={cursorRef}
+        aria-hidden
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          background: `${C.accent}26`,
+          border: `1px solid ${C.accent}55`,
+          pointerEvents: "none",
+          zIndex: 100,
+          willChange: "transform",
+          mixBlendMode: "multiply",
+        }}
+      />
+
       {/* NAV */}
       <nav
         style={{
@@ -335,35 +403,42 @@ export default function PreorderPage() {
                 fontFamily: FONT_SANS,
                 fontWeight: 900,
                 fontSize: "clamp(48px, 6vw, 92px)",
-                lineHeight: 0.98,
+                lineHeight: 1.0,
                 letterSpacing: "-0.04em",
                 color: C.ink,
                 marginBottom: 28,
               }}
             >
-              <SplitHeading text={"퇴근하고 "} />
-              <span style={{ position: "relative", display: "inline-block" }}>
-                <SplitHeading text={"30분"} />
-                <span
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: -6,
-                    height: 12,
-                    background: `linear-gradient(120deg, ${C.accent}, #F0A37A)`,
-                    borderRadius: 99,
-                    transformOrigin: "left",
-                    transform: "scaleX(0)",
-                    animation:
-                      "preorderUnderline 700ms 1500ms cubic-bezier(0.22,1,0.36,1) forwards",
-                    opacity: 0.85,
-                    zIndex: -1,
-                  }}
-                />
+              <span style={{ display: "block" }}>
+                <SplitHeading text={"퇴근하고 "} />
+                <span style={{ position: "relative", display: "inline-block" }}>
+                  <SplitHeading text={"30분,"} />
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: "0.4em",
+                      bottom: "0.04em",
+                      height: "0.14em",
+                      background: `linear-gradient(120deg, ${C.accent}, #F0A37A)`,
+                      borderRadius: 99,
+                      transformOrigin: "left",
+                      transform: "scaleX(0)",
+                      animation:
+                        "preorderUnderline 700ms 1500ms cubic-bezier(0.22,1,0.36,1) forwards",
+                      opacity: 0.9,
+                      zIndex: 0,
+                    }}
+                  />
+                </span>
               </span>
-              <SplitHeading text={",\n첫 이북이\n완성됩니다."} />
+              <span style={{ display: "block", marginTop: "0.1em" }}>
+                <SplitHeading text={"첫 이북이"} />
+              </span>
+              <span style={{ display: "block", marginTop: "0.05em" }}>
+                <SplitHeading text={"완성됩니다."} />
+              </span>
             </h1>
 
             <p
@@ -605,6 +680,7 @@ export default function PreorderPage() {
         }}
       >
         <div
+          data-reveal
           style={{
             maxWidth: 880,
             margin: "0 auto",
@@ -682,7 +758,7 @@ export default function PreorderPage() {
           padding: "80px 24px",
         }}
       >
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <div data-reveal style={{ maxWidth: 720, margin: "0 auto" }}>
           <SectionLabel num="01" title="사전예약 혜택" />
           <h2
             style={{
@@ -861,7 +937,7 @@ export default function PreorderPage() {
           padding: "100px 24px",
         }}
       >
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <div data-reveal style={{ maxWidth: 600, margin: "0 auto" }}>
           <SectionLabel num="02" title="신청" />
 
           <h2
@@ -1454,15 +1530,22 @@ function BookmarkIcon() {
 }
 
 // 큰 일러스트 — 책이 열리며 챕터가 펼쳐지는 시각 메타포
+// viewBox 600x600, 모든 데코는 60-540 안전 영역 안에.
 function BookIllustration() {
   return (
-    <svg viewBox="0 0 480 500" width="100%" height="100%" aria-hidden>
+    <svg
+      viewBox="0 0 600 600"
+      width="100%"
+      height="100%"
+      aria-hidden
+      style={{ overflow: "visible" }}
+    >
       <defs>
         <linearGradient id="bookPage" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFFFFF" />
           <stop offset="1" stopColor="#F2EBDA" />
         </linearGradient>
-        <linearGradient id="bookSpine" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="bookSpine" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={C.accent} />
           <stop offset="1" stopColor="#F0A37A" />
         </linearGradient>
@@ -1470,72 +1553,89 @@ function BookIllustration() {
           <stop offset="0" stopColor={C.ink} />
           <stop offset="1" stopColor="#2E2A24" />
         </linearGradient>
+        <filter id="bookShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="14" />
+          <feOffset dx="0" dy="14" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.15" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
+      {/* 그라데이션 깔린 후광 */}
+      <circle
+        cx="300"
+        cy="290"
+        r="240"
+        fill="url(#bookSpine)"
+        opacity="0.06"
+        style={{
+          transformOrigin: "300px 290px",
+          animation: "preorderPulse 6s infinite ease-in-out",
+        }}
+      />
+
       {/* 그림자 */}
-      <ellipse cx="240" cy="460" rx="180" ry="14" fill={C.ink} opacity="0.08" />
+      <ellipse cx="300" cy="530" rx="220" ry="16" fill={C.ink} opacity="0.1" />
 
-      {/* 책 본체 */}
-      <g style={{ transformOrigin: "240px 250px" }}>
-        <rect x="60" y="80" width="360" height="340" rx="6" fill="url(#bookPage)" stroke={C.border} />
-        <line x1="240" y1="80" x2="240" y2="420" stroke={C.border} strokeWidth="1" strokeDasharray="2 4" />
+      {/* 책 본체 (viewBox 80~520 / 60~500 안전 영역) */}
+      <g filter="url(#bookShadow)">
+        {/* 책 페이지 */}
+        <rect
+          x="80"
+          y="80"
+          width="440"
+          height="400"
+          rx="8"
+          fill="url(#bookPage)"
+          stroke={C.border}
+          strokeWidth="1"
+        />
+        {/* 책등 (가운데 접힘) */}
+        <line
+          x1="300"
+          y1="80"
+          x2="300"
+          y2="480"
+          stroke={C.border}
+          strokeWidth="1"
+          strokeDasharray="2 4"
+        />
 
-        {/* 페이지 텍스트 라인 (왼쪽) */}
-        {[120, 142, 164, 186, 220, 242, 264].map((y, i) => (
-          <rect
-            key={"L" + i}
-            x="85"
-            y={y}
-            width={[140, 120, 130, 80, 130, 110, 150][i]}
-            height="6"
-            rx="3"
-            fill={C.muted}
-            opacity="0.35"
-          />
-        ))}
-
-        {/* 페이지 텍스트 라인 (오른쪽) */}
-        {[120, 142, 164, 186, 220, 242, 264, 286, 308].map((y, i) => (
-          <rect
-            key={"R" + i}
-            x="255"
-            y={y}
-            width={[160, 140, 150, 110, 145, 130, 165, 100, 140][i]}
-            height="6"
-            rx="3"
-            fill={C.muted}
-            opacity={i < 4 ? 0.6 : 0.35}
-          />
-        ))}
-
-        {/* "Chapter 01" 라벨 */}
+        {/* CH.01 라벨 */}
         <text
-          x="85"
-          y="105"
+          x="110"
+          y="115"
           fontFamily={FONT_MONO}
-          fontSize="11"
+          fontSize="12"
           fill={C.accent}
           letterSpacing="2"
+          fontWeight="500"
         >
-          CH.01
+          CH. 01
         </text>
         <text
-          x="255"
-          y="105"
+          x="488"
+          y="115"
+          textAnchor="end"
           fontFamily={FONT_MONO}
-          fontSize="11"
+          fontSize="12"
           fill={C.muted}
           letterSpacing="2"
         >
           P. 12
         </text>
 
-        {/* 큰 한국어 헤드 안에 */}
+        {/* 큰 한국어 헤드 */}
         <text
-          x="85"
-          y="200"
+          x="110"
+          y="170"
           fontFamily={FONT_SANS}
-          fontSize="28"
+          fontSize="34"
           fontWeight="900"
           fill={C.ink}
           letterSpacing="-1"
@@ -1543,71 +1643,114 @@ function BookIllustration() {
           서문.
         </text>
 
-        {/* 빨간 책갈피 */}
-        <path
-          d="M340 60v90l16-10 16 10V60z"
-          fill="url(#bookSpine)"
-          stroke="white"
-          strokeWidth="2"
-        />
+        {/* 왼쪽 페이지 본문 라인 */}
+        {[200, 224, 248, 272, 308, 332, 356, 380].map((y, i) => (
+          <rect
+            key={"L" + i}
+            x="110"
+            y={y}
+            width={[150, 130, 145, 100, 140, 120, 155, 90][i]}
+            height="6"
+            rx="3"
+            fill={C.muted}
+            opacity={i < 4 ? 0.55 : 0.32}
+          />
+        ))}
 
-        {/* 본문 stroke-draw 라인 */}
+        {/* 오른쪽 페이지 본문 라인 */}
+        {[140, 164, 188, 212, 236, 260, 284, 308, 332, 356].map((y, i) => (
+          <rect
+            key={"R" + i}
+            x="315"
+            y={y}
+            width={[170, 150, 165, 120, 155, 140, 175, 110, 150, 90][i]}
+            height="6"
+            rx="3"
+            fill={C.muted}
+            opacity={i < 5 ? 0.55 : 0.3}
+          />
+        ))}
+
+        {/* 본문 스트로크 드로우 라인 */}
         <path
-          d="M85 360 Q160 340 240 360 T395 350"
+          d="M110 410 Q200 392 300 410 T490 402"
           fill="none"
           stroke={C.accent}
           strokeWidth="2.5"
           strokeLinecap="round"
-          strokeDasharray="1200"
-          strokeDashoffset="1200"
+          strokeDasharray="1500"
+          strokeDashoffset="1500"
           style={{ animation: "preorderDraw 2.4s 0.8s ease-out forwards" }}
         />
         <path
-          d="M85 380 Q200 365 320 385 T405 372"
+          d="M110 432 Q240 418 380 436 T498 424"
           fill="none"
           stroke={C.ink}
           strokeWidth="1.5"
           strokeLinecap="round"
           opacity="0.55"
-          strokeDasharray="1200"
-          strokeDashoffset="1200"
+          strokeDasharray="1500"
+          strokeDashoffset="1500"
           style={{ animation: "preorderDraw 2.4s 1.2s ease-out forwards" }}
+        />
+
+        {/* 빨간 책갈피 (오른쪽 상단, 안전 영역) */}
+        <path
+          d="M430 80v96l18-12 18 12V80z"
+          fill="url(#bookSpine)"
+          stroke="white"
+          strokeWidth="2"
         />
       </g>
 
-      {/* AI 태그 (떠있는 라벨) */}
-      <g style={{ ["--rot" as any]: "-4deg", animation: "preorderFloat 5s ease-in-out infinite" } as React.CSSProperties}>
-        <rect x="20" y="220" width="92" height="34" rx="17" fill="url(#aiTag)" />
-        <circle cx="36" cy="237" r="4" fill={C.accent} style={{ animation: "preorderPulse 1.6s infinite ease-out" }} />
+      {/* AI · 30분 떠있는 태그 — 왼쪽 페이지 안쪽에 위치 (안전) */}
+      <g
+        style={
+          {
+            ["--rot" as any]: "-4deg",
+            animation: "preorderFloat 5s ease-in-out infinite",
+          } as React.CSSProperties
+        }
+      >
+        <rect x="120" y="244" width="124" height="40" rx="20" fill="url(#aiTag)" />
+        <circle
+          cx="140"
+          cy="264"
+          r="5"
+          fill={C.accent}
+          style={{ animation: "preorderPulse 1.6s infinite ease-out", transformOrigin: "140px 264px" }}
+        />
         <text
-          x="48"
-          y="241"
+          x="156"
+          y="269"
           fontFamily={FONT_MONO}
-          fontSize="11"
+          fontSize="12"
           fill="white"
           letterSpacing="2"
+          fontWeight="500"
         >
           AI · 30분
         </text>
       </g>
 
-      {/* "DONE" 도장 */}
+      {/* DONE 도장 — 오른쪽 페이지 하단 (충분히 안쪽으로) */}
       <g
-        transform="translate(360 380) rotate(-12)"
+        transform="translate(420 410) rotate(-10)"
         style={{
           opacity: 0,
           animation: "preorderFadeUp 600ms 2.6s cubic-bezier(0.22,1,0.36,1) forwards",
+          transformOrigin: "420px 410px",
         }}
       >
-        <rect x="-44" y="-22" width="88" height="44" rx="4" fill="none" stroke={C.accent} strokeWidth="3" />
-        <rect x="-38" y="-16" width="76" height="32" rx="2" fill="none" stroke={C.accent} strokeWidth="1" />
+        <rect x="-48" y="-22" width="96" height="44" rx="4" fill="none" stroke={C.accent} strokeWidth="3" />
+        <rect x="-42" y="-16" width="84" height="32" rx="2" fill="none" stroke={C.accent} strokeWidth="1" />
         <text
           x="0"
-          y="6"
+          y="7"
           textAnchor="middle"
           fontFamily={FONT_SANS}
           fontWeight="900"
-          fontSize="20"
+          fontSize="22"
           fill={C.accent}
           letterSpacing="2"
         >
@@ -1615,12 +1758,13 @@ function BookIllustration() {
         </text>
       </g>
 
-      {/* 별 장식 */}
+      {/* 빨간 별 장식 — viewBox 안쪽으로 */}
       {[
-        [50, 50, 0],
-        [430, 130, 0.5],
-        [40, 380, 1],
-        [440, 440, 1.5],
+        [70, 70, 0],
+        [530, 150, 0.6],
+        [60, 460, 1.2],
+        [540, 510, 1.8],
+        [180, 60, 0.3],
       ].map(([x, y, d], i) => (
         <g
           key={i}
@@ -1630,7 +1774,7 @@ function BookIllustration() {
             animation: `preorderPulse 2.6s ${d}s infinite ease-in-out`,
           }}
         >
-          <path d="M0-8 L2-2 L8 0 L2 2 L0 8 L-2 2 L-8 0 L-2-2 Z" fill={C.accent} />
+          <path d="M0-10 L2.5-2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5-2.5 Z" fill={C.accent} />
         </g>
       ))}
     </svg>
