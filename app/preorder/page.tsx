@@ -1,28 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Nanum_Myeongjo, Lora, IBM_Plex_Mono } from "next/font/google";
 
 // East Asian editorial / 무크지 창간호 미감 — 디지털 출판사 vibe
-const myeongjo = Nanum_Myeongjo({
-  subsets: ["latin"],
-  weight: ["400", "700", "800"],
-  variable: "--font-myeongjo",
-  display: "swap",
-});
-const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-lora",
-  display: "swap",
-});
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  variable: "--font-plex-mono",
-  display: "swap",
-});
+// 폰트는 globals.css에서 @import (Nanum Myeongjo + Lora + IBM Plex Mono)
+const FONT_MYEONGJO = '"Nanum Myeongjo", "Noto Serif KR", serif';
+const FONT_LORA = '"Lora", Georgia, serif';
+const FONT_PLEX_MONO = '"IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace';
 
 const ICP_OPTIONS = [
   { value: "kmong_seller", label: "크몽 / PDF 셀러" },
@@ -68,12 +52,10 @@ export default function PreorderPage() {
     setStatus("error");
   }
 
-  const fontVars = `${myeongjo.variable} ${lora.variable} ${plexMono.variable}`;
-
   if (status === "done") {
     return (
       <main
-        className={`${fontVars} relative min-h-screen overflow-hidden`}
+        className="relative min-h-screen overflow-hidden"
         style={{ background: "#faf6f0", color: "#1a1714" }}
       >
         <GrainOverlay />
@@ -81,23 +63,23 @@ export default function PreorderPage() {
           <Stamp className="mb-8" />
           <p
             className="mb-4 text-[10px] uppercase tracking-[0.45em] text-[#8b1d1d]"
-            style={{ fontFamily: "var(--font-plex-mono)" }}
+            style={{ fontFamily: FONT_PLEX_MONO }}
           >
             受 付 完 了  ·  RECEIVED
           </p>
           <h1
             className="text-5xl font-extrabold leading-tight md:text-6xl"
-            style={{ fontFamily: "var(--font-myeongjo)" }}
+            style={{ fontFamily: FONT_MYEONGJO }}
           >
             창간호를 기다려주세요.
           </h1>
           <p
             className="mt-6 max-w-md text-base text-[#5b5249]"
-            style={{ fontFamily: "var(--font-lora)", fontStyle: "italic" }}
+            style={{ fontFamily: FONT_LORA, fontStyle: "italic" }}
           >
             Your seat at the first issue is reserved.
           </p>
-          <p className="mt-6 text-sm text-[#3a342e]" style={{ fontFamily: "var(--font-myeongjo)" }}>
+          <p className="mt-6 text-sm text-[#3a342e]" style={{ fontFamily: FONT_MYEONGJO }}>
             창간 시 이메일로 가장 먼저 안내드립니다. 그날까지 매주 한 통,
             <br />
             "30분 출판소" 단편 가이드가 도착합니다.
@@ -109,7 +91,7 @@ export default function PreorderPage() {
 
   return (
     <main
-      className={`${fontVars} relative min-h-screen overflow-hidden`}
+      className="relative min-h-screen overflow-hidden"
       style={{ background: "#faf6f0", color: "#1a1714" }}
     >
       <GrainOverlay />
@@ -119,20 +101,20 @@ export default function PreorderPage() {
         <div className="mx-auto flex max-w-6xl items-end justify-between gap-6 px-6 py-4">
           <div
             className="text-[10px] uppercase leading-tight tracking-[0.35em] text-[#5b5249]"
-            style={{ fontFamily: "var(--font-plex-mono)" }}
+            style={{ fontFamily: FONT_PLEX_MONO }}
           >
             <div>VOL.01 · 創刊號</div>
             <div className="mt-0.5">2026. 06 · SEOUL</div>
           </div>
           <div
             className="text-center text-[10px] uppercase tracking-[0.4em] text-[#1a1714]"
-            style={{ fontFamily: "var(--font-plex-mono)" }}
+            style={{ fontFamily: FONT_PLEX_MONO }}
           >
             TIGERBOOKMAKER · 虎 出 版 所
           </div>
           <div
             className="text-right text-[10px] uppercase leading-tight tracking-[0.35em] text-[#5b5249]"
-            style={{ fontFamily: "var(--font-plex-mono)" }}
+            style={{ fontFamily: FONT_PLEX_MONO }}
           >
             <div>EDITORIAL OFFICE</div>
             <div className="mt-0.5">PRE-ORDER · ₩00,000</div>
@@ -145,16 +127,16 @@ export default function PreorderPage() {
         <div className="mx-auto grid max-w-6xl grid-cols-12 gap-6 px-6 py-20 md:py-28">
           {/* 좌측 챕터 라벨 */}
           <aside className="col-span-12 md:col-span-3">
-            <div className="opacity-0 animate-[fadeUp_900ms_120ms_cubic-bezier(0.22,1,0.36,1)_forwards]">
+            <div className="opacity-0 animate-[preorderFadeUp_900ms_120ms_cubic-bezier(0.22,1,0.36,1)_forwards]">
               <p
                 className="text-[10px] uppercase tracking-[0.4em] text-[#8b1d1d]"
-                style={{ fontFamily: "var(--font-plex-mono)" }}
+                style={{ fontFamily: FONT_PLEX_MONO }}
               >
                 Ch.01 · 序 文
               </p>
               <p
                 className="mt-3 text-xs text-[#5b5249]"
-                style={{ fontFamily: "var(--font-myeongjo)" }}
+                style={{ fontFamily: FONT_MYEONGJO }}
               >
                 창간호 사전예약
                 <br />
@@ -167,15 +149,15 @@ export default function PreorderPage() {
           {/* 중앙 — 큰 한국어 헤드라인 */}
           <div className="col-span-12 md:col-span-9">
             <p
-              className="opacity-0 animate-[fadeUp_900ms_240ms_cubic-bezier(0.22,1,0.36,1)_forwards] text-[11px] uppercase tracking-[0.45em] text-[#5b5249]"
-              style={{ fontFamily: "var(--font-plex-mono)" }}
+              className="opacity-0 animate-[preorderFadeUp_900ms_240ms_cubic-bezier(0.22,1,0.36,1)_forwards] text-[11px] uppercase tracking-[0.45em] text-[#5b5249]"
+              style={{ fontFamily: FONT_PLEX_MONO }}
             >
               退 勤 後 30 分 · AFTER OFFICE HOURS
             </p>
 
             <h1
-              className="opacity-0 animate-[fadeUp_1000ms_360ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-6 text-[64px] font-extrabold leading-[0.95] tracking-tight text-[#1a1714] sm:text-7xl md:text-[96px] lg:text-[112px]"
-              style={{ fontFamily: "var(--font-myeongjo)", fontFeatureSettings: '"palt"' }}
+              className="opacity-0 animate-[preorderFadeUp_1000ms_360ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-6 text-[64px] font-extrabold leading-[0.95] tracking-tight text-[#1a1714] sm:text-7xl md:text-[96px] lg:text-[112px]"
+              style={{ fontFamily: FONT_MYEONGJO, fontFeatureSettings: '"palt"' }}
             >
               퇴근 후 <span className="text-[#8b1d1d]">三十分</span>,
               <br />
@@ -185,8 +167,8 @@ export default function PreorderPage() {
             </h1>
 
             <p
-              className="opacity-0 animate-[fadeUp_1000ms_540ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-10 max-w-xl text-lg leading-relaxed text-[#3a342e]"
-              style={{ fontFamily: "var(--font-lora)", fontStyle: "italic" }}
+              className="opacity-0 animate-[preorderFadeUp_1000ms_540ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-10 max-w-xl text-lg leading-relaxed text-[#3a342e]"
+              style={{ fontFamily: FONT_LORA, fontStyle: "italic" }}
             >
               A single line of theme. Twelve chapters. One cover.
               <br />
@@ -194,12 +176,12 @@ export default function PreorderPage() {
             </p>
 
             <div
-              className="opacity-0 animate-[fadeUp_1000ms_720ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-8 flex flex-wrap items-center gap-5"
+              className="opacity-0 animate-[preorderFadeUp_1000ms_720ms_cubic-bezier(0.22,1,0.36,1)_forwards] mt-8 flex flex-wrap items-center gap-5"
             >
               <a
                 href="#preorder-form"
                 className="group relative inline-flex items-center gap-3 border-2 border-[#1a1714] bg-[#1a1714] px-7 py-3.5 text-sm uppercase tracking-[0.25em] text-[#faf6f0] transition-all hover:translate-y-[1px] hover:shadow-[0_4px_0_0_#8b1d1d]"
-                style={{ fontFamily: "var(--font-plex-mono)" }}
+                style={{ fontFamily: FONT_PLEX_MONO }}
               >
                 사전예약 · 무료
                 <span className="transition-transform group-hover:translate-x-1">→</span>
@@ -207,7 +189,7 @@ export default function PreorderPage() {
               <a
                 href="#sample"
                 className="text-sm uppercase tracking-[0.25em] text-[#1a1714] underline decoration-[#8b1d1d] decoration-2 underline-offset-[6px] transition-colors hover:text-[#8b1d1d]"
-                style={{ fontFamily: "var(--font-plex-mono)" }}
+                style={{ fontFamily: FONT_PLEX_MONO }}
               >
                 견본 미리보기
               </a>
@@ -215,7 +197,7 @@ export default function PreorderPage() {
 
             {/* 본문 페이지 미리보기 — 잡지 마진 메타 */}
             <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-[#1a1714]/15 pt-6 text-[11px] uppercase tracking-[0.35em] text-[#5b5249]"
-              style={{ fontFamily: "var(--font-plex-mono)" }}
+              style={{ fontFamily: FONT_PLEX_MONO }}
             >
               <span>창간 D-7</span>
               <span className="text-[#1a1714]/30">|</span>
@@ -233,13 +215,13 @@ export default function PreorderPage() {
           <aside className="col-span-12 md:col-span-3">
             <p
               className="text-[10px] uppercase tracking-[0.4em] text-[#8b1d1d]"
-              style={{ fontFamily: "var(--font-plex-mono)" }}
+              style={{ fontFamily: FONT_PLEX_MONO }}
             >
               Ch.02 · 編 集 後 記
             </p>
             <p
               className="mt-3 text-xs leading-loose text-[#5b5249]"
-              style={{ fontFamily: "var(--font-myeongjo)" }}
+              style={{ fontFamily: FONT_MYEONGJO }}
             >
               크몽 셀러
               <br />
@@ -250,12 +232,12 @@ export default function PreorderPage() {
           </aside>
 
           <article className="col-span-12 md:col-span-9 max-w-[58ch] columns-1 md:columns-2 gap-10 [column-rule:1px_solid_rgba(26,23,20,0.12)]"
-            style={{ fontFamily: "var(--font-myeongjo)" }}
+            style={{ fontFamily: FONT_MYEONGJO }}
           >
             <p className="mb-6 break-inside-avoid">
               <span
                 className="float-left mr-3 mt-1 text-[64px] leading-none text-[#8b1d1d]"
-                style={{ fontFamily: "var(--font-myeongjo)" }}
+                style={{ fontFamily: FONT_MYEONGJO }}
               >
                 퇴
               </span>
@@ -271,7 +253,7 @@ export default function PreorderPage() {
               잘못된 믿음은{" "}
               <em
                 className="text-[#1a1714]"
-                style={{ fontFamily: "var(--font-lora)", fontStyle: "italic" }}
+                style={{ fontFamily: FONT_LORA, fontStyle: "italic" }}
               >
                 "AI는 잡 글이고, 사람이 다듬어야 한다"
               </em>{" "}
@@ -283,7 +265,7 @@ export default function PreorderPage() {
             </p>
             <p
               className="mt-4 text-[10px] uppercase tracking-[0.35em] text-[#5b5249]"
-              style={{ fontFamily: "var(--font-plex-mono)" }}
+              style={{ fontFamily: FONT_PLEX_MONO }}
             >
               — 創 刊 號 · 인터뷰 발췌
             </p>
@@ -297,19 +279,19 @@ export default function PreorderPage() {
           <aside className="col-span-12 md:col-span-3">
             <p
               className="text-[10px] uppercase tracking-[0.4em] text-[#8b1d1d]"
-              style={{ fontFamily: "var(--font-plex-mono)" }}
+              style={{ fontFamily: FONT_PLEX_MONO }}
             >
               Ch.03 · 受 付
             </p>
             <h3
               className="mt-3 text-2xl font-bold leading-tight"
-              style={{ fontFamily: "var(--font-myeongjo)" }}
+              style={{ fontFamily: FONT_MYEONGJO }}
             >
               창간호
               <br />
               사전예약 신청
             </h3>
-            <p className="mt-4 text-xs leading-loose text-[#5b5249]" style={{ fontFamily: "var(--font-myeongjo)" }}>
+            <p className="mt-4 text-xs leading-loose text-[#5b5249]" style={{ fontFamily: FONT_MYEONGJO }}>
               카드 정보 불필요.
               <br />
               이메일은 창간 안내·
@@ -323,7 +305,7 @@ export default function PreorderPage() {
             <div className="mb-12 border-y-2 border-[#1a1714]">
               <div
                 className="flex items-center justify-between border-b border-[#1a1714]/15 py-3"
-                style={{ fontFamily: "var(--font-plex-mono)" }}
+                style={{ fontFamily: FONT_PLEX_MONO }}
               >
                 <span className="text-[10px] uppercase tracking-[0.35em] text-[#5b5249]">
                   창간호 부록 · TABLE OF GIFTS
@@ -347,20 +329,20 @@ export default function PreorderPage() {
                   <div className="flex items-baseline gap-4">
                     <span
                       className="w-6 text-[10px] uppercase tracking-[0.3em] text-[#8b1d1d]"
-                      style={{ fontFamily: "var(--font-plex-mono)" }}
+                      style={{ fontFamily: FONT_PLEX_MONO }}
                     >
                       {key}.
                     </span>
                     <span
                       className="text-base text-[#1a1714]"
-                      style={{ fontFamily: "var(--font-myeongjo)" }}
+                      style={{ fontFamily: FONT_MYEONGJO }}
                     >
                       {title}
                     </span>
                   </div>
                   <span
                     className="text-sm text-[#5b5249] line-through"
-                    style={{ fontFamily: "var(--font-plex-mono)" }}
+                    style={{ fontFamily: FONT_PLEX_MONO }}
                   >
                     {price}
                   </span>
@@ -370,20 +352,20 @@ export default function PreorderPage() {
               <div className="flex items-baseline justify-between gap-6 bg-[#1a1714] px-1 py-5 text-[#faf6f0]">
                 <span
                   className="text-[10px] uppercase tracking-[0.4em]"
-                  style={{ fontFamily: "var(--font-plex-mono)" }}
+                  style={{ fontFamily: FONT_PLEX_MONO }}
                 >
                   총 정 가
                 </span>
                 <span className="flex items-baseline gap-4">
                   <span
                     className="text-sm line-through opacity-60"
-                    style={{ fontFamily: "var(--font-plex-mono)" }}
+                    style={{ fontFamily: FONT_PLEX_MONO }}
                   >
                     ₩49,600
                   </span>
                   <span
                     className="text-2xl font-bold"
-                    style={{ fontFamily: "var(--font-myeongjo)" }}
+                    style={{ fontFamily: FONT_MYEONGJO }}
                   >
                     ₩0
                   </span>
@@ -396,7 +378,7 @@ export default function PreorderPage() {
               <div>
                 <label
                   className="mb-2 block text-[10px] uppercase tracking-[0.4em] text-[#5b5249]"
-                  style={{ fontFamily: "var(--font-plex-mono)" }}
+                  style={{ fontFamily: FONT_PLEX_MONO }}
                 >
                   01 · 이 메 일
                 </label>
@@ -408,14 +390,14 @@ export default function PreorderPage() {
                   placeholder="reader@example.com"
                   autoComplete="email"
                   className="w-full border-b-2 border-[#1a1714] bg-transparent py-3 text-xl focus:border-[#8b1d1d] focus:outline-none"
-                  style={{ fontFamily: "var(--font-lora)" }}
+                  style={{ fontFamily: FONT_LORA }}
                 />
               </div>
 
               <div>
                 <label
                   className="mb-2 block text-[10px] uppercase tracking-[0.4em] text-[#5b5249]"
-                  style={{ fontFamily: "var(--font-plex-mono)" }}
+                  style={{ fontFamily: FONT_PLEX_MONO }}
                 >
                   02 · 직 군 (선택)
                 </label>
@@ -430,7 +412,7 @@ export default function PreorderPage() {
                           ? "border-[#1a1714] bg-[#1a1714] text-[#faf6f0]"
                           : "border-[#1a1714]/30 bg-transparent text-[#1a1714] hover:border-[#8b1d1d]"
                       }`}
-                      style={{ fontFamily: "var(--font-myeongjo)" }}
+                      style={{ fontFamily: FONT_MYEONGJO }}
                     >
                       {o.label}
                     </button>
@@ -441,7 +423,7 @@ export default function PreorderPage() {
               <div>
                 <label
                   className="mb-2 block text-[10px] uppercase tracking-[0.4em] text-[#5b5249]"
-                  style={{ fontFamily: "var(--font-plex-mono)" }}
+                  style={{ fontFamily: FONT_PLEX_MONO }}
                 >
                   03 · 의 향
                 </label>
@@ -457,16 +439,16 @@ export default function PreorderPage() {
                   >
                     <div
                       className="mb-1 text-[10px] uppercase tracking-[0.3em] opacity-70"
-                      style={{ fontFamily: "var(--font-plex-mono)" }}
+                      style={{ fontFamily: FONT_PLEX_MONO }}
                     >
                       OPTION A
                     </div>
-                    <div className="font-bold" style={{ fontFamily: "var(--font-myeongjo)" }}>
+                    <div className="font-bold" style={{ fontFamily: FONT_MYEONGJO }}>
                       사전예약 · 창간 안내
                     </div>
                     <div
                       className="mt-1 text-xs opacity-80"
-                      style={{ fontFamily: "var(--font-myeongjo)" }}
+                      style={{ fontFamily: FONT_MYEONGJO }}
                     >
                       부록 5종 + 시퀀스 이메일
                     </div>
@@ -482,16 +464,16 @@ export default function PreorderPage() {
                   >
                     <div
                       className="mb-1 text-[10px] uppercase tracking-[0.3em] opacity-70"
-                      style={{ fontFamily: "var(--font-plex-mono)" }}
+                      style={{ fontFamily: FONT_PLEX_MONO }}
                     >
                       OPTION B
                     </div>
-                    <div className="font-bold" style={{ fontFamily: "var(--font-myeongjo)" }}>
+                    <div className="font-bold" style={{ fontFamily: FONT_MYEONGJO }}>
                       얼리버드 · 입금 의향가
                     </div>
                     <div
                       className="mt-1 text-xs opacity-80"
-                      style={{ fontFamily: "var(--font-myeongjo)" }}
+                      style={{ fontFamily: FONT_MYEONGJO }}
                     >
                       이 가격이면 즉시 결제 의사
                     </div>
@@ -502,11 +484,11 @@ export default function PreorderPage() {
                   <div className="mt-3 flex items-baseline gap-3 border-l-2 border-[#8b1d1d] pl-4">
                     <span
                       className="text-[10px] uppercase tracking-[0.3em] text-[#5b5249]"
-                      style={{ fontFamily: "var(--font-plex-mono)" }}
+                      style={{ fontFamily: FONT_PLEX_MONO }}
                     >
                       입금 의향가
                     </span>
-                    <span className="text-2xl" style={{ fontFamily: "var(--font-myeongjo)" }}>₩</span>
+                    <span className="text-2xl" style={{ fontFamily: FONT_MYEONGJO }}>₩</span>
                     <input
                       type="number"
                       min={0}
@@ -517,7 +499,7 @@ export default function PreorderPage() {
                       }
                       placeholder="9900"
                       className="w-44 border-b-2 border-[#8b1d1d] bg-transparent py-2 text-2xl focus:outline-none"
-                      style={{ fontFamily: "var(--font-myeongjo)" }}
+                      style={{ fontFamily: FONT_MYEONGJO }}
                     />
                   </div>
                 )}
@@ -527,7 +509,7 @@ export default function PreorderPage() {
                 type="submit"
                 disabled={status === "loading"}
                 className="group relative mt-6 inline-flex w-full items-center justify-between border-2 border-[#1a1714] bg-[#1a1714] px-8 py-5 text-[#faf6f0] transition-all hover:translate-y-[1px] hover:shadow-[0_4px_0_0_#8b1d1d] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ fontFamily: "var(--font-plex-mono)" }}
+                style={{ fontFamily: FONT_PLEX_MONO }}
               >
                 <span className="text-[10px] uppercase tracking-[0.4em] opacity-60">
                   CH.03 · 신 청
@@ -541,7 +523,7 @@ export default function PreorderPage() {
               {status === "error" && (
                 <p
                   className="text-center text-sm text-[#8b1d1d]"
-                  style={{ fontFamily: "var(--font-myeongjo)" }}
+                  style={{ fontFamily: FONT_MYEONGJO }}
                 >
                   오류가 발생했습니다 {errorMsg && `(${errorMsg})`}. 다시 시도해 주세요.
                 </p>
@@ -556,7 +538,7 @@ export default function PreorderPage() {
         <div className="mx-auto grid max-w-6xl grid-cols-12 gap-6 px-6 py-12">
           <div
             className="col-span-12 md:col-span-3 text-[10px] uppercase leading-loose tracking-[0.35em] text-[#5b5249]"
-            style={{ fontFamily: "var(--font-plex-mono)" }}
+            style={{ fontFamily: FONT_PLEX_MONO }}
           >
             COLOPHON
             <br />
@@ -565,7 +547,7 @@ export default function PreorderPage() {
 
           <div
             className="col-span-12 md:col-span-9 text-xs leading-loose text-[#5b5249]"
-            style={{ fontFamily: "var(--font-myeongjo)" }}
+            style={{ fontFamily: FONT_MYEONGJO }}
           >
             <p className="mb-2 text-[#1a1714]">
               <strong>편집장</strong> 金 課 長 (managerkim) — 11년차 사무직, AI 자동화 도구 제작자.
@@ -591,19 +573,6 @@ export default function PreorderPage() {
         </div>
       </footer>
 
-      {/* Local CSS — fadeUp keyframe */}
-      <style jsx>{`
-        @keyframes fadeUp {
-          0% {
-            opacity: 0;
-            transform: translateY(28px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </main>
   );
 }
@@ -655,7 +624,7 @@ function Stamp({ className = "" }: { className?: string }) {
       <span
         className="relative text-[28px] font-bold leading-none text-[#8b1d1d]"
         style={{
-          fontFamily: "var(--font-myeongjo)",
+          fontFamily: FONT_MYEONGJO,
           transform: "rotate(-3deg)",
         }}
       >
