@@ -30,6 +30,61 @@ const ICP_OPTIONS = [
   { value: "other", label: "기타" },
 ];
 
+// v3 lib/example-forks.ts 기반 — 표지 색은 themeColor 매핑
+const SAMPLE_BOOKS = [
+  {
+    id: "example-1",
+    topic: "아침 루틴, 30일이면 인생이 바뀝니다",
+    audience: "번아웃 직전의 30대 직장인",
+    type: "자기계발서",
+    palette: { bg: "#F97316", text: "#FFF8F1", accent: "#7C2D12" },
+    days: 30,
+  },
+  {
+    id: "example-2",
+    topic: "월급만으로 부족함을 느끼나요",
+    audience: "재테크 처음 시작하는 30대",
+    type: "재테크",
+    palette: { bg: "#1E40AF", text: "#E0E7FF", accent: "#FCD34D" },
+    days: 21,
+  },
+  {
+    id: "example-3",
+    topic: "나는 그래서 회사를 그만뒀습니다",
+    audience: "퇴사를 고민하는 직장인",
+    type: "에세이",
+    palette: { bg: "#1F2937", text: "#F3F4F6", accent: "#EF4444" },
+    days: 14,
+  },
+  {
+    id: "example-4",
+    topic: "오늘 저녁 뭐 먹지, 1주일 식단표",
+    audience: "1인 가구·맞벌이 부부",
+    type: "실용서",
+    palette: { bg: "#059669", text: "#ECFDF5", accent: "#FBBF24" },
+    days: 7,
+  },
+];
+
+const FAQS = [
+  {
+    q: "AI가 만든 책, 진짜 제 것인가요?",
+    a: "네, 100% 본인 것입니다. tigerbookmaker는 도구일 뿐이며 생성된 모든 책의 저작권·로열티는 사용자에게 있습니다. 크몽·KDP·블로그·뉴스레터 어디서든 자유롭게 판매하실 수 있어요.",
+  },
+  {
+    q: "AI 표절 아닌가요? 광고 정책에 걸리지 않을까요?",
+    a: "본인이 입력한 주제와 자료를 기반으로 새로 생성되므로 표절이 아닙니다. 다만 한국 AI 기본법(2026-01 시행) 및 공정위 표시광고 심사지침(2026-06 시행)에 따라 AI 콘텐츠 임을 책 메타데이터·판매 페이지에 명시하시는 걸 권장합니다. 자동 라벨 옵션을 제공할 예정입니다.",
+  },
+  {
+    q: "정식 오픈 가격은 얼마인가요?",
+    a: "권당 결제 모델입니다. 라이트 ₩4,000 / 표준 ₩7,400 / 풀 ₩12,200 / 프리미엄 ₩21,300. 베타 사전예약자에게는 평생 베타 가격(권당 -50%)을 유지해드릴 계획입니다.",
+  },
+  {
+    q: "환불되나요?",
+    a: "베타 기간은 결제 자체가 없으니 환불 이슈가 없습니다. 정식 오픈 후에는 첫 책 7일 100% 환불을 제공합니다. 만족 못 하시면 묻지 않고 환불해드려요.",
+  },
+];
+
 // 헤드라인을 글자 단위로 쪼개 stagger 애니메이션
 function SplitHeading({ text }: { text: string }) {
   const chars = Array.from(text);
@@ -68,17 +123,59 @@ export default function PreorderPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Live viewer count — 23~67 사이 랜덤 워크
-  const [viewerCount, setViewerCount] = useState(43);
+  // 실시간 가입자 수 — DB에서 fetch + 1분마다 폴링
+  const [stats, setStats] = useState<{ count: number; capacity: number; remaining: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch("/api/preorder/stats");
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled) setStats({ count: d.count, capacity: d.capacity, remaining: d.remaining });
+      } catch {}
+    }
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // 라이브 뷰어 — DB의 실제 사람 수가 아니라 의도적 "활동 신호"
+  // 베타·실시간 분위기 (랜덤 워크). 23-58 범위.
+  const [viewerCount, setViewerCount] = useState(38);
   useEffect(() => {
     const id = setInterval(() => {
       setViewerCount((n) => {
         const delta = Math.floor(Math.random() * 5) - 2;
-        return Math.max(23, Math.min(67, n + delta));
+        return Math.max(23, Math.min(58, n + delta));
       });
     }, 4200);
     return () => clearInterval(id);
   }, []);
+
+  // Sticky CTA 표시 여부 (스크롤 > 700)
+  const [showStickyCta, setShowStickyCta] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const sy = window.scrollY;
+      // form 섹션 보일 때는 sticky 숨김 (중복 UX 방지)
+      const form = document.getElementById("preorder-form");
+      const inForm =
+        form &&
+        form.getBoundingClientRect().top < window.innerHeight * 0.7 &&
+        form.getBoundingClientRect().bottom > window.innerHeight * 0.3;
+      setShowStickyCta(sy > 700 && !inForm);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // FAQ 토글
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   // Cursor follow dot
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -326,7 +423,7 @@ export default function PreorderPage() {
               tigerbookmaker
             </span>
           </div>
-          <span
+          <div
             style={{
               fontFamily: FONT_MONO,
               fontSize: 11,
@@ -335,21 +432,32 @@ export default function PreorderPage() {
               textTransform: "uppercase",
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              gap: 14,
             }}
+            className="nav-meta"
           >
-            <span
-              style={{
-                display: "inline-block",
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                background: C.accent,
-                animation: "preorderPulse 1.4s infinite ease-out",
-              }}
-            />
-            지금 {viewerCount}명이 보고 있어요
-          </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: C.accent,
+                  animation: "preorderPulse 1.4s infinite ease-out",
+                }}
+              />
+              {viewerCount}명이 보는 중
+            </span>
+            {stats && (
+              <>
+                <span style={{ opacity: 0.4 }}>|</span>
+                <span style={{ color: C.ink }}>
+                  {stats.count} / {stats.capacity} 명 신청
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -518,7 +626,13 @@ export default function PreorderPage() {
                   textTransform: "uppercase",
                 }}
               >
-                <span>한정 100명</span>
+                {stats ? (
+                  <span>
+                    {stats.remaining}석 남음 · 총 {stats.capacity}명
+                  </span>
+                ) : (
+                  <span>한정 100명</span>
+                )}
                 <span style={{ opacity: 0.4 }}>|</span>
                 <span>카드 정보 X</span>
               </div>
@@ -527,6 +641,7 @@ export default function PreorderPage() {
 
           {/* 오른쪽 — 큰 일러스트 */}
           <div
+            className="hero-illust"
             style={{
               opacity: 0,
               animation: "preorderFadeUp 1000ms 400ms cubic-bezier(0.22,1,0.36,1) forwards",
@@ -1145,11 +1260,172 @@ export default function PreorderPage() {
             </button>
 
             {status === "error" && (
-              <p style={{ fontSize: 13, color: C.accent, textAlign: "center" }}>
-                오류가 발생했어요{errorMsg ? ` (${errorMsg})` : ""}. 다시 시도해 주세요.
-              </p>
+              <div
+                style={{
+                  padding: "14px 18px",
+                  background: C.accentSoft,
+                  border: `1px solid ${C.accent}55`,
+                  borderRadius: 10,
+                  fontSize: 14,
+                  color: C.accentDark,
+                  textAlign: "center",
+                  lineHeight: 1.55,
+                }}
+              >
+                {errorMsg === "INVALID_EMAIL"
+                  ? "이메일 형식이 맞지 않아요. 다시 확인해 주세요."
+                  : errorMsg === "INVALID_AMOUNT"
+                  ? "입금 의향가는 0보다 큰 숫자로 입력해주세요."
+                  : errorMsg === "INVALID_INTENT"
+                  ? "신청 종류가 잘못됐어요. 다시 선택해 주세요."
+                  : "잠시 후 다시 시도해 주세요. 계속 안 되면 hello@managerkim.com 으로 알려주세요."}
+              </div>
             )}
           </form>
+        </div>
+      </section>
+
+      {/* 샘플 책 미리보기 — v3 examples 활용 */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          background: "white",
+          borderTop: `1px solid ${C.border}`,
+          borderBottom: `1px solid ${C.border}`,
+          padding: "72px 24px",
+          overflow: "hidden",
+        }}
+      >
+        <div data-reveal style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <SectionLabel num="03" title="AI가 만든 실제 샘플" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 36,
+              lineHeight: 1.15,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 8,
+            }}
+          >
+            "AI 자동 생성, 진짜 쓸 만한가요?"
+          </h2>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 40, maxWidth: 560 }}>
+            아래는 베타 사용자가 주제 한 줄로 30분 만에 만든 실제 책입니다. 클릭하면 그
+            주제로 본인의 책을 만들어 볼 수 있어요.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 20,
+            }}
+          >
+            {SAMPLE_BOOKS.map((b, i) => (
+              <SampleBookCard key={b.id} book={b} index={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          padding: "80px 24px",
+        }}
+      >
+        <div data-reveal style={{ maxWidth: 720, margin: "0 auto" }}>
+          <SectionLabel num="04" title="자주 묻는 질문" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 36,
+              lineHeight: 1.15,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 36,
+            }}
+          >
+            궁금한 거 미리 답할게요.
+          </h2>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {FAQS.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setOpenFaq(open ? null : i)}
+                  style={{
+                    textAlign: "left",
+                    background: "white",
+                    border: `1px solid ${open ? C.ink : C.border}`,
+                    borderRadius: 14,
+                    padding: "20px 24px",
+                    cursor: "pointer",
+                    transition: "border-color 180ms ease",
+                    fontFamily: FONT_SANS,
+                    color: C.ink,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 16,
+                    }}
+                  >
+                    <span style={{ fontSize: 17, fontWeight: 700 }}>{f.q}</span>
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 28,
+                        height: 28,
+                        borderRadius: 999,
+                        border: `1px solid ${C.border}`,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: open ? C.ink : "transparent",
+                        color: open ? "white" : C.ink,
+                        transition: "all 180ms ease",
+                        fontSize: 18,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {open ? "−" : "+"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      maxHeight: open ? 400 : 0,
+                      overflow: "hidden",
+                      transition: "max-height 320ms cubic-bezier(0.22,1,0.36,1)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        paddingTop: 16,
+                        fontSize: 15,
+                        lineHeight: 1.7,
+                        color: C.body,
+                      }}
+                    >
+                      {f.a}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -1267,11 +1543,75 @@ export default function PreorderPage() {
         </div>
       </footer>
 
-      {/* 모바일 — hero grid 단일 컬럼 */}
+      {/* Sticky 하단 CTA */}
+      <div
+        aria-hidden={!showStickyCta}
+        style={{
+          position: "fixed",
+          left: 16,
+          right: 16,
+          bottom: showStickyCta ? 16 : -120,
+          zIndex: 50,
+          maxWidth: 720,
+          margin: "0 auto",
+          background: C.ink,
+          color: "white",
+          borderRadius: 16,
+          padding: "12px 14px 12px 22px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          boxShadow: `0 20px 40px -10px ${C.ink}77`,
+          transition: "bottom 380ms cubic-bezier(0.22,1,0.36,1)",
+          fontFamily: FONT_SANS,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>퇴근 후 30분, 첫 이북.</span>
+          <span style={{ fontSize: 11, opacity: 0.65, letterSpacing: "0.1em", fontFamily: FONT_MONO }}>
+            {stats ? `${stats.remaining}석 남음 · 무료` : "한정 100명 · 무료"}
+          </span>
+        </div>
+        <a
+          href="#preorder-form"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: C.accent,
+            color: "white",
+            padding: "12px 18px",
+            borderRadius: 10,
+            fontSize: 14,
+            fontWeight: 700,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          신청하기 →
+        </a>
+      </div>
+
+      {/* 반응형 + reduced-motion */}
       <style>{`
         @media (max-width: 880px) {
-          .hero-grid { grid-template-columns: 1fr !important; }
+          .hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
           .trust-grid { grid-template-columns: 1fr !important; }
+          .hero-illust { max-width: 320px !important; opacity: 0.85; }
+          .nav-meta > :nth-child(n+2) { display: none; }
+        }
+        @media (max-width: 560px) {
+          .hero-illust { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
         }
       `}</style>
     </main>
@@ -1511,6 +1851,126 @@ function IntentCard({
         <div style={{ fontSize: 13, opacity: 0.78 }}>{desc}</div>
       </div>
     </button>
+  );
+}
+
+function SampleBookCard({
+  book,
+  index,
+}: {
+  book: (typeof SAMPLE_BOOKS)[number];
+  index: number;
+}) {
+  return (
+    <a
+      href={`/new?fork=${book.id}`}
+      style={{
+        textDecoration: "none",
+        color: "inherit",
+        display: "block",
+        opacity: 0,
+        animation: `preorderFadeUp 600ms ${index * 80}ms cubic-bezier(0.22,1,0.36,1) forwards`,
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          aspectRatio: "3 / 4",
+          background: book.palette.bg,
+          color: book.palette.text,
+          borderRadius: 8,
+          padding: 22,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          overflow: "hidden",
+          boxShadow: `0 12px 28px -16px ${book.palette.bg}aa`,
+          transition: "transform 320ms cubic-bezier(0.22,1,0.36,1), box-shadow 320ms ease",
+          marginBottom: 14,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-6px) rotate(-1deg)";
+          e.currentTarget.style.boxShadow = `0 22px 40px -16px ${book.palette.bg}cc`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0) rotate(0)";
+          e.currentTarget.style.boxShadow = `0 12px 28px -16px ${book.palette.bg}aa`;
+        }}
+      >
+        {/* 책등 라인 */}
+        <div
+          style={{
+            position: "absolute",
+            left: 12,
+            top: 16,
+            bottom: 16,
+            width: 2,
+            background: book.palette.text,
+            opacity: 0.18,
+          }}
+        />
+        <div>
+          <span
+            style={{
+              fontFamily: FONT_MONO,
+              fontSize: 10,
+              letterSpacing: "0.25em",
+              opacity: 0.75,
+              textTransform: "uppercase",
+            }}
+          >
+            {book.type}
+          </span>
+        </div>
+        <div>
+          <h3
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 900,
+              fontSize: 19,
+              lineHeight: 1.18,
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            {book.topic}
+          </h3>
+          <div
+            style={{
+              marginTop: 14,
+              fontSize: 11,
+              opacity: 0.78,
+              letterSpacing: "0.05em",
+            }}
+          >
+            {book.audience}
+          </div>
+        </div>
+        <span
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            background: book.palette.accent,
+            color: book.palette.bg,
+            fontFamily: FONT_MONO,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            padding: "4px 8px",
+            borderRadius: 4,
+          }}
+        >
+          D-{book.days}
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
+        <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, letterSpacing: "0.1em" }}>
+          이 주제로 시작
+        </span>
+        <span style={{ fontSize: 14, color: C.accent }}>→</span>
+      </div>
+    </a>
   );
 }
 

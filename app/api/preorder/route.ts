@@ -61,6 +61,22 @@ export async function POST(req: Request) {
       .digest("hex")
       .slice(0, 32);
 
+    // 같은 이메일이 이미 같은 intent로 신청한 경우 dedupe
+    // (사용자가 의향가만 추가/변경하는 시나리오는 새 row로 허용)
+    const { rows: dupRows } = await sql`
+      SELECT id FROM preorders
+      WHERE email = ${email}
+        AND intent = ${intent}
+        AND created_at > NOW() - INTERVAL '24 hours'
+      LIMIT 1
+    `;
+    if (dupRows.length > 0) {
+      return NextResponse.json(
+        { ok: true, deduped: true, message: "이미 24시간 내 같은 신청이 접수됐어요." },
+        { status: 200 }
+      );
+    }
+
     await sql`
       INSERT INTO preorders
         (email, icp_signal, intent, amount_won, utm_source, utm_medium, utm_campaign, visitor_hash)
