@@ -86,6 +86,8 @@ const FAQS = [
 ];
 
 // 헤드라인을 글자 단위로 쪼개 stagger 애니메이션
+// 폴백: keyframes 미로딩 시에도 글자가 보이도록 inline opacity 0 제거,
+// animation-fill-mode: both 로 keyframe 있을 때만 0% 상태 적용.
 function SplitHeading({ text }: { text: string }) {
   const chars = Array.from(text);
   let visibleIdx = 0;
@@ -102,8 +104,7 @@ function SplitHeading({ text }: { text: string }) {
             key={i}
             style={{
               display: "inline-block",
-              opacity: 0,
-              animation: `preorderLetter 700ms ${delay + 280}ms cubic-bezier(0.22,1,0.36,1) forwards`,
+              animation: `preorderLetter 700ms ${delay + 280}ms cubic-bezier(0.22,1,0.36,1) both`,
               willChange: "transform, opacity",
             }}
           >
@@ -484,8 +485,7 @@ export default function PreorderPage() {
           <div>
             <div
               style={{
-                opacity: 0,
-                animation: "preorderFadeUp 700ms 100ms cubic-bezier(0.22,1,0.36,1) forwards",
+                animation: "preorderFadeUp 700ms 100ms cubic-bezier(0.22,1,0.36,1) both",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
@@ -534,7 +534,7 @@ export default function PreorderPage() {
                       transformOrigin: "left",
                       transform: "scaleX(0)",
                       animation:
-                        "preorderUnderline 700ms 1500ms cubic-bezier(0.22,1,0.36,1) forwards",
+                        "preorderUnderline 700ms 1500ms cubic-bezier(0.22,1,0.36,1) both",
                       opacity: 0.9,
                       zIndex: 0,
                     }}
@@ -551,8 +551,7 @@ export default function PreorderPage() {
 
             <p
               style={{
-                opacity: 0,
-                animation: "preorderFadeUp 800ms 1600ms cubic-bezier(0.22,1,0.36,1) forwards",
+                animation: "preorderFadeUp 800ms 1600ms cubic-bezier(0.22,1,0.36,1) both",
                 fontSize: 19,
                 lineHeight: 1.6,
                 color: C.body,
@@ -566,8 +565,7 @@ export default function PreorderPage() {
             </p>
             <p
               style={{
-                opacity: 0,
-                animation: "preorderFadeUp 800ms 1750ms cubic-bezier(0.22,1,0.36,1) forwards",
+                animation: "preorderFadeUp 800ms 1750ms cubic-bezier(0.22,1,0.36,1) both",
                 fontSize: 15,
                 color: C.muted,
                 marginBottom: 40,
@@ -578,8 +576,7 @@ export default function PreorderPage() {
 
             <div
               style={{
-                opacity: 0,
-                animation: "preorderFadeUp 800ms 1900ms cubic-bezier(0.22,1,0.36,1) forwards",
+                animation: "preorderFadeUp 800ms 1900ms cubic-bezier(0.22,1,0.36,1) both",
                 display: "flex",
                 alignItems: "center",
                 gap: 16,
@@ -643,8 +640,7 @@ export default function PreorderPage() {
           <div
             className="hero-illust"
             style={{
-              opacity: 0,
-              animation: "preorderFadeUp 1000ms 400ms cubic-bezier(0.22,1,0.36,1) forwards",
+              animation: "preorderFadeUp 1000ms 400ms cubic-bezier(0.22,1,0.36,1) both",
               position: "relative",
               aspectRatio: "1 / 1.05",
               maxWidth: 480,
@@ -745,8 +741,7 @@ export default function PreorderPage() {
                 padding: "26px 22px",
                 transition: "transform 260ms ease, box-shadow 260ms ease",
                 cursor: "default",
-                opacity: 0,
-                animation: `preorderFadeUp 700ms ${200 + i * 90}ms cubic-bezier(0.22,1,0.36,1) forwards`,
+                animation: `preorderFadeUp 700ms ${200 + i * 90}ms cubic-bezier(0.22,1,0.36,1) both`,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-4px) rotate(-0.3deg)";
@@ -1868,8 +1863,7 @@ function SampleBookCard({
         textDecoration: "none",
         color: "inherit",
         display: "block",
-        opacity: 0,
-        animation: `preorderFadeUp 600ms ${index * 80}ms cubic-bezier(0.22,1,0.36,1) forwards`,
+        animation: `preorderFadeUp 600ms ${index * 80}ms cubic-bezier(0.22,1,0.36,1) both`,
       }}
     >
       <div
@@ -2140,7 +2134,7 @@ function BookIllustration() {
           strokeLinecap="round"
           strokeDasharray="1500"
           strokeDashoffset="1500"
-          style={{ animation: "preorderDraw 2.4s 0.8s ease-out forwards" }}
+          style={{ animation: "preorderDraw 2.4s 0.8s ease-out both" }}
         />
         <path
           d="M110 432 Q240 418 380 436 T498 424"
@@ -2151,7 +2145,7 @@ function BookIllustration() {
           opacity="0.55"
           strokeDasharray="1500"
           strokeDashoffset="1500"
-          style={{ animation: "preorderDraw 2.4s 1.2s ease-out forwards" }}
+          style={{ animation: "preorderDraw 2.4s 1.2s ease-out both" }}
         />
 
         {/* 빨간 책갈피 (오른쪽 상단, 안전 영역) */}
@@ -2197,8 +2191,7 @@ function BookIllustration() {
       <g
         transform="translate(420 410) rotate(-10)"
         style={{
-          opacity: 0,
-          animation: "preorderFadeUp 600ms 2.6s cubic-bezier(0.22,1,0.36,1) forwards",
+          animation: "preorderFadeUp 600ms 2.6s cubic-bezier(0.22,1,0.36,1) both",
           transformOrigin: "420px 410px",
         }}
       >
