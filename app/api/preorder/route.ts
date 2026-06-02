@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
 import crypto from "crypto";
+import { sendPreorderEmail } from "@/lib/server/preorder-emails";
 
 export const runtime = "nodejs";
 
@@ -77,12 +78,35 @@ export async function POST(req: Request) {
       );
     }
 
-    await sql`
+    const { rows: inserted } = await sql<{ id: string }>`
       INSERT INTO preorders
         (email, icp_signal, intent, amount_won, utm_source, utm_medium, utm_campaign, visitor_hash)
       VALUES
         (${email}, ${icpSignal}, ${intent}, ${amountWon}, ${utmSource}, ${utmMedium}, ${utmCampaign}, ${visitorHash})
+      RETURNING id
     `;
+    const preorderId = inserted[0]?.id;
+
+    // Day 0 즉시 답장 (실패해도 응답은 200 유지 — 사용자 UX 우선)
+    if (preorderId) {
+      sendPreorderEmail(0, { email, icpSignal })
+        .then(async (r) => {
+          if (r.ok) {
+            await sql`
+              INSERT INTO preorder_sequence_log (preorder_id, step)
+              VALUES (${preorderId}, 0)
+              ON CONFLICT (preorder_id, step) DO NOTHING
+            `;
+          } else {
+            await sql`
+              INSERT INTO preorder_sequence_log (preorder_id, step, failed_at, fail_reason)
+              VALUES (${preorderId}, 0, NOW(), ${r.reason})
+              ON CONFLICT (preorder_id, step) DO NOTHING
+            `;
+          }
+        })
+        .catch(() => {});
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
