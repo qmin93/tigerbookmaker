@@ -16,7 +16,7 @@ const C = {
 };
 
 const FONT_SANS = '"Pretendard Variable", Pretendard, system-ui, sans-serif';
-const FONT_SERIF = '"Nanum Myeongjo", "Noto Serif KR", serif';
+const FONT_SERIF = '"Hahmlet", "Nanum Myeongjo", "Noto Serif KR", serif';
 const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 type PersonaKey = "general" | "kmong_seller" | "side_writer" | "coach" | "other";
@@ -33,12 +33,12 @@ interface PersonaContent {
 
 const PERSONAS: Record<PersonaKey, PersonaContent> = {
   general: {
-    label: "처음 오셨어요?",
-    badge: "한국어 AI 이북 자동 집필 · 베타",
+    label: "처음이에요",
+    badge: "한국어 AI 이북 자동 집필 · 베타 D-30",
     headline: { line1: "주제 한 줄,", emphasis: "책 한 권", line2: "30분." },
-    subhead: "주제 한 줄과 본인 자료 한 개만 주세요. AI가 12챕터 + 표지 + 마케팅 카피까지 자동.",
+    subhead: "AI가 12챕터 + 표지 + 마케팅 카피까지 자동. 본인이 손볼 곳은 10%.",
     cta: "사전예약 · 무료",
-    highlight: "권당 ₩4,000부터 · 베타 ₩5,000 무료 크레딧",
+    highlight: "사전예약자에게 미니 이북 PDF + 키워드 30개 즉시 발송",
     destination: "/preorder",
   },
   kmong_seller: {
@@ -141,7 +141,7 @@ export function PersonaHero({ children }: { children: React.ReactNode }) {
                 marginRight: 4,
               }}
             >
-              당신은 →
+              당신은 ↓
             </span>
             {PERSONA_ORDER.map((key) => {
               const active = persona === key;

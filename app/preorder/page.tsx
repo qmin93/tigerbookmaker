@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 // 한국어 sans 중심 + 큰 SVG illustration + animated mesh + marquee + per-letter reveal.
 
 const FONT_SANS = '"Pretendard Variable", Pretendard, system-ui, sans-serif';
-const FONT_SERIF = '"Nanum Myeongjo", "Noto Serif KR", serif';
+const FONT_SERIF = '"Hahmlet", "Nanum Myeongjo", "Noto Serif KR", serif';
 const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 const C = {

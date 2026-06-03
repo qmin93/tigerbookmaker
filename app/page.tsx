@@ -4,6 +4,9 @@
 import Link from "next/link";
 import { getLandingStats } from "@/lib/server/db";
 import { PersonaHero } from "./_home/PersonaHero";
+import { StickyCta } from "./_home/StickyCta";
+import { SoapOperaPreview } from "./_home/SoapOperaPreview";
+import { Tier4Application } from "./_home/Tier4Application";
 
 export const revalidate = 300;
 
@@ -19,7 +22,7 @@ const C = {
 };
 
 const FONT_SANS = '"Pretendard Variable", Pretendard, system-ui, sans-serif';
-const FONT_SERIF = '"Nanum Myeongjo", "Noto Serif KR", serif';
+const FONT_SERIF = '"Hahmlet", "Nanum Myeongjo", "Noto Serif KR", serif';
 const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 const SAMPLE_BOOKS = [
@@ -348,7 +351,7 @@ export default async function HomePage() {
             가격으로 경쟁하지 않습니다. 가치로 경쟁합니다.
           </p>
           <p style={{ fontSize: 14, color: C.muted, marginBottom: 48 }}>
-            첫 책에서 자비출판까지 — 직장인 부수익러를 위한 4단 사다리. 사용자가 다음 층으로 가는 건 본인의 선택.
+            첫 책에서 자비출판까지. 직장인 부수익러를 위한 4단 사다리. 다음 층으로 가는 건 본인 결정.
           </p>
 
           <div
@@ -378,7 +381,7 @@ export default async function HomePage() {
                 price: "₩4,000–21,300",
                 price_sub: "/ 권",
                 when: "베타 오픈 시 (D+30)",
-                desc: "권당 충전식. 카드 등록 없음. 사전예약자 ₩5,000 크레딧 자동 = 라이트 1권 무료. 권당 결제는 글로벌 5개 월구독 경쟁사와 차별점.",
+                desc: "권당 충전식. 카드 등록 없음. 사전예약자에게 ₩5,000 크레딧 자동 = 라이트 1권 무료. 글로벌 경쟁사는 전부 월구독, 우리만 권당.",
                 cta: "권당",
                 active: false,
               },
@@ -389,7 +392,7 @@ export default async function HomePage() {
                 price: "₩99,000–299,000",
                 price_sub: "/ 1회",
                 when: "Month 2-3",
-                desc: "라이트 무제한 + 매일 인증 + 그룹 코칭 + 표지 디자이너 1:1 피드백. Russell 도전 퍼널 (Secret 13) 한국형.",
+                desc: "라이트 무제한 + 매일 인증 + 그룹 코칭 + 표지 디자이너 1:1 피드백. 14일 동안 책 14권을 같이 만듭니다.",
                 cta: "다음 단계",
                 active: false,
               },
@@ -400,7 +403,7 @@ export default async function HomePage() {
                 price: "₩2,000,000+",
                 price_sub: "/ 프로젝트",
                 when: "Month 6+",
-                desc: "POD 인쇄 / Amazon KDP 등록 / ISBN / 마케팅 6개월 동행. 신청서 퍼널 (Secret 17) — 전화 상담 필수. 10명 한정.",
+                desc: "POD 인쇄 + Amazon KDP 등록 + ISBN + 마케팅 6개월. 전화 상담 후 선정. 10명 한정.",
                 cta: "추후 공개",
                 active: false,
               },
@@ -535,6 +538,8 @@ export default async function HomePage() {
                       >
                         {step.cta} →
                       </Link>
+                    ) : step.tier === "층 4" ? (
+                      <Tier4Application />
                     ) : (
                       <span
                         style={{
@@ -565,7 +570,7 @@ export default async function HomePage() {
               fontStyle: "italic",
             }}
           >
-            "한 번에 한 층만 — 사용자가 다음 단계로 가는 건 본인이 결정." (Secret 27)
+            한 번에 한 층만 올라가요. 다음 단계로 가는 건 본인 결정.
             <br />
             <Link
               href="/pricing"
@@ -783,8 +788,8 @@ export default async function HomePage() {
                 color: C.body,
               }}
             >
-              "11년차 사무직이 매주 100시간 야근에서 살아남으려고 AI 자동화 도구를 매일 만들다가,
-              그중 가장 잘 통한 흐름을 한국 작가·부수익러를 위해 다듬은 결과."
+              11년차 사무직이 매주 100시간 야근에서 살아남으려고 AI 자동화 도구를 매일 만들었고,
+              그중 가장 잘 통한 흐름을 한국 작가·부수익러용으로 다듬었어요.
             </p>
             <p
               style={{
@@ -1003,6 +1008,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 5일 소프트오페라 미리보기 — Secret 7 노출 */}
+      <SoapOperaPreview />
 
       {/* C. FAQ */}
       <section style={{ position: "relative", zIndex: 4, padding: "80px 24px" }}>
@@ -1309,6 +1317,9 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* 항상 보이는 다음 행동 */}
+      <StickyCta />
 
       {/* Footer */}
       <footer
