@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/email-recovery",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/preorder-sequence",
+      "schedule": "0 10 * * *"
     }
   ]
 }

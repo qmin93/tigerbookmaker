@@ -48,6 +48,56 @@ function findClosestPreset(hex: string): ThemeColorKey | null {
   return bestKey;
 }
 
+// F. 책 유형 → 권장 분량 매핑 (선택 시 자동 추천)
+// 폼에 노출되는 6개만 정의. 다른 BookType은 기본 80쪽.
+const RECOMMENDED_PAGES: Partial<Record<BookType, number>> = {
+  "실용서": 80,
+  "자기계발서": 65,
+  "재테크": 90,
+  "에세이": 100,
+  "매뉴얼": 50,
+  "웹소설": 120,
+};
+function getRecommendedPages(t: BookType): number {
+  return RECOMMENDED_PAGES[t] ?? 80;
+}
+
+// G. 인기 주제 chip — 인터뷰 + 트렌드 기반
+const TOPIC_PRESETS: Array<{ topic: string; type: BookType; audience: string }> = [
+  { topic: "퇴근 후 30분, 첫 PDF 자료 만들기", type: "실용서", audience: "직장인 부수익러" },
+  { topic: "직장인 부수익 7가지", type: "재테크", audience: "월급만으로 부족한 30대" },
+  { topic: "ChatGPT로 블로그 글 한 권 만들기", type: "매뉴얼", audience: "블로그 운영자" },
+  { topic: "워킹맘의 시간 관리 30일", type: "자기계발서", audience: "워킹맘 30-40대" },
+  { topic: "나는 그래서 회사를 그만뒀습니다", type: "에세이", audience: "퇴사를 고민하는 직장인" },
+];
+
+// H. 주제 점수 계산 (간단한 휴리스틱 — 한국어 키워드 기반)
+function calculateTopicScore(topic: string, audience: string): { score: number; tips: string[] } {
+  const tips: string[] = [];
+  let score = 0;
+
+  if (topic.length >= 15) score += 2;
+  else if (topic.length >= 8) score += 1;
+  else tips.push("주제를 좀 더 구체적으로 (예: 숫자/대상 포함)");
+
+  if (/\d+/.test(topic)) score += 2;
+  else tips.push("숫자가 들어가면 매출↑ (예: 30일, 7가지, 1시간)");
+
+  const koreanKeywords = ["직장인", "부수익", "퇴근", "ChatGPT", "AI", "30일", "한 달", "초보", "처음", "시작"];
+  const keywordHits = koreanKeywords.filter(k => topic.includes(k)).length;
+  if (keywordHits >= 2) score += 3;
+  else if (keywordHits >= 1) score += 1;
+  else tips.push("크몽 베스트셀러 키워드 (직장인·부수익·30일·ChatGPT 등) 1-2개 포함 권장");
+
+  if (audience.length >= 10) score += 2;
+  else if (audience.length >= 5) score += 1;
+  else tips.push("대상 독자를 한 사람 떠올릴 정도로 좁히세요");
+
+  if (/\d+세|\d+대|초보|처음|입문/.test(audience)) score += 1;
+
+  return { score: Math.min(10, score), tips };
+}
+
 function NewProjectInner() {
   const r = useRouter();
   const params = useSearchParams();
@@ -67,6 +117,28 @@ function NewProjectInner() {
   const [themeColor, setThemeColor] = useState<ThemeColorKey>(forkPreset?.themeColor ?? "orange");
   // v3 Phase 3.2 — 튜토리얼 강제 재실행 트리거
   const [tourForceOpen, setTourForceOpen] = useState(false);
+  // F. 사용자가 분량을 수동 조정한 적 있는지 (있으면 type 변경 시 자동 추천 안 함)
+  const [pagesTouched, setPagesTouched] = useState(false);
+
+  // F. type 변경 시 자동 추천 분량 (사용자 수동 조정 전까지만)
+  useEffect(() => {
+    if (!pagesTouched) {
+      setTargetPages(getRecommendedPages(type));
+    }
+  }, [type, pagesTouched]);
+
+  // H. 주제·대상 입력 → 점수 (실시간)
+  const topicAnalysis = calculateTopicScore(topic, audience);
+
+  // I. 진행률 — 필수 필드 채워진 수
+  const filledFields = [
+    topic.length >= 8,
+    audience.length >= 5,
+    !!type,
+    targetPages > 0,
+    !!themeColor,
+  ].filter(Boolean).length;
+  const progressPct = Math.round((filledFields / 5) * 100);
 
   useEffect(() => {
     fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => {
@@ -102,7 +174,7 @@ function NewProjectInner() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fafafa]">
+    <main className="min-h-screen bg-[#F8F5EE]">
     <Header />
     {/* v3 Phase 3.2 — /new 페이지 첫 방문 in-app 튜토리얼 */}
     <OnboardingTour
@@ -111,14 +183,14 @@ function NewProjectInner() {
       onClose={() => setTourForceOpen(false)}
     />
     <div className="max-w-2xl mx-auto px-6 py-16">
-      <Link href="/projects" className="inline-block py-2 text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-tiger-orange">← 내 책 목록</Link>
+      <Link href="/projects" className="inline-block py-2 text-xs font-mono uppercase tracking-wider text-gray-500 hover:text-[#D24B2A]">← 내 책 목록</Link>
 
       {/* v3 Phase 3.1 — fork 진입 시 안내 */}
       {forkPreset && (
-        <div className="mt-4 mb-6 rounded-xl border-2 border-tiger-orange/40 bg-orange-50 p-4">
+        <div className="mt-4 mb-6 rounded-xl border-2 border-[#D24B2A]/40 bg-[#F4DED4] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-1">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#D24B2A] font-bold mb-1">
                 📚 예제 책에서 시작
               </div>
               <p className="text-sm text-ink-900 font-bold mb-1">
@@ -130,7 +202,7 @@ function NewProjectInner() {
             </div>
             <Link
               href="/examples"
-              className="shrink-0 text-[11px] text-tiger-orange hover:underline"
+              className="shrink-0 text-[11px] text-[#D24B2A] hover:underline"
             >
               ← 갤러리
             </Link>
@@ -138,27 +210,68 @@ function NewProjectInner() {
         </div>
       )}
 
-      <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mt-6 mb-2">새 프로젝트</p>
-      <h1 className="text-4xl md:text-5xl font-black tracking-tightest text-ink-900 mb-3">새 책 시작.</h1>
+      <p className="text-xs font-mono uppercase tracking-[0.2em] text-[#D24B2A] mt-6 mb-2">새 프로젝트</p>
+      <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-ink-900 mb-3">새 책 시작.</h1>
       <p className="text-gray-600 mb-2">기본 정보 입력 → 다음 단계에서 자료 업로드 + AI 인터뷰.</p>
+
+      {/* I. 진행률 바 */}
+      <div className="mb-6 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">
+            STEP 1 진행 · {filledFields}/5 필드
+          </span>
+          <span className="text-[10px] font-mono text-[#D24B2A] font-bold">{progressPct}%</span>
+        </div>
+        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-[#D24B2A] transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* G. 인기 주제 chip (빈 폼일 때만 노출) */}
+      {!topic && !forkPreset && (
+        <div className="mb-6 p-4 rounded-xl bg-white border border-gray-200">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#D24B2A] font-bold mb-3">
+            💡 빠른 시작 — 인기 주제로
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {TOPIC_PRESETS.map((p, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setTopic(p.topic);
+                  setAudience(p.audience);
+                  setType(p.type);
+                  setPagesTouched(false);
+                }}
+                className="px-3 py-1.5 text-xs rounded-full border border-gray-300 bg-white hover:border-[#D24B2A] hover:bg-[#F4DED4] transition text-ink-900"
+              >
+                {p.topic}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* v3 Phase 3.2 — 튜토리얼 다시 보기 진입점 */}
       <div className="mb-6 flex items-center gap-3 text-[11px]">
         <button
           onClick={() => setTourForceOpen(true)}
-          className="text-gray-500 hover:text-tiger-orange underline underline-offset-2"
+          className="text-gray-500 hover:text-[#D24B2A] underline underline-offset-2"
         >
           🎓 튜토리얼 다시 보기
         </button>
         <span className="text-gray-300">·</span>
-        <Link href="/examples" className="text-gray-500 hover:text-tiger-orange underline underline-offset-2">
+        <Link href="/examples" className="text-gray-500 hover:text-[#D24B2A] underline underline-offset-2">
           📚 예제 책 갤러리
         </Link>
       </div>
 
       {/* 3-step process indicator — /new는 1단계, 자료 업로드는 2단계임을 명확히 */}
       <div className="grid grid-cols-3 gap-2 mb-10">
-        <div className="p-3 rounded-xl bg-tiger-orange text-white">
+        <div className="p-3 rounded-xl bg-[#D24B2A] text-white">
           <div className="text-[10px] font-mono uppercase tracking-[0.15em] opacity-80 mb-0.5">STEP 1 · 현재</div>
           <div className="text-sm font-bold">기본 정보</div>
           <div className="text-[10px] opacity-80 mt-0.5">주제 · 독자 · 유형</div>
@@ -175,6 +288,36 @@ function NewProjectInner() {
         </div>
       </div>
 
+      {/* E. 표지 라이브 미리보기 — 주제 입력 시 등장 */}
+      {topic.length >= 5 && (
+        <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#D24B2A] font-bold mb-3">
+            🎨 표지 미리보기 (실시간)
+          </div>
+          <div className="flex gap-4 items-start">
+            <CoverPreview
+              topic={topic}
+              type={type}
+              themeColorHex={THEME_COLOR_PRESETS[themeColor]?.hex ?? "#D24B2A"}
+              audience={audience}
+            />
+            <div className="flex-1 text-xs text-gray-600 space-y-2 pt-2">
+              <p>주제·테마색·유형을 바꾸면 표지가 실시간으로 갱신돼요.</p>
+              <p>실제 생성 시에는 표지 30종 갤러리에서 더 다양한 디자인을 고를 수 있습니다.</p>
+              <div className="pt-2 mt-2 border-t border-gray-100">
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-gray-400">
+                  미리보기 옵션
+                </span>
+                <div className="mt-1 text-[11px] text-gray-700">
+                  유형 <span className="font-bold">{type}</span> · 테마{" "}
+                  <span className="font-bold">{THEME_COLOR_PRESETS[themeColor]?.label}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-5 bg-white p-6 md:p-8 rounded-2xl border border-gray-200">
         {/* 티어 선택 UI는 베타 기간 중 숨김. default "pro"로 자동 — 필요해지면 부활.
             tiers fetch 코드는 살려뒀음 (TIER_AVAILABILITY 데이터 기록용). */}
@@ -184,15 +327,60 @@ function NewProjectInner() {
             onChange={e => setTopic(e.target.value)}
             rows={2}
             placeholder="예: 직장인을 위한 Claude Code 입문 — 첫 자동화 봇 30분에 만들기"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-[#D24B2A] focus:outline-none"
           />
+          {/* H. AI 코치 점수 — 주제 8자+ 입력 시 노출 */}
+          {topic.length >= 8 && (
+            <div className="mt-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 font-bold">
+                  ⚡ AI 코치 점수
+                </span>
+                <span
+                  className={`text-base font-bold ${
+                    topicAnalysis.score >= 7
+                      ? "text-emerald-600"
+                      : topicAnalysis.score >= 4
+                      ? "text-amber-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {topicAnalysis.score}/10
+                </span>
+              </div>
+              <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-2">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    topicAnalysis.score >= 7
+                      ? "bg-emerald-500"
+                      : topicAnalysis.score >= 4
+                      ? "bg-amber-500"
+                      : "bg-red-500"
+                  }`}
+                  style={{ width: `${(topicAnalysis.score / 10) * 100}%` }}
+                />
+              </div>
+              {topicAnalysis.tips.length > 0 && (
+                <ul className="text-[11px] text-gray-600 space-y-0.5">
+                  {topicAnalysis.tips.map((tip, i) => (
+                    <li key={i}>· {tip}</li>
+                  ))}
+                </ul>
+              )}
+              {topicAnalysis.tips.length === 0 && (
+                <p className="text-[11px] text-emerald-600">
+                  ✓ 크몽·KDP 베스트셀러 패턴에 잘 맞아요.
+                </p>
+              )}
+            </div>
+          )}
         </Field>
         <Field label="대상 독자" tourTarget="audience">
           <input
             value={audience}
             onChange={e => setAudience(e.target.value)}
             placeholder="예: 개발 경험이 없는 직장인"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-tiger-orange focus:outline-none"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-[#D24B2A] focus:outline-none"
           />
         </Field>
         <Field label="책 유형" tourTarget="type">
@@ -219,10 +407,17 @@ function NewProjectInner() {
             max={200}
             step={10}
             value={targetPages}
-            onChange={e => setTargetPages(Number(e.target.value))}
-            className="w-full accent-tiger-orange"
+            onChange={e => { setTargetPages(Number(e.target.value)); setPagesTouched(true); }}
+            className="w-full accent-[#D24B2A]"
           />
-          <p className="text-xs text-gray-500 mt-1">크몽 규격: 최소 20쪽 / 권장 100~200쪽</p>
+          <p className="text-xs text-gray-500 mt-1">
+            크몽 규격: 최소 20쪽
+            {!pagesTouched && (
+              <span className="ml-2 text-[#D24B2A] font-medium">
+                · {type} 권장 {getRecommendedPages(type)}쪽 자동 적용
+              </span>
+            )}
+          </p>
         </Field>
 
         <div>
@@ -277,7 +472,7 @@ function NewProjectInner() {
             type="checkbox"
             checked={noImages}
             onChange={e => setNoImages(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-tiger-orange"
+            className="mt-0.5 w-4 h-4 accent-[#D24B2A]"
           />
           <div className="flex-1">
             <div className="text-sm font-bold text-ink-900">📝 텍스트만 (이미지 없는 책)</div>
@@ -290,16 +485,16 @@ function NewProjectInner() {
         )}
 
         {/* 라이브 비용 미리보기 — 결제 직전 마찰 ↓ */}
-        <div className="rounded-xl bg-orange-50 border border-tiger-orange/30 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="rounded-xl bg-[#F4DED4] border border-[#D24B2A]/30 px-4 py-3 flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-tiger-orange font-bold mb-0.5">예상 비용</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-[#D24B2A] font-bold mb-0.5">예상 비용</div>
             <div className="text-sm text-ink-900">
               <span className="font-mono font-bold">₩4,000~</span>
               <span className="text-gray-500 ml-1.5">라이트 시나리오 (본문 + 표지)</span>
             </div>
           </div>
           <div className="text-right text-xs">
-            <div className="text-tiger-orange font-bold">₩5,000 무료 크레딧</div>
+            <div className="text-[#D24B2A] font-bold">₩5,000 무료 크레딧</div>
             <div className="text-gray-500">첫 책 무료</div>
           </div>
         </div>
@@ -308,7 +503,7 @@ function NewProjectInner() {
           onClick={create}
           disabled={!topic || !audience || busy}
           data-tour="submit"
-          className="w-full bg-tiger-orange text-white py-3.5 rounded-xl font-bold shadow-glow-orange-sm hover:bg-orange-600 transition disabled:opacity-40 disabled:shadow-none"
+          className="w-full bg-[#D24B2A] text-white py-3.5 rounded-xl font-bold  hover:bg-[#A93917] transition disabled:opacity-40 disabled:shadow-none"
         >
           {busy ? "생성 중..." : "다음 → 📚 자료 업로드 + AI 인터뷰 →"}
         </button>
@@ -330,7 +525,7 @@ export default function NewProjectPage() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <main className="min-h-screen flex items-center justify-center bg-[#fafafa] text-gray-500">{children}</main>;
+  return <main className="min-h-screen flex items-center justify-center bg-[#F8F5EE] text-gray-500">{children}</main>;
 }
 
 function Field({ label, children, tourTarget }: { label: string; children: React.ReactNode; tourTarget?: string }) {
@@ -338,6 +533,83 @@ function Field({ label, children, tourTarget }: { label: string; children: React
     <div data-tour={tourTarget}>
       <label className="block text-sm font-semibold mb-2">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// E. 표지 라이브 미리보기 컴포넌트
+function CoverPreview({
+  topic,
+  type,
+  themeColorHex,
+  audience,
+}: {
+  topic: string;
+  type: BookType;
+  themeColorHex: string;
+  audience: string;
+}) {
+  // 표지 텍스트는 주제 첫 줄/짧은 변형
+  const displayTopic = topic.length > 30 ? topic.slice(0, 28) + "…" : topic;
+  return (
+    <div
+      style={{
+        width: 140,
+        aspectRatio: "3 / 4",
+        background: themeColorHex,
+        color: "white",
+        borderRadius: 6,
+        padding: 14,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        position: "relative",
+        overflow: "hidden",
+        boxShadow: `0 10px 24px -12px ${themeColorHex}cc`,
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 8,
+          top: 12,
+          bottom: 12,
+          width: 2,
+          background: "white",
+          opacity: 0.2,
+        }}
+      />
+      <span
+        style={{
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: 8,
+          letterSpacing: "0.22em",
+          opacity: 0.75,
+          textTransform: "uppercase",
+        }}
+      >
+        {type}
+      </span>
+      <div>
+        <div
+          style={{
+            fontFamily: '"Pretendard Variable", Pretendard, sans-serif',
+            fontWeight: 900,
+            fontSize: 14,
+            lineHeight: 1.2,
+            letterSpacing: "-0.02em",
+            marginBottom: 6,
+          }}
+        >
+          {displayTopic || "(주제를 입력하세요)"}
+        </div>
+        {audience && (
+          <div style={{ fontSize: 8, opacity: 0.75, letterSpacing: "0.05em" }}>
+            {audience.length > 16 ? audience.slice(0, 14) + "…" : audience}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

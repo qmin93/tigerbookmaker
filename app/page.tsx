@@ -1,637 +1,1704 @@
-import Link from "next/link";
-import { Header } from "@/components/Header";
-import { RoiSimulator } from "@/components/RoiSimulator";
-import { FAQ } from "@/components/FAQ";
-import { TrustBar } from "@/components/ui/TrustBar";
-import { ChatGPTCompare } from "@/components/home/ChatGPTCompare";
-import { Infographic } from "@/components/home/Infographic";
-import { SAMPLE_BOOKS } from "@/lib/landing-data";
-import { getLandingStats } from "@/lib/server/db";
+// /  메인 랜딩 — /preorder 와 동일 디자인 시스템
+// warm cream + deep ink + vermilion · Pretendard 900 + Lora italic + JetBrains Mono
 
-// 카운터는 5분마다 재검증. ISR로 DB 부담 최소화.
+import Link from "next/link";
+import { getLandingStats } from "@/lib/server/db";
+import { PersonaHero } from "./_home/PersonaHero";
+import { StickyCta } from "./_home/StickyCta";
+import { SoapOperaPreview } from "./_home/SoapOperaPreview";
+import { Tier4Application } from "./_home/Tier4Application";
+
 export const revalidate = 300;
 
-export default async function Home() {
-  const stats = await getLandingStats();
+const C = {
+  bg: "#F8F5EE",
+  ink: "#0B0B0B",
+  body: "#36322C",
+  muted: "#7B7468",
+  border: "#E7E0D2",
+  accent: "#D24B2A",
+  accentDark: "#A93917",
+  accentSoft: "#F4DED4",
+};
+
+const FONT_SANS = '"Pretendard Variable", Pretendard, system-ui, sans-serif';
+const FONT_SERIF = '"Hahmlet", "Nanum Myeongjo", "Noto Serif KR", serif';
+const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
+
+const SAMPLE_BOOKS = [
+  {
+    title: "아침 루틴, 30일이면 인생이 바뀝니다",
+    audience: "번아웃 직전의 30대 직장인",
+    type: "자기계발서",
+    palette: { bg: "#F97316", text: "#FFF8F1" },
+    days: 30,
+    forkId: "example-1",
+  },
+  {
+    title: "월급만으로 부족함을 느끼나요",
+    audience: "재테크 처음 시작하는 30대",
+    type: "재테크",
+    palette: { bg: "#1E40AF", text: "#E0E7FF" },
+    days: 21,
+    forkId: "example-2",
+  },
+  {
+    title: "나는 그래서 회사를 그만뒀습니다",
+    audience: "퇴사를 고민하는 직장인",
+    type: "에세이",
+    palette: { bg: "#1F2937", text: "#F3F4F6" },
+    days: 14,
+    forkId: "example-3",
+  },
+  {
+    title: "오늘 저녁 뭐 먹지, 1주일 식단표",
+    audience: "1인 가구·맞벌이 부부",
+    type: "실용서",
+    palette: { bg: "#059669", text: "#ECFDF5" },
+    days: 7,
+    forkId: "example-4",
+  },
+];
+
+const TIERS = [
+  { id: "basic", name: "라이트", price: 4000, blurb: "본문 + 표지", scenario: "크몽 ₩30,000 등록용" },
+  { id: "pro", name: "표준", price: 7400, blurb: "+ 마케팅 카피", scenario: "크몽 베스트셀러용", popular: true },
+  { id: "premium", name: "프리미엄", price: 21300, blurb: "+ 오디오·슬라이드", scenario: "출판사 제출용" },
+];
+
+export default async function HomePage() {
+  const stats = await getLandingStats().catch(() => ({
+    bookCount: 0,
+    userCount: 0,
+    betaDays: 1,
+  }));
+
   return (
-    <main className="min-h-screen bg-[#fafafa] text-ink-900 overflow-x-hidden">
-      <Header variant="default" />
+    <main
+      style={{
+        position: "relative",
+        minHeight: "100vh",
+        background: C.bg,
+        color: C.ink,
+        fontFamily: FONT_SANS,
+        overflow: "hidden",
+      }}
+    >
+      <MeshBackground />
+      <Grain />
 
-      {/* Hero — light with subtle orange radial glow at top */}
-      <section className="relative">
-        <div className="absolute inset-0 pointer-events-none [background:radial-gradient(ellipse_at_50%_-20%,rgba(249,115,22,0.10),transparent_60%)]" />
-        <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-20 md:pt-32 md:pb-28">
-          <div className="opacity-0 animate-fade-up" style={{ animationDelay: "60ms" }}>
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-xs font-mono text-gray-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-tiger-orange animate-pulse" />
-              AI 한국어 전자책 자동 집필 — Beta
+      {/* NAV */}
+      <nav
+        style={{
+          position: "relative",
+          zIndex: 5,
+          borderBottom: `1px solid ${C.border}`,
+          padding: "14px 24px",
+          background: "rgba(248,245,238,0.7)",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1120,
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: C.ink }}>
+            <BookmarkIcon />
+            <span style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 500, letterSpacing: "0.05em" }}>
+              tigerbookmaker
             </span>
-          </div>
-          <div className="opacity-0 animate-fade-up mt-8 text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-4" style={{ animationDelay: "120ms" }}>크몽 셀러 · 강사 · 코치 · 부수익러</div>
-          <h1 className="opacity-0 animate-fade-up font-black tracking-tighter2 leading-[0.95] text-[44px] sm:text-6xl md:text-7xl lg:text-[88px] text-ink-900" style={{ animationDelay: "180ms" }}>
-            크몽에서 부수익,<br />
-            <span className="text-tiger-orange">30분</span>에 한 권.
-          </h1>
-          <p className="opacity-0 animate-fade-up mt-8 max-w-2xl text-lg md:text-xl text-gray-600 leading-relaxed" style={{ animationDelay: "300ms" }}>
-            <span className="text-ink-900 font-bold">주제 한 줄 + 본인 자료 1개 → AI가 12챕터 + 표지 + 마케팅 자료까지 자동.</span>
-            <br />₩4,000~₩12,000 만들어 ₩30,000~₩100,000에 크몽 판매.
-          </p>
-
-          {/* 권당 비용 빠른 안내 */}
-          <div className="opacity-0 animate-fade-up mt-8 max-w-2xl rounded-xl border border-gray-200 bg-white/70 backdrop-blur p-4 md:p-5" style={{ animationDelay: "360ms" }}>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange font-bold mb-3">📊 권당 비용 (충전식 — 사용한 만큼만 차감)</div>
-            <div className="grid sm:grid-cols-2 gap-2 text-sm">
-              <div className="flex items-baseline justify-between gap-3 py-1">
-                <span className="text-gray-700">🌱 라이트 (본문+표지)</span>
-                <span className="font-mono font-bold text-ink-900">₩4,000</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-3 py-1">
-                <span className="text-gray-700">⭐ 표준 (+ 마케팅)</span>
-                <span className="font-mono font-bold text-ink-900">₩7,400</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-3 py-1">
-                <span className="text-gray-700">🚀 풀 (+ 광고 이미지)</span>
-                <span className="font-mono font-bold text-ink-900">₩12,200</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-3 py-1">
-                <span className="text-gray-700">💎 프리미엄 (+ 오디오북·슬라이드)</span>
-                <span className="font-mono font-bold text-ink-900">₩21,300</span>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
-              ₩5,000 무료 크레딧 = 라이트 1권 시도. 자세한 기능별 가격은 <Link href="/pricing" className="text-tiger-orange font-bold hover:underline">/pricing</Link>에서.
-            </div>
-          </div>
-
-          <div className="opacity-0 animate-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "420ms" }}>
-            <Link href="/login" className="group inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-tiger-orange text-white font-bold shadow-glow-orange-sm hover:bg-orange-600 transition">
-              무료로 시작 — ₩5,000 크레딧 받기
-              <span className="transition-transform group-hover:translate-x-0.5">→</span>
-            </Link>
-            <Link href="#samples" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-gray-300 hover:border-ink-900 hover:bg-white text-ink-900 font-bold transition">
-              샘플 책 보기
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <Link
+              href="/preorder"
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                color: C.accent,
+                textTransform: "uppercase",
+                textDecoration: "none",
+                fontWeight: 600,
+                padding: "8px 14px",
+                border: `1px solid ${C.accent}`,
+                borderRadius: 999,
+              }}
+            >
+              사전예약 · 무료
             </Link>
           </div>
         </div>
+      </nav>
 
-        {/* Live beta counter — DB 실시간 (5분 캐시). 가입자 0명일 땐 일수만 노출. */}
-        <div className="border-t border-gray-200 bg-orange-50/40">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-            <span className="inline-flex items-center gap-2 font-mono text-tiger-orange">
-              <span className="w-1.5 h-1.5 rounded-full bg-tiger-orange animate-pulse" />
-              <span className="text-[10px] uppercase tracking-[0.2em] font-bold">베타 {stats.betaDays}일차</span>
+
+      <PersonaHero>
+        <div
+          style={{
+            animation: 'preorderFadeUp 800ms 1700ms cubic-bezier(0.22,1,0.36,1) both',
+            marginTop: 40,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 28,
+            paddingTop: 28,
+            borderTop: '1px solid ' + C.border,
+          }}
+        >
+          <Stat label='베타 D+' value={String(stats.betaDays)} />
+          <Stat label='생성된 책' value={stats.bookCount > 0 ? stats.bookCount + '권' : '—'} />
+          <Stat label='활동 작가' value={stats.userCount > 0 ? stats.userCount + '명' : '—'} />
+        </div>
+      </PersonaHero>
+
+
+      {/* Marquee */}
+      <section
+        aria-hidden
+        style={{
+          position: "relative",
+          zIndex: 4,
+          borderTop: `1px solid ${C.border}`,
+          borderBottom: `1px solid ${C.border}`,
+          background: C.ink,
+          color: C.bg,
+          overflow: "hidden",
+          margin: "20px 0",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            whiteSpace: "nowrap",
+            padding: "18px 0",
+            animation: "preorderMarquee 38s linear infinite",
+            fontFamily: FONT_MONO,
+            fontSize: 13,
+            letterSpacing: "0.4em",
+            textTransform: "uppercase",
+          }}
+        >
+          {[...Array(2)].map((_, k) => (
+            <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 36 }}>
+              {[
+                "주제 한 줄",
+                "★",
+                "12챕터 자동",
+                "★",
+                "표지 30종 갤러리",
+                "★",
+                "마케팅 카피 자동",
+                "★",
+                "권당 ₩4,000",
+                "★",
+                "베타 ₩5,000 크레딧",
+                "★",
+                "한국어 명조 본문",
+                "★",
+              ].map((t, i) => (
+                <span
+                  key={i}
+                  style={{
+                    paddingRight: 36,
+                    color: t === "★" ? C.accent : C.bg,
+                    opacity: t === "★" ? 1 : 0.92,
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
             </span>
-            {stats.userCount > 0 && (
-              <span className="text-gray-700">
-                <span className="font-mono font-bold text-ink-900">{stats.userCount.toLocaleString()}</span>
-                <span className="text-gray-500 ml-1">명 합류</span>
-              </span>
-            )}
-            {stats.bookCount > 0 && (
-              <span className="text-gray-700">
-                <span className="font-mono font-bold text-ink-900">{stats.bookCount.toLocaleString()}</span>
-                <span className="text-gray-500 ml-1">권 생성 중</span>
-              </span>
-            )}
-            {stats.userCount === 0 && stats.bookCount === 0 && (
-              <span className="text-gray-500">첫 번째 사용자가 되어보세요 — ₩5,000 크레딧</span>
-            )}
-          </div>
+          ))}
         </div>
       </section>
 
-      <div className="border-t border-gray-200" />
+      {/* 3단계 워크플로우 */}
+      <section style={{ position: "relative", zIndex: 4, padding: "60px 24px 40px" }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <SectionLabel num="01" title="30분 워크플로우" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 36,
+              maxWidth: 720,
+            }}
+          >
+            ChatGPT 2주 → tigerbookmaker <span style={{ color: C.accent }}>30분</span>.
+          </h2>
 
-      {/* Sample showcase — 8권, 7장르 다양화, 가로 carousel */}
-      <section id="samples" className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-end justify-between flex-wrap gap-4">
-            <div>
-              <Eyebrow>이미 만들어진 책</Eyebrow>
-              <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">결과물부터 보세요.</h2>
-              <p className="mt-3 text-gray-600 max-w-xl">7개 장르 — 자기계발 · 재테크 · 에세이 · 웹소설 · 전문서 · 매뉴얼 · 실용서. 각 장르마다 톤·구조가 다름.</p>
-            </div>
-            <span className="text-xs font-mono text-gray-500 uppercase tracking-wider">← 옆으로 스와이프 →</span>
-          </div>
-        </div>
-        <div className="mt-12 max-w-6xl mx-auto px-6 relative">
-          {/* 양쪽 fade mask로 끝부분 자연스럽게 */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#fafafa] to-transparent z-10" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#fafafa] to-transparent z-10" />
-          <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-6 scroll-smooth -mx-6 px-6">
-            {SAMPLE_BOOKS.map((b, i) => (
-              <div key={i} className="flex-shrink-0 w-[320px] md:w-[380px] snap-center">
-                <GenreBookCard {...b} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 16,
+            }}
+            className="steps-grid"
+          >
+            {[
+              {
+                no: "STEP 1",
+                title: "주제 한 줄 + 본인 자료 1개",
+                desc: "한국어로 만들고 싶은 주제와, 본인 톤이 담긴 자료 (블로그 글·메모·강의안) 한 개를 입력합니다.",
+                time: "1분",
+              },
+              {
+                no: "STEP 2",
+                title: "AI가 12챕터 + 표지 자동",
+                desc: "Story Bible 기반 12챕터 본문, 표지 30종 갤러리에서 선택, 마케팅 카피·SEO 키워드 자동 파생.",
+                time: "25분",
+              },
+              {
+                no: "STEP 3",
+                title: "본인이 10% 다듬어 완성",
+                desc: "AI가 90%, 본인이 10%. PDF·EPUB·DOCX 다운로드 + 크몽·KDP 등록 패키지 한 번에.",
+                time: "5분",
+              },
+            ].map((step, i) => (
+              <div
+                key={step.no}
+                style={{
+                  background: "white",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 14,
+                  padding: "24px 22px",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: FONT_MONO,
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    color: C.accent,
+                    textTransform: "uppercase",
+                    marginBottom: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  {step.no}
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: C.ink, marginBottom: 8, letterSpacing: "-0.02em" }}>
+                  {step.title}
+                </h3>
+                <p style={{ fontSize: 14, color: C.body, lineHeight: 1.6, marginBottom: 16 }}>{step.desc}</p>
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontFamily: FONT_MONO,
+                    fontSize: 11,
+                    letterSpacing: "0.15em",
+                    color: C.muted,
+                    padding: "4px 10px",
+                    background: C.bg,
+                    borderRadius: 999,
+                  }}
+                >
+                  {step.time}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <div className="border-t border-gray-200" />
-
-      {/* Capabilities — 직장인 부수익러 핵심 3가지만 */}
-      <section className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>왜 Tigerbookmaker</Eyebrow>
-          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            ChatGPT랑 뭐가<br />다르냐면.
+      {/* 가치 사다리 4단 — Secret 3 + Secret 2 (가장 비싼 제품을 파는 업체) */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          background: "white",
+          borderTop: `1px solid ${C.border}`,
+          borderBottom: `1px solid ${C.border}`,
+          padding: "80px 24px",
+        }}
+      >
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <SectionLabel num="02" title="가치 사다리" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 12,
+            }}
+          >
+            오늘 <span style={{ color: C.accent }}>₩0</span>,
+            <br />
+            1년 후 <span style={{ color: C.accent }}>한 권의 책</span>이 시작점.
           </h2>
-        </div>
-        <div className="mt-16 max-w-6xl mx-auto px-6 divide-y divide-gray-200 border-t border-b border-gray-200">
-          {[
-            { n: "01", title: "내 자료 학습 (RAG)", body: "PDF · URL · 텍스트 업로드 → AI가 모두 읽고 인터뷰·목차·본문에 자동 인용. ChatGPT는 매번 다시 설명. Tigerbookmaker는 한 번 업로드로 끝." },
-            { n: "02", title: "한국어 문체 특화", body: "해요체 통일, 번역투 차단, AI 특유 표현 금지. ChatGPT 결과 그대로 크몽 올리면 거절될 수 있는 표현 자동 회피." },
-            { n: "03", title: "크몽 등록 패키지", body: "제목 · 상세설명 · 카테고리 · 키워드 · 가격 추천 + 표지 한 번에. ChatGPT는 본문만, Tigerbookmaker는 등록 화면 그대로 복붙용까지." },
-          ].map(c => (
-            <div key={c.n} className="grid md:grid-cols-12 gap-6 py-8 md:py-12 group">
-              <div className="md:col-span-2 font-mono text-xs text-tiger-orange uppercase tracking-wider">{c.n}</div>
-              <h3 className="md:col-span-3 text-2xl md:text-3xl font-black tracking-tight text-ink-900 group-hover:text-tiger-orange transition">{c.title}</h3>
-              <p className="md:col-span-7 text-gray-600 md:text-lg leading-relaxed">{c.body}</p>
-            </div>
-          ))}
+          <p
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 17,
+              fontStyle: "italic",
+              color: C.muted,
+              marginBottom: 12,
+              lineHeight: 1.5,
+            }}
+          >
+            가격으로 경쟁하지 않습니다. 가치로 경쟁합니다.
+          </p>
+          <p style={{ fontSize: 14, color: C.muted, marginBottom: 48 }}>
+            첫 책에서 자비출판까지. 직장인 부수익러를 위한 4단 사다리. 다음 층으로 가는 건 본인 결정.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: 0,
+              position: "relative",
+            }}
+          >
+            {[
+              {
+                tier: "층 1",
+                label: "리드",
+                title: "사전예약 + 미니 이북 PDF",
+                price: "₩0",
+                price_sub: "오늘",
+                when: "지금",
+                desc: "이메일만. 카드 정보 받지 않습니다. 사전예약 즉시 미니 이북 PDF + 크몽 키워드 30개 발송.",
+                cta: "오늘 시작",
+                active: true,
+              },
+              {
+                tier: "층 2",
+                label: "언박싱 — 권당 결제",
+                title: "라이트 · 표준 · 프리미엄",
+                price: "₩4,000–21,300",
+                price_sub: "/ 권",
+                when: "베타 오픈 시 (D+30)",
+                desc: "권당 충전식. 카드 등록 없음. 사전예약자에게 ₩5,000 크레딧 자동 = 라이트 1권 무료. 글로벌 경쟁사는 전부 월구독, 우리만 권당.",
+                cta: "권당",
+                active: false,
+              },
+              {
+                tier: "층 3",
+                label: "프레젠테이션 — 챌린지 + 코호트",
+                title: "14일 챌린지 / 6주 코호트",
+                price: "₩99,000–299,000",
+                price_sub: "/ 1회",
+                when: "Month 2-3",
+                desc: "라이트 무제한 + 매일 인증 + 그룹 코칭 + 표지 디자이너 1:1 피드백. 14일 동안 책 14권을 같이 만듭니다.",
+                cta: "다음 단계",
+                active: false,
+              },
+              {
+                tier: "층 4",
+                label: "텔레폰 — 자비출판 컨설팅",
+                title: "1:1 자비출판 + 브랜드북 제작",
+                price: "₩2,000,000+",
+                price_sub: "/ 프로젝트",
+                when: "Month 6+",
+                desc: "POD 인쇄 + Amazon KDP 등록 + ISBN + 마케팅 6개월. 전화 상담 후 선정. 10명 한정.",
+                cta: "추후 공개",
+                active: false,
+              },
+            ].map((step, i) => {
+              const isActive = step.active;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: "relative",
+                    display: "grid",
+                    gridTemplateColumns: "120px 1fr auto",
+                    gap: 24,
+                    alignItems: "start",
+                    padding: "28px 22px",
+                    background: isActive ? C.ink : "white",
+                    color: isActive ? "white" : C.ink,
+                    border: `1px solid ${isActive ? C.ink : C.border}`,
+                    borderRadius: 0,
+                    borderTop: i > 0 ? "none" : undefined,
+                    ...(i === 0
+                      ? { borderTopLeftRadius: 16, borderTopRightRadius: 16 }
+                      : {}),
+                    ...(i === 3
+                      ? { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }
+                      : {}),
+                  }}
+                  className="ladder-row"
+                >
+                  {/* 층 라벨 */}
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        letterSpacing: "0.22em",
+                        color: isActive ? C.accent : C.muted,
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {step.tier}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 11,
+                        letterSpacing: "0.05em",
+                        color: isActive ? "rgba(255,255,255,0.7)" : C.muted,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {step.label}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_SERIF,
+                        fontStyle: "italic",
+                        fontSize: 12,
+                        color: isActive ? C.accent : C.muted,
+                        marginTop: 8,
+                      }}
+                    >
+                      {step.when}
+                    </div>
+                  </div>
+
+                  {/* 내용 */}
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: 19,
+                        fontWeight: 800,
+                        letterSpacing: "-0.015em",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {step.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                        color: isActive ? "rgba(255,255,255,0.85)" : C.body,
+                        marginBottom: 0,
+                      }}
+                    >
+                      {step.desc}
+                    </p>
+                  </div>
+
+                  {/* 가격 + CTA */}
+                  <div style={{ textAlign: "right", minWidth: 120 }}>
+                    <div
+                      style={{
+                        fontSize: isActive ? 32 : 22,
+                        fontWeight: 900,
+                        letterSpacing: "-0.02em",
+                        color: isActive ? C.accent : C.ink,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {step.price}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        letterSpacing: "0.15em",
+                        color: isActive ? "rgba(255,255,255,0.6)" : C.muted,
+                        textTransform: "uppercase",
+                        marginBottom: 14,
+                      }}
+                    >
+                      {step.price_sub}
+                    </div>
+                    {isActive ? (
+                      <Link
+                        href="/preorder?utm_source=ladder&utm_campaign=tier1"
+                        style={{
+                          display: "inline-block",
+                          padding: "10px 18px",
+                          background: C.accent,
+                          color: "white",
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {step.cta} →
+                      </Link>
+                    ) : step.tier === "층 4" ? (
+                      <Tier4Application />
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: FONT_MONO,
+                          fontSize: 10,
+                          letterSpacing: "0.22em",
+                          color: C.muted,
+                          textTransform: "uppercase",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {step.cta}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p
+            style={{
+              marginTop: 28,
+              fontSize: 13,
+              color: C.muted,
+              textAlign: "center",
+              fontFamily: FONT_SERIF,
+              fontStyle: "italic",
+            }}
+          >
+            한 번에 한 층만 올라가요. 다음 단계로 가는 건 본인 결정.
+            <br />
+            <Link
+              href="/pricing"
+              style={{
+                color: C.accent,
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                fontFamily: FONT_MONO,
+                fontStyle: "normal",
+                fontSize: 11,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                marginTop: 8,
+                display: "inline-block",
+              }}
+            >
+              층 2 권당 결제 자세히 →
+            </Link>
+          </p>
         </div>
       </section>
 
-      <div className="border-t border-gray-200" />
-
-      {/* 출판 후가 진짜 시작 — 마케팅·프로필·광고 */}
-      <section className="py-24 md:py-32 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <Eyebrow>출판 후가 진짜 시작</Eyebrow>
-          <h2 className="mt-4 text-4xl md:text-5xl font-black tracking-tightest text-ink-900">
-            책을 만든 다음<br />어떻게 <span className="text-tiger-orange">팔까?</span>
+      {/* A. 비교표 — ChatGPT vs 외주 vs tigerbookmaker */}
+      <section style={{ position: "relative", zIndex: 4, padding: "80px 24px" }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <SectionLabel num="03" title="비교" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 8,
+            }}
+          >
+            왜 30분이 가능한가.
           </h2>
-          <p className="mt-4 text-gray-600 max-w-xl">집필만으로는 부족합니다. 책 한 권마다 마케팅 페이지, 작가 프로필, Meta 광고 카피까지 자동 생성.</p>
-        </div>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>
+            기존 방식이 안 됐던 이유는 분명합니다.
+          </p>
 
-        <div className="mt-16 max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-6">
-          {/* 1. 책 마케팅 페이지 */}
-          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
-            <div className="text-3xl mb-4">📖</div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">/book/[id]</div>
-            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">책 마케팅 페이지</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-5">한 URL로 카톡·인스타·DM 공유. AI가 책 카피·후킹 자동 생성, OG 미리보기까지.</p>
-            {/* 미니 mock */}
-            <div className="rounded-lg border border-gray-200 bg-white p-3 font-mono text-[10px]">
-              <div className="text-gray-400 mb-1.5">tigerbookmaker.com</div>
-              <div className="h-16 rounded bg-gradient-to-br from-orange-100 via-amber-50 to-orange-200 mb-2 relative overflow-hidden">
-                <div className="absolute bottom-1.5 left-2 text-ink-900 text-[9px] font-black leading-tight">아침 루틴<br/>30일</div>
-              </div>
-              <div className="text-tiger-orange font-bold">→ 지금 읽기</div>
-            </div>
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "white",
+                border: `1px solid ${C.border}`,
+                borderRadius: 16,
+                overflow: "hidden",
+                minWidth: 720,
+              }}
+            >
+              <thead>
+                <tr style={{ background: C.bg }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      padding: "18px 20px",
+                      fontFamily: FONT_MONO,
+                      fontSize: 11,
+                      letterSpacing: "0.18em",
+                      color: C.muted,
+                      textTransform: "uppercase",
+                      borderBottom: `1px solid ${C.border}`,
+                      fontWeight: 500,
+                    }}
+                  >
+                    항목
+                  </th>
+                  <ComparisonHeader label="ChatGPT 직접" sub="2주 + Canva" />
+                  <ComparisonHeader label="외주" sub="₩300,000+" />
+                  <ComparisonHeader label="tigerbookmaker" sub="권당 ₩4,000부터" highlight />
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["시간", "2-3주", "1-2주", "30분"],
+                  ["권당 비용", "도구 ₩0 (시간↑)", "₩300,000", "₩4,000–₩21,300"],
+                  ["챕터 구조", "직접 잡음", "외주 작가", "자동 12챕터"],
+                  ["표지·내지", "Canva 별도", "포함", "30종 갤러리"],
+                  ["마케팅 카피", "별도", "옵션", "자동 파생"],
+                  ["본인 톤 유지", "프롬프트 반복", "외주 의존", "본인 자료 학습"],
+                  ["저작권/소유권", "본인", "계약 따라", "본인 100%"],
+                  ["재사용성", "프롬프트 매번", "다시 외주", "무제한"],
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td
+                      style={{
+                        padding: "14px 20px",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: C.ink,
+                      }}
+                    >
+                      {row[0]}
+                    </td>
+                    <ComparisonCell text={row[1]} />
+                    <ComparisonCell text={row[2]} />
+                    <ComparisonCell text={row[3]} highlight />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* A.5 브랜드 양극화 풀 쿼우트 (Council 보너스) */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          padding: "100px 24px",
+        }}
+      >
+        <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+          <div
+            aria-hidden
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 140,
+              lineHeight: 0.7,
+              color: C.accent,
+              opacity: 0.85,
+              marginBottom: -12,
+              userSelect: "none",
+            }}
+          >
+            "
+          </div>
+          <blockquote
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: "clamp(28px, 4.5vw, 48px)",
+              fontWeight: 700,
+              lineHeight: 1.18,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              margin: 0,
+              padding: 0,
+            }}
+          >
+            외주 <span style={{ color: C.muted }}>₩300,000</span> 한 번 vs
+            <br />
+            권당 <span style={{ color: C.accent }}>₩4,000</span> 무제한.
+          </blockquote>
+          <div
+            style={{
+              marginTop: 28,
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              color: C.muted,
+              textTransform: "uppercase",
+            }}
+          >
+            어느 쪽이 합리적인가요?
+          </div>
+        </div>
+      </section>
+
+      {/* B. 사회적 증거 — 후기 + 로고 띠 */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          background: "white",
+          borderTop: `1px solid ${C.border}`,
+          borderBottom: `1px solid ${C.border}`,
+          padding: "80px 24px",
+        }}
+      >
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          {/* 익명 narrator — 4 요소 (Secret 4) */}
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto 56px",
+              padding: "28px 30px",
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              position: "relative",
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: -10,
+                left: 24,
+                background: "white",
+                padding: "3px 12px",
+                fontFamily: FONT_MONO,
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                color: C.accent,
+                textTransform: "uppercase",
+                fontWeight: 600,
+                border: `1px solid ${C.border}`,
+                borderRadius: 999,
+              }}
+            >
+              누가 만들었나
+            </span>
+            <p
+              style={{
+                marginTop: 6,
+                fontFamily: FONT_SERIF,
+                fontSize: 18,
+                fontStyle: "italic",
+                lineHeight: 1.6,
+                color: C.body,
+              }}
+            >
+              11년차 사무직이 매주 100시간 야근에서 살아남으려고 AI 자동화 도구를 매일 만들었고,
+              그중 가장 잘 통한 흐름을 한국 작가·부수익러용으로 다듬었어요.
+            </p>
+            <p
+              style={{
+                marginTop: 12,
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.15em",
+                color: C.muted,
+                textTransform: "uppercase",
+              }}
+            >
+              · 디자인은 진짜 못합니다. 그래서 표지 30종 갤러리를 만들었어요 ·
+            </p>
+            <Link
+              href="/preorder#maker"
+              style={{
+                display: "inline-block",
+                marginTop: 14,
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                color: C.accent,
+                textTransform: "uppercase",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              만든 사람 전체 보기 →
+            </Link>
           </div>
 
-          {/* 2. 작가 link-in-bio */}
-          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
-            <div className="text-3xl mb-4">🔗</div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">/u/[handle]</div>
-            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">작가 link-in-bio</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-5">인스타 bio에 1줄, 모든 책 자동 정리. Litt.ly 안 써도 됨 — 프로필 편집까지 내장.</p>
-            {/* 미니 mock */}
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-tiger-orange to-amber-400" />
-                <div>
-                  <div className="text-[10px] font-bold text-ink-900 leading-tight">@author</div>
-                  <div className="text-[9px] text-gray-500 leading-tight">3 books</div>
+          <SectionLabel num="04" title="베타 예시 사례" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 12,
+            }}
+          >
+            "AI가 부족한 게 아니라, 시간이 부족했어요."
+          </h2>
+          <p
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 14,
+              fontStyle: "italic",
+              color: C.muted,
+              marginBottom: 8,
+            }}
+          >
+            ※ 베타 예시 사례 · 실제 사용자 후기는 인터뷰 진행 후 본인 동의 하에 교체합니다.
+          </p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 36 }}>
+            한국 공정거래위 표시광고 심사지침 (2026-06-01) 에 따라 예시임을 명시합니다.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 18,
+              marginBottom: 56,
+            }}
+          >
+            {[
+              {
+                quote:
+                  "퇴근 후 30분이 진짜 됐어요. 주말에 일하지 않아도 라인업이 늘었어요.",
+                name: "박지수",
+                role: "마케터 4년차 · 크몽 셀러",
+                age: "32",
+              },
+              {
+                quote:
+                  "노션에서 챕터 구조 잡는 데 1시간 쓰던 게 없어졌어요. AI가 12챕터 자동으로 깔아주고 저는 톤만 봅니다.",
+                name: "김민지",
+                role: "워킹맘 · Maily 작가",
+                age: "35",
+              },
+              {
+                quote:
+                  "강의 자료 PPT 한 개로 책 한 권이 나왔어요. 외주 견적 받고 포기했던 게 30분에.",
+                name: "이정훈",
+                role: "영어 코치 · 인프런 강사",
+                age: "38",
+              },
+            ].map((t) => (
+              <figure
+                key={t.name}
+                style={{
+                  background: `${C.border}40`,
+                  border: `1px dashed ${C.border}`,
+                  borderRadius: 14,
+                  padding: "20px 22px 22px",
+                  margin: 0,
+                  position: "relative",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    left: 18,
+                    background: C.bg,
+                    padding: "2px 10px",
+                    fontFamily: FONT_MONO,
+                    fontSize: 9,
+                    letterSpacing: "0.22em",
+                    color: C.muted,
+                    textTransform: "uppercase",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 999,
+                  }}
+                >
+                  EXAMPLE · 베타 시뮬레이션
+                </span>
+                <blockquote
+                  style={{
+                    fontFamily: FONT_SERIF,
+                    fontSize: 16,
+                    lineHeight: 1.55,
+                    color: C.body,
+                    margin: "10px 0 18px",
+                  }}
+                >
+                  "{t.quote}"
+                </blockquote>
+                <figcaption
+                  style={{
+                    fontFamily: FONT_MONO,
+                    fontSize: 11,
+                    letterSpacing: "0.15em",
+                    color: C.muted,
+                    textTransform: "uppercase",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ width: 18, height: 1, background: C.accent, display: "inline-block" }} />
+                  {t.name} · {t.age}세, {t.role}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+
+          {/* 로고 띠 — 이런 곳에서 판매·배포 */}
+          <div
+            style={{
+              borderTop: `1px solid ${C.border}`,
+              paddingTop: 36,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.2em",
+                color: C.muted,
+                textTransform: "uppercase",
+                textAlign: "center",
+                marginBottom: 20,
+                fontWeight: 500,
+              }}
+            >
+              · 이런 곳에서 판매·배포할 수 있어요 ·
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 40,
+                flexWrap: "wrap",
+                opacity: 0.55,
+              }}
+            >
+              {[
+                { name: "크몽", desc: "PDF 자료" },
+                { name: "Amazon KDP", desc: "전자책" },
+                { name: "Naver 블로그", desc: "본문 분할" },
+                { name: "Maily", desc: "뉴스레터" },
+                { name: "텀블벅", desc: "독립출판" },
+                { name: "교보 PubPle", desc: "전자책" },
+              ].map((p) => (
+                <div
+                  key={p.name}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                  }}
+                >
+                  <span style={{ fontSize: 17, fontWeight: 800, color: C.ink, letterSpacing: "-0.01em" }}>
+                    {p.name}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 10,
+                      letterSpacing: "0.15em",
+                      color: C.muted,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {p.desc}
+                  </span>
                 </div>
-              </div>
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-5 rounded bg-gray-100 mb-1 flex items-center px-2 text-[9px] font-mono text-gray-600">📘 Book {i}</div>
               ))}
             </div>
           </div>
-
-          {/* 3. Meta 광고 패키지 */}
-          <div className="rounded-2xl border border-gray-200 bg-[#fafafa] p-6 hover:border-tiger-orange hover:shadow-lg transition group">
-            <div className="text-3xl mb-4">🎯</div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange mb-2">Meta Ads</div>
-            <h3 className="text-xl font-black tracking-tight text-ink-900 mb-2">광고 패키지 자동 생성</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-5">헤드라인 · 본문 · CTA · 타겟팅(연령·관심사)까지 책 한 권당 한 번에 받기.</p>
-            {/* 미니 mock */}
-            <div className="rounded-lg border border-gray-200 bg-white p-3 font-mono text-[10px] space-y-1.5">
-              <div><span className="text-gray-400">headline</span> <span className="text-ink-900 font-bold">"30일이면 인생이 바뀝니다"</span></div>
-              <div><span className="text-gray-400">cta</span> <span className="text-tiger-orange font-bold">지금 읽기</span></div>
-              <div><span className="text-gray-400">target</span> <span className="text-ink-900">30대 직장인 · 자기계발</span></div>
-            </div>
-          </div>
         </div>
       </section>
 
-      <div className="border-t border-gray-200" />
+      {/* 5일 소프트오페라 미리보기 — Secret 7 노출 */}
+      <SoapOperaPreview />
 
-      {/* ChatGPT 비교표 — 차별화 시각화 */}
-      <ChatGPTCompare />
-
-      {/* 인포그래픽 — 30분 vs 5시간 + 핵심 4 통계 */}
-      <Infographic />
-
-      <div className="border-t border-gray-200" />
-
-      {/* ROI 시뮬레이터 — A 부수익러 페르소나 */}
-      <RoiSimulator />
-
-      <div className="border-t border-gray-200" />
-
-      {/* FAQ — 결제 전 마찰 해소 7문항 */}
-      <FAQ />
-
-      {/* 신뢰 배지 — 다크 CTA 직전, 결제 의심 해소 */}
-      <TrustBar />
-
-      {/* Final CTA — DARK INVERSION + tiger orange explosion */}
-      <section className="relative bg-ink-900 text-white py-32 md:py-40 overflow-hidden">
-        <div className="absolute inset-0 bg-radial-orange pointer-events-none" />
-        <div className="absolute inset-0 bg-grid-faint bg-grid-32 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)] opacity-60 pointer-events-none" />
-        <div className="relative max-w-3xl mx-auto px-6 text-center">
-          <p className="text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange mb-6">시작하기</p>
-          <h2 className="text-5xl md:text-7xl font-black tracking-tightest text-white">
-            오늘부터<br /><span className="text-tiger-orange">책을 쓰세요.</span>
+      {/* C. FAQ */}
+      <section style={{ position: "relative", zIndex: 4, padding: "80px 24px" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <SectionLabel num="05" title="자주 묻는 질문" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 36,
+            }}
+          >
+            궁금한 거 미리 답할게요.
           </h2>
-          <p className="mt-6 text-ink-300 text-lg max-w-xl mx-auto">
-            가입 + 이메일 인증 시 ₩5,000 무료 크레딧 자동 지급. RAG · 톤 매칭 · 마케팅 페이지 · 작가 프로필 · Meta 광고까지 전부 포함. 카드 등록 불필요.
-          </p>
-          <div className="mt-10">
-            <Link href="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-tiger-orange text-white text-lg font-bold shadow-glow-orange hover:bg-orange-600 transition">
-              무료로 시작 — ₩5,000 크레딧 받기 →
-            </Link>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              {
+                q: "AI가 만든 책, 진짜 제 것인가요?",
+                a: "네, 100% 본인 것입니다. 저작권·로열티 모두 사용자에게 있어요. 크몽·KDP·블로그·뉴스레터 어디서든 자유롭게 판매하실 수 있습니다.",
+              },
+              {
+                q: "AI 표절 아닌가요?",
+                a: "본인이 입력한 주제와 자료를 기반으로 새로 생성되므로 표절이 아닙니다. 한국 AI 기본법(2026-01)에 따라 AI 콘텐츠임을 책 메타데이터에 표시하시는 것을 권장합니다. 자동 라벨 옵션을 제공해요.",
+              },
+              {
+                q: "정식 오픈 시 가격은?",
+                a: "권당 결제 모델입니다. 라이트 ₩4,000 / 표준 ₩7,400 / 풀 ₩12,200 / 프리미엄 ₩21,300. 베타 사전예약자에게는 평생 베타 가격(권당 -50%)을 유지해드릴 계획입니다.",
+              },
+              {
+                q: "환불되나요?",
+                a: "베타 기간은 결제 자체가 없으니 환불 이슈가 없습니다. 정식 오픈 후에는 첫 책 7일 100% 환불을 제공합니다. 만족 못 하시면 묻지 않고 환불해드려요.",
+              },
+              {
+                q: "후기는 실제 사용자인가요?",
+                a: "현재 메인의 박지수·김민지·이정훈 후기는 베타 예시 사례입니다 (각 카드에 EXAMPLE 라벨 표시). 실제 베타 사용자 인터뷰가 완료되면 본인 동의 하에 교체합니다. 한국 공정거래위 표시광고 심사지침 (2026-06-01 시행) 에 따라 예시임을 명시하고 있어요.",
+              },
+            ].map((f, i) => (
+              <details
+                key={i}
+                style={{
+                  background: "white",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 14,
+                  padding: "18px 22px",
+                }}
+              >
+                <summary
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: "pointer",
+                    listStyle: "none",
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: C.ink,
+                  }}
+                >
+                  {f.q}
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      marginLeft: 12,
+                      fontFamily: FONT_MONO,
+                      fontSize: 18,
+                      color: C.accent,
+                    }}
+                  >
+                    +
+                  </span>
+                </summary>
+                <p
+                  style={{
+                    marginTop: 14,
+                    fontSize: 15,
+                    lineHeight: 1.7,
+                    color: C.body,
+                  }}
+                >
+                  {f.a}
+                </p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-gray-200 py-8 text-sm bg-white">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-gray-500">
-          <span className="font-mono text-xs uppercase tracking-wider">🐯 Tigerbookmaker · 본문 12pt · 줄간격 1.5</span>
-          <nav className="flex items-center gap-3 sm:gap-5 text-xs">
-            <Link href="/legal/terms" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">이용약관</Link>
-            <Link href="/legal/privacy" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">개인정보처리방침</Link>
-            <Link href="/legal/refund" className="inline-flex items-center min-h-[40px] px-2 hover:text-ink-900">환불 정책</Link>
-          </nav>
+      {/* 샘플 책 4종 */}
+      <section
+        id="samples"
+        style={{
+          position: "relative",
+          zIndex: 4,
+          background: "white",
+          borderTop: `1px solid ${C.border}`,
+          padding: "80px 24px",
+        }}
+      >
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <SectionLabel num="06" title="실제 생성 샘플" />
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 800,
+              fontSize: 40,
+              lineHeight: 1.1,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              marginBottom: 8,
+            }}
+          >
+            베타 사용자가 30분에 만든 4권.
+          </h2>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 40 }}>
+            클릭하면 그 주제로 본인의 책을 만들기 시작합니다.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 20,
+            }}
+          >
+            {SAMPLE_BOOKS.map((b) => (
+              <Link
+                key={b.forkId}
+                href={`/preorder?utm_source=samples&utm_campaign=${b.forkId}`}
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    aspectRatio: "3 / 4",
+                    background: b.palette.bg,
+                    color: b.palette.text,
+                    borderRadius: 8,
+                    padding: 22,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    overflow: "hidden",
+                    boxShadow: `0 12px 28px -16px ${b.palette.bg}aa`,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 12,
+                      top: 16,
+                      bottom: 16,
+                      width: 2,
+                      background: b.palette.text,
+                      opacity: 0.18,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 10,
+                      letterSpacing: "0.25em",
+                      opacity: 0.75,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {b.type}
+                  </span>
+                  <div>
+                    <h3
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 19,
+                        lineHeight: 1.18,
+                        letterSpacing: "-0.02em",
+                        margin: 0,
+                      }}
+                    >
+                      {b.title}
+                    </h3>
+                    <div
+                      style={{
+                        marginTop: 14,
+                        fontSize: 11,
+                        opacity: 0.78,
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {b.audience}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0 4px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 11,
+                      color: C.muted,
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    이런 책 만들기
+                  </span>
+                  <span style={{ fontSize: 14, color: C.accent }}>→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 최종 CTA */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          padding: "100px 24px",
+          background: C.ink,
+          color: C.bg,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 720,
+            margin: "0 auto",
+            textAlign: "center",
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: FONT_SANS,
+              fontWeight: 900,
+              fontSize: "clamp(36px, 5vw, 64px)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.03em",
+              marginBottom: 16,
+            }}
+          >
+            <span
+              style={{
+                background: `linear-gradient(120deg, ${C.accent}, #F0A37A)`,
+                WebkitBackgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              한정 100명
+            </span>
+            <br />
+            사전예약 진행 중.
+          </h2>
+          <p
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 19,
+              fontStyle: "italic",
+              opacity: 0.85,
+              marginBottom: 36,
+            }}
+          >
+            "AI가 부족한 게 아니라, 다듬을 시간이 부족했어요."
+          </p>
+          <Link
+            href="/preorder"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "20px 36px",
+              background: C.accent,
+              color: "white",
+              borderRadius: 14,
+              fontSize: 17,
+              fontWeight: 700,
+              textDecoration: "none",
+              boxShadow: `0 20px 40px -16px ${C.accent}cc`,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            사전예약 신청하기
+            <span style={{ fontSize: 20 }}>→</span>
+          </Link>
+          <p
+            style={{
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              opacity: 0.55,
+              marginTop: 20,
+              textTransform: "uppercase",
+            }}
+          >
+            카드 정보 받지 않음 · 베타 ₩5,000 크레딧
+          </p>
+        </div>
+      </section>
+
+      {/* 항상 보이는 다음 행동 */}
+      <StickyCta />
+
+      {/* Footer */}
+      <footer
+        style={{
+          position: "relative",
+          zIndex: 4,
+          padding: "32px 24px",
+          background: C.bg,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1120,
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            letterSpacing: "0.15em",
+            color: C.muted,
+            textTransform: "uppercase",
+          }}
+        >
+          <span>tigerbookmaker · 2026</span>
+          <div style={{ display: "flex", gap: 18 }}>
+            <Link href="/legal/terms" style={{ color: C.muted, textDecoration: "none" }}>
+              이용약관
+            </Link>
+            <Link href="/legal/privacy" style={{ color: C.muted, textDecoration: "none" }}>
+              개인정보
+            </Link>
+            <Link href="/legal/refund" style={{ color: C.muted, textDecoration: "none" }}>
+              환불정책
+            </Link>
+            <a
+              href="https://managerkim.com"
+              target="_blank"
+              rel="noopener"
+              style={{ color: C.muted, textDecoration: "none" }}
+            >
+              김과장
+            </a>
+          </div>
         </div>
       </footer>
+
+      <style>{`
+        @media (max-width: 880px) {
+          .hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+          .steps-grid { grid-template-columns: 1fr !important; }
+          .tier-grid { grid-template-columns: 1fr !important; }
+          .hero-illust { max-width: 320px !important; opacity: 0.85; }
+        }
+        @media (max-width: 560px) {
+          .hero-illust { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+// ─── Subcomponents ─────────────────────
+
+function ComparisonHeader({ label, sub, highlight }: { label: string; sub: string; highlight?: boolean }) {
   return (
-    <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-tiger-orange">
-      <span className="w-6 h-px bg-tiger-orange" />
-      {children}
+    <th
+      style={{
+        textAlign: "left",
+        padding: "18px 20px",
+        background: highlight ? C.ink : C.bg,
+        color: highlight ? "white" : C.ink,
+        borderBottom: highlight ? "none" : `1px solid ${C.border}`,
+        fontWeight: 800,
+        fontSize: 15,
+        letterSpacing: "-0.01em",
+      }}
+    >
+      <div>{label}</div>
+      <div
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 11,
+          letterSpacing: "0.15em",
+          color: highlight ? C.accentSoft : C.muted,
+          textTransform: "uppercase",
+          marginTop: 4,
+          fontWeight: 500,
+        }}
+      >
+        {sub}
+      </div>
+    </th>
+  );
+}
+
+function ComparisonCell({ text, highlight }: { text: string; highlight?: boolean }) {
+  return (
+    <td
+      style={{
+        padding: "14px 20px",
+        fontSize: 14,
+        color: highlight ? C.ink : C.body,
+        fontWeight: highlight ? 700 : 400,
+        background: highlight ? C.accentSoft : "transparent",
+      }}
+    >
+      {text}
+    </td>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 10,
+          letterSpacing: "0.22em",
+          color: C.muted,
+          textTransform: "uppercase",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 900, color: C.ink, letterSpacing: "-0.01em" }}>{value}</div>
     </div>
   );
 }
 
-// 장르별 시그니처 디자인. 실제 cover 있으면 우선 표시, 없으면 장르 분기.
-function GenreBookCard({ cover, title, subtitle, audience, category, chapters, pages, kmongPrice }: any) {
+function SectionLabel({ num, title }: { num: string; title: string }) {
   return (
-    <article className="group rounded-2xl border border-gray-200 bg-white p-5 hover:border-tiger-orange hover:shadow-xl transition-all h-full">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-4 ring-1 ring-gray-200 shadow-sm">
-        {cover ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
-            <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-white/95 border border-gray-200 text-[10px] font-mono text-tiger-orange uppercase tracking-wider">실제 결과물</div>
-          </>
-        ) : (
-          <CoverDesign category={category} title={title} subtitle={subtitle} />
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-tiger-orange">{category}</div>
-        {kmongPrice ? (
-          <div className="text-[10px] font-mono px-2 py-0.5 rounded border border-tiger-orange/40 bg-orange-50 text-tiger-orange font-bold tracking-wider whitespace-nowrap">
-            크몽 권장가 ₩{kmongPrice.toLocaleString()}
-          </div>
-        ) : null}
-      </div>
-      <h3 className="mt-2 text-lg font-bold text-ink-900 leading-snug line-clamp-2 min-h-[3.2rem]">{title}</h3>
-      <p className="mt-1.5 text-sm text-gray-600 line-clamp-2 min-h-[2.6rem]">{subtitle}</p>
-      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-gray-500">
-        <span>{chapters}챕터</span><span>·</span><span>{pages}쪽</span>
-      </div>
-      <div className="mt-1 text-[11px] text-gray-400 line-clamp-1">{audience}</div>
-    </article>
-  );
-}
-
-// 장르별 표지 — Penguin Classics / Monocle 매거진 영감
-// 큰 typography + negative space + 정제된 footer + 3색 이내 팔레트
-function CoverDesign({ category, title, subtitle }: { category: string; title: string; subtitle: string }) {
-  // 공통 footer — 모든 표지에 통일된 발행 정보
-  const Footer = ({ color, accent }: { color: string; accent?: string }) => (
-    <div className={`flex items-center justify-between text-[8px] font-mono tracking-[0.25em] uppercase ${color}`}>
-      <span className="font-bold">Tigerbookmaker</span>
-      <span className={accent}>2026 · Vol.01</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+      <span
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          color: C.accent,
+          textTransform: "uppercase",
+          fontWeight: 500,
+        }}
+      >
+        {num} · {title}
+      </span>
+      <span style={{ flex: 1, height: 1, background: C.border }} />
     </div>
   );
-
-  switch (category) {
-    case "자기계발서":
-      return (
-        <div className="w-full h-full bg-gradient-to-b from-amber-50 via-orange-100 to-orange-200 flex flex-col p-6 relative overflow-hidden">
-          {/* 햇살 글로우 */}
-          <div className="absolute -top-32 -right-20 w-72 h-72 rounded-full bg-yellow-300/40 blur-3xl" />
-          <div className="absolute -top-10 right-10 w-40 h-40 rounded-full bg-orange-200/60 blur-2xl" />
-          {/* 큰 숫자 30 — focal point */}
-          <div className="absolute top-12 right-6 text-[120px] font-black leading-none text-tiger-orange/15 select-none tracking-tighter">30</div>
-          {/* 미니멀 화살표 */}
-          <svg className="absolute bottom-32 right-8 w-16 h-32 text-tiger-orange/80" viewBox="0 0 40 100" fill="none">
-            <line x1="20" y1="95" x2="20" y2="15" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-            <path d="M8 28 L20 15 L32 28" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          </svg>
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-orange-900/80 font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-orange-900/50 mt-0.5">Self-Development</div>
-            </div>
-            <div className="w-1 h-10 bg-tiger-orange" />
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-ink-900 text-[26px] font-black leading-[1.05] tracking-tight">{title}</div>
-              <div className="mt-3 text-orange-950/70 text-[11px] font-medium leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-orange-900/40" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-orange-900/60" accent="text-tiger-orange" />
-          </div>
-        </div>
-      );
-
-    case "재테크":
-      return (
-        <div className="w-full h-full bg-slate-950 flex flex-col p-6 relative overflow-hidden">
-          {/* 골드 글로우 */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl" />
-          {/* 미니멀 차트 — 하단 */}
-          <svg className="absolute inset-x-0 bottom-0 h-32 w-full" viewBox="0 0 200 80" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="cf" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.3"/>
-                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-            <path d="M0,60 L40,55 L80,40 L120,45 L160,25 L200,15 L200,80 L0,80 Z" fill="url(#cf)"/>
-            <polyline points="0,60 40,55 80,40 120,45 160,25 200,15" stroke="#fbbf24" strokeWidth="1.5" fill="none"/>
-            <circle cx="160" cy="25" r="2" fill="#fbbf24"/>
-            <circle cx="200" cy="15" r="3" fill="#fbbf24"/>
-          </svg>
-          {/* 큰 ₩ 심볼 */}
-          <div className="absolute top-8 right-4 text-[140px] font-black leading-none text-amber-400/15 select-none">₩</div>
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-amber-400 font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-amber-300/40 mt-0.5">Wealth Building</div>
-            </div>
-            <div className="text-[9px] font-mono text-emerald-400 tracking-wider">▲+12.4%</div>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-white text-[24px] font-black leading-[1.1] tracking-tight">{title}</div>
-              <div className="mt-3 text-blue-200/60 text-[11px] font-medium leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-amber-400/50" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-amber-400/60" accent="text-amber-400" />
-          </div>
-        </div>
-      );
-
-    case "에세이":
-      return (
-        <div className="w-full h-full bg-stone-50 flex flex-col p-6 relative overflow-hidden">
-          {/* 워터컬러 wash — 부드럽게 */}
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-gradient-radial from-rose-200/60 via-amber-100/40 to-transparent blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full bg-gradient-radial from-emerald-100/50 to-transparent blur-2xl" />
-          {/* 큰 따옴표 — focal point */}
-          <div className="absolute top-4 right-4 text-[200px] leading-none text-stone-300/40 font-serif italic select-none">"</div>
-          {/* 떨어지는 점 */}
-          <div className="absolute top-16 left-12 w-1 h-1 rounded-full bg-rose-400/60" />
-          <div className="absolute top-32 left-24 w-1 h-1 rounded-full bg-amber-500/40" />
-          <div className="absolute top-48 left-8 w-0.5 h-0.5 rounded-full bg-emerald-700/40" />
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-stone-700 font-bold">{category}</div>
-              <div className="text-[8px] font-serif italic tracking-wide text-stone-500 mt-1">— a personal memoir</div>
-            </div>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-stone-900 text-[24px] font-bold leading-[1.15] tracking-tight font-serif">{title}</div>
-              <div className="mt-3 text-stone-600 text-[11px] italic leading-snug line-clamp-2 font-serif">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-stone-400" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-stone-500" accent="text-stone-700 font-serif italic" />
-          </div>
-        </div>
-      );
-
-    case "웹소설":
-      return (
-        <div className="w-full h-full bg-gradient-to-b from-indigo-950 via-purple-950 to-rose-950 flex flex-col p-6 relative overflow-hidden">
-          {/* 달 + 글로우 */}
-          <div className="absolute top-8 right-8">
-            <div className="absolute inset-0 w-28 h-28 -m-4 rounded-full bg-yellow-100/40 blur-3xl" />
-            <svg className="relative w-20 h-20" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="38" fill="#fef3c7" opacity="0.9"/>
-              <circle cx="62" cy="42" r="38" fill="#1e1b4b"/>
-              <circle cx="42" cy="55" r="3" fill="#fde68a" opacity="0.4"/>
-              <circle cx="38" cy="68" r="2" fill="#fde68a" opacity="0.3"/>
-              <circle cx="48" cy="40" r="1.5" fill="#fde68a" opacity="0.5"/>
-            </svg>
-          </div>
-          {/* 별 */}
-          {[
-            [12, 70, 1.4], [22, 50, 1], [38, 80, 1.2], [55, 48, 0.8], [68, 78, 1.1],
-            [82, 28, 1.3], [10, 28, 0.7], [62, 22, 1.1], [28, 12, 0.9], [78, 60, 0.8],
-          ].map(([x, y, r], i) => (
-            <div key={i} className="absolute rounded-full bg-yellow-100"
-              style={{ left: `${x}%`, top: `${y}%`, width: `${r}px`, height: `${r}px`, opacity: 0.5 + (i % 3) * 0.15 }}
-            />
-          ))}
-          {/* 도시 silhouette + 안개 */}
-          <svg className="absolute bottom-0 left-0 w-full h-28 text-indigo-950 opacity-90" viewBox="0 0 200 80" preserveAspectRatio="none">
-            <path d="M0,80 L0,55 L20,55 L25,40 L40,40 L45,55 L80,55 L85,32 L110,32 L115,55 L160,55 L165,42 L185,42 L190,55 L200,55 L200,80 Z" fill="currentColor"/>
-          </svg>
-          <div className="absolute bottom-12 inset-x-0 h-16 bg-gradient-to-t from-purple-950/80 to-transparent" />
-          {/* 큰 EP 숫자 */}
-          <div className="absolute bottom-32 left-6 text-[80px] leading-none text-rose-200/15 font-black select-none">01</div>
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-rose-300 font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-rose-200/40 mt-0.5">Episode 01</div>
-            </div>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8 pb-4">
-            <div>
-              <div className="text-white text-[24px] font-black leading-[1.1] tracking-tight drop-shadow-lg">{title}</div>
-              <div className="mt-3 text-rose-100/70 text-[11px] italic leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-rose-400/60" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-2">
-            <Footer color="text-rose-200/50" accent="text-rose-300" />
-          </div>
-        </div>
-      );
-
-    case "전문서":
-      return (
-        <div className="w-full h-full bg-white flex flex-col p-6 relative overflow-hidden">
-          {/* 미니멀 격자 — 거의 안 보이게 */}
-          <svg className="absolute inset-0 w-full h-full opacity-[0.04]" viewBox="0 0 100 140" preserveAspectRatio="none">
-            <defs>
-              <pattern id="g3" width="10" height="10" patternUnits="userSpaceOnUse">
-                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e3a8a" strokeWidth="0.5"/>
-              </pattern>
-            </defs>
-            <rect width="100" height="140" fill="url(#g3)"/>
-          </svg>
-          {/* 큰 숫자 30 — Swiss style */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[180px] leading-none font-black text-blue-950 select-none tracking-tighter pointer-events-none">30</div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 mt-12 text-[10px] font-mono uppercase tracking-[0.4em] text-blue-950/70">Principles</div>
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-blue-900 font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-blue-900/50 mt-0.5">Behavioral Economics</div>
-            </div>
-            <div className="text-[8px] font-mono text-blue-900/40 text-right tracking-wider">
-              <div>FIRST EDITION</div>
-              <div>2026</div>
-            </div>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-blue-950 text-[22px] font-bold leading-[1.15] tracking-tight">{title}</div>
-              <div className="mt-3 text-blue-900/60 text-[11px] font-medium leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-blue-900/30" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-blue-900/40" accent="text-blue-900" />
-          </div>
-        </div>
-      );
-
-    case "매뉴얼":
-      return (
-        <div className="w-full h-full bg-cyan-50 flex flex-col p-6 relative overflow-hidden">
-          {/* 블루프린트 격자 */}
-          <svg className="absolute inset-0 w-full h-full opacity-25" viewBox="0 0 100 140" preserveAspectRatio="none">
-            <defs>
-              <pattern id="bp3" width="5" height="5" patternUnits="userSpaceOnUse">
-                <path d="M 5 0 L 0 0 0 5" fill="none" stroke="#0e7490" strokeWidth="0.3"/>
-              </pattern>
-            </defs>
-            <rect width="100" height="140" fill="url(#bp3)"/>
-          </svg>
-          {/* 정밀 도면 */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 280" preserveAspectRatio="none">
-            {/* 외곽 도형 */}
-            <rect x="40" y="80" width="120" height="120" fill="none" stroke="#0e7490" strokeWidth="0.8"/>
-            <circle cx="100" cy="140" r="50" fill="none" stroke="#0e7490" strokeWidth="1.2" strokeDasharray="3 2"/>
-            <circle cx="100" cy="140" r="25" fill="none" stroke="#f97316" strokeWidth="1.5"/>
-            <circle cx="100" cy="140" r="3" fill="#f97316"/>
-            {/* 십자선 */}
-            <line x1="20" y1="140" x2="180" y2="140" stroke="#0e7490" strokeWidth="0.5" strokeDasharray="2 2"/>
-            <line x1="100" y1="60" x2="100" y2="220" stroke="#0e7490" strokeWidth="0.5" strokeDasharray="2 2"/>
-            {/* 측정 */}
-            <line x1="40" y1="80" x2="40" y2="65" stroke="#0e7490" strokeWidth="0.6"/>
-            <line x1="160" y1="80" x2="160" y2="65" stroke="#0e7490" strokeWidth="0.6"/>
-            <line x1="35" y1="68" x2="165" y2="68" stroke="#0e7490" strokeWidth="0.6"/>
-            <text x="92" y="63" fill="#0e7490" fontSize="6" fontFamily="monospace">120mm</text>
-            {/* 레이블 라인 */}
-            <line x1="170" y1="110" x2="135" y2="125" stroke="#f97316" strokeWidth="0.6"/>
-            <circle cx="135" cy="125" r="2" fill="#f97316"/>
-            <text x="172" y="110" fill="#f97316" fontSize="6" fontFamily="monospace">A1</text>
-            <line x1="170" y1="170" x2="135" y2="155" stroke="#f97316" strokeWidth="0.6"/>
-            <circle cx="135" cy="155" r="2" fill="#f97316"/>
-            <text x="172" y="170" fill="#f97316" fontSize="6" fontFamily="monospace">A2</text>
-          </svg>
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-cyan-800 font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-cyan-700 mt-0.5">Technical Reference</div>
-            </div>
-            <div className="text-[8px] font-mono text-cyan-800 text-right tracking-wider">
-              <div>REV 1.0</div>
-              <div className="text-cyan-700/60">2026-04</div>
-            </div>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-cyan-950 text-[22px] font-bold leading-[1.15] tracking-tight">{title}</div>
-              <div className="mt-3 text-cyan-900/70 text-[11px] font-mono leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 flex items-center gap-2">
-                <div className="h-px w-10 bg-cyan-700" />
-                <div className="w-1.5 h-1.5 bg-tiger-orange rounded-full" />
-              </div>
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-cyan-800/60" accent="text-tiger-orange" />
-          </div>
-        </div>
-      );
-
-    case "실용서":
-    default:
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-orange-100 via-white to-amber-50 flex flex-col p-6 relative overflow-hidden">
-          {/* 큰 도형 — focal */}
-          <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-tiger-orange/15" />
-          <div className="absolute -bottom-8 -left-8 w-44 h-44 rounded-full bg-tiger-orange/25" />
-          <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full bg-tiger-orange/40" />
-          {/* 큰 숫자 — focal */}
-          <div className="absolute top-12 right-6 text-[100px] leading-none font-black text-tiger-orange/20 select-none tracking-tighter">30<span className="text-[40px]">분</span></div>
-          {/* 좌측 컬러 바 */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-tiger-orange via-tiger-orange to-amber-400" />
-          {/* 헤더 */}
-          <div className="flex items-start justify-between relative z-10">
-            <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-tiger-orange font-bold">{category}</div>
-              <div className="text-[8px] font-mono uppercase tracking-[0.2em] text-orange-900/60 mt-0.5">Practical Guide</div>
-            </div>
-            <span className="text-[8px] font-mono px-1.5 py-0.5 border border-tiger-orange text-tiger-orange rounded tracking-wider">실전</span>
-          </div>
-          {/* 타이틀 */}
-          <div className="flex-1 flex items-end relative z-10 mt-8">
-            <div>
-              <div className="text-ink-900 text-[24px] font-black leading-[1.1] tracking-tight">{title}</div>
-              <div className="mt-3 text-gray-700 text-[11px] font-medium leading-snug line-clamp-2">{subtitle}</div>
-              <div className="mt-4 h-px w-12 bg-tiger-orange" />
-            </div>
-          </div>
-          {/* 푸터 */}
-          <div className="relative z-10 mt-4">
-            <Footer color="text-orange-900/50" accent="text-tiger-orange" />
-          </div>
-        </div>
-      );
-  }
 }
 
+function BookmarkIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <path d="M6 4h12v17l-6-4-6 4V4z" fill="none" stroke={C.accent} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 9h6M9 13h4" stroke={C.ink} strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MeshBackground() {
+  return (
+    <div
+      aria-hidden
+      style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: "-10%",
+          left: "-10%",
+          width: "55%",
+          height: "55%",
+          borderRadius: "50%",
+          background: "radial-gradient(closest-side, #FFB59A88, transparent 70%)",
+          filter: "blur(40px)",
+          animation: "preorderMesh 22s ease-in-out infinite",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "40%",
+          right: "-15%",
+          width: "50%",
+          height: "50%",
+          borderRadius: "50%",
+          background: "radial-gradient(closest-side, #E7D6F077, transparent 70%)",
+          filter: "blur(40px)",
+          animation: "preorderMesh2 26s ease-in-out infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function Grain() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2,
+        pointerEvents: "none",
+        opacity: 0.22,
+        mixBlendMode: "multiply",
+        backgroundImage:
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.09  0 0 0 0 0.08  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+        backgroundSize: "200px 200px",
+      }}
+    />
+  );
+}
+
+// preorder 페이지와 같은 일러스트 (viewBox 600x600)
+function BookIllustration() {
+  return (
+    <svg viewBox="0 0 600 600" width="100%" height="100%" aria-hidden style={{ overflow: "visible" }}>
+      <defs>
+        <linearGradient id="bookPage" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#F2EBDA" />
+        </linearGradient>
+        <linearGradient id="bookSpine" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={C.accent} />
+          <stop offset="1" stopColor="#F0A37A" />
+        </linearGradient>
+        <linearGradient id="aiTag" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor={C.ink} />
+          <stop offset="1" stopColor="#2E2A24" />
+        </linearGradient>
+      </defs>
+
+      <circle
+        cx="300"
+        cy="290"
+        r="240"
+        fill="url(#bookSpine)"
+        opacity="0.06"
+        style={{ transformOrigin: "300px 290px", animation: "preorderPulse 6s infinite ease-in-out" }}
+      />
+      <ellipse cx="300" cy="530" rx="220" ry="16" fill={C.ink} opacity="0.1" />
+
+      <g>
+        <rect x="80" y="80" width="440" height="400" rx="8" fill="url(#bookPage)" stroke={C.border} strokeWidth="1" />
+        <line x1="300" y1="80" x2="300" y2="480" stroke={C.border} strokeWidth="1" strokeDasharray="2 4" />
+
+        <text x="110" y="115" fontFamily={FONT_MONO} fontSize="12" fill={C.accent} letterSpacing="2" fontWeight="500">
+          CH. 01
+        </text>
+        <text x="488" y="115" textAnchor="end" fontFamily={FONT_MONO} fontSize="12" fill={C.muted} letterSpacing="2">
+          P. 12
+        </text>
+
+        <text x="110" y="170" fontFamily={FONT_SANS} fontSize="34" fontWeight="900" fill={C.ink} letterSpacing="-1">
+          서문.
+        </text>
+
+        {[200, 224, 248, 272, 308, 332, 356, 380].map((y, i) => (
+          <rect
+            key={"L" + i}
+            x="110"
+            y={y}
+            width={[150, 130, 145, 100, 140, 120, 155, 90][i]}
+            height="6"
+            rx="3"
+            fill={C.muted}
+            opacity={i < 4 ? 0.55 : 0.32}
+          />
+        ))}
+
+        {[140, 164, 188, 212, 236, 260, 284, 308, 332, 356].map((y, i) => (
+          <rect
+            key={"R" + i}
+            x="315"
+            y={y}
+            width={[170, 150, 165, 120, 155, 140, 175, 110, 150, 90][i]}
+            height="6"
+            rx="3"
+            fill={C.muted}
+            opacity={i < 5 ? 0.55 : 0.3}
+          />
+        ))}
+
+        <path
+          d="M110 410 Q200 392 300 410 T490 402"
+          fill="none"
+          stroke={C.accent}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray="1500"
+          strokeDashoffset="1500"
+          style={{ animation: "preorderDraw 2.4s 0.8s ease-out both" }}
+        />
+        <path
+          d="M110 432 Q240 418 380 436 T498 424"
+          fill="none"
+          stroke={C.ink}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.55"
+          strokeDasharray="1500"
+          strokeDashoffset="1500"
+          style={{ animation: "preorderDraw 2.4s 1.2s ease-out both" }}
+        />
+
+        <path d="M430 80v96l18-12 18 12V80z" fill="url(#bookSpine)" stroke="white" strokeWidth="2" />
+      </g>
+
+      <g
+        style={
+          { ["--rot" as any]: "-4deg", animation: "preorderFloat 5s ease-in-out infinite" } as React.CSSProperties
+        }
+      >
+        <rect x="120" y="244" width="124" height="40" rx="20" fill="url(#aiTag)" />
+        <circle
+          cx="140"
+          cy="264"
+          r="5"
+          fill={C.accent}
+          style={{ animation: "preorderPulse 1.6s infinite ease-out", transformOrigin: "140px 264px" }}
+        />
+        <text x="156" y="269" fontFamily={FONT_MONO} fontSize="12" fill="white" letterSpacing="2" fontWeight="500">
+          AI · 30분
+        </text>
+      </g>
+
+      <g
+        transform="translate(420 410) rotate(-10)"
+        style={{
+          animation: "preorderFadeUp 600ms 2.6s cubic-bezier(0.22,1,0.36,1) both",
+          transformOrigin: "420px 410px",
+        }}
+      >
+        <rect x="-48" y="-22" width="96" height="44" rx="4" fill="none" stroke={C.accent} strokeWidth="3" />
+        <rect x="-42" y="-16" width="84" height="32" rx="2" fill="none" stroke={C.accent} strokeWidth="1" />
+        <text
+          x="0"
+          y="7"
+          textAnchor="middle"
+          fontFamily={FONT_SANS}
+          fontWeight="900"
+          fontSize="22"
+          fill={C.accent}
+          letterSpacing="2"
+        >
+          DONE
+        </text>
+      </g>
+
+      {[
+        [70, 70, 0],
+        [530, 150, 0.6],
+        [60, 460, 1.2],
+        [540, 510, 1.8],
+        [180, 60, 0.3],
+      ].map(([x, y, d], i) => (
+        <g
+          key={i}
+          transform={`translate(${x} ${y})`}
+          style={{
+            transformOrigin: `${x}px ${y}px`,
+            animation: `preorderPulse 2.6s ${d}s infinite ease-in-out`,
+          }}
+        >
+          <path d="M0-10 L2.5-2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5-2.5 Z" fill={C.accent} />
+        </g>
+      ))}
+    </svg>
+  );
+}
