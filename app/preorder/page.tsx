@@ -1574,34 +1574,81 @@ export default function PreorderPage() {
                 textTransform: "uppercase",
               }}
             >
-              만든 사람
+              누가 만들었나
             </span>
+
+            {/* 배경 */}
             <p
               style={{
                 marginTop: 14,
-                fontSize: 16,
+                fontSize: 17,
                 color: C.body,
                 lineHeight: 1.75,
-                maxWidth: 560,
+                maxWidth: 580,
+                fontFamily: FONT_SERIF,
+                fontStyle: "italic",
               }}
             >
-              <strong style={{ color: C.ink }}>김과장</strong> · 대기업 사무직 11년차. 매주 100시간
-              야근에서 살아남으려고 AI 자동화 도구를 매일 만듭니다. tigerbookmaker는 그 중 가장 잘
-              통한 도구를 한국 작가·부수익러를 위해 다듬은 결과입니다.{" "}
-              <a
-                href="https://managerkim.com"
-                target="_blank"
-                rel="noopener"
+              11년차 대기업 사무직이 매주 100시간 야근에서 살아남으려고 AI 자동화 도구를 매일 만들다가,
+              그중 가장 잘 통한 흐름을 한국 작가·부수익러를 위해 다듬은 결과예요.
+            </p>
+
+            {/* 비유 */}
+            <p
+              style={{
+                marginTop: 18,
+                fontSize: 15,
+                color: C.body,
+                lineHeight: 1.7,
+                maxWidth: 580,
+              }}
+            >
+              <strong style={{ color: C.ink }}>비유 하나.</strong> AI는 인턴이에요. 잘 가르치면 12챕터
+              책 한 권을 30분에 씁니다. 잘못 가르치면 잡 글만 50페이지. tigerbookmaker는 인턴
+              매니지먼트 시스템이에요.
+            </p>
+
+            {/* 결점 */}
+            <p
+              style={{
+                marginTop: 14,
+                fontSize: 15,
+                color: C.muted,
+                lineHeight: 1.7,
+                maxWidth: 580,
+              }}
+            >
+              <strong style={{ color: C.body }}>결점.</strong> 디자인 진짜 못해요. Canva 켜면 30분 멍 때려요.
+              그래서 표지 30종 갤러리 만들어서 그냥 골라 쓰는 식으로 만들었어요. 못 하는 걸 인정하고
+              떠넘기는 게 제 방식이에요.
+            </p>
+
+            {/* 양극화 */}
+            <div
+              style={{
+                marginTop: 22,
+                padding: "16px 18px",
+                background: C.bg,
+                borderLeft: `3px solid ${C.accent}`,
+                borderRadius: 6,
+                maxWidth: 580,
+              }}
+            >
+              <p
                 style={{
-                  color: C.accent,
-                  textDecoration: "underline",
-                  textUnderlineOffset: 3,
-                  fontWeight: 500,
+                  fontSize: 16,
+                  color: C.ink,
+                  lineHeight: 1.55,
+                  margin: 0,
+                  fontFamily: FONT_SERIF,
+                  fontStyle: "italic",
                 }}
               >
-                managerkim.com →
-              </a>
-            </p>
+                AI 이북은 표절이 아니라 도구입니다.
+                <br />
+                <strong style={{ fontStyle: "normal", color: C.accent }}>도구 안 쓰는 게 손해입니다.</strong>
+              </p>
+            </div>
           </div>
 
           <div

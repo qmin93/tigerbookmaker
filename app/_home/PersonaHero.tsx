@@ -85,37 +85,6 @@ export function PersonaHero({ children }: { children: React.ReactNode }) {
   const [persona, setPersona] = useState<PersonaKey>("general");
   const p = PERSONAS[persona];
 
-  // 리드 자석 (즉시 PDF) 인라인 폼 상태
-  const [leadEmail, setLeadEmail] = useState("");
-  const [leadStatus, setLeadStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [leadError, setLeadError] = useState("");
-
-  async function submitLeadmagnet(e: React.FormEvent) {
-    e.preventDefault();
-    if (!leadEmail) return;
-    setLeadStatus("loading");
-    setLeadError("");
-    const res = await fetch("/api/preorder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: leadEmail,
-        intent: "leadmagnet",
-        icp_signal: persona === "general" ? undefined : persona,
-        utm_source: "hero",
-        utm_medium: "leadmagnet",
-        utm_campaign: persona,
-      }),
-    });
-    if (res.ok) {
-      setLeadStatus("done");
-      return;
-    }
-    const body = await res.json().catch(() => null);
-    setLeadError(body?.error ?? "PREORDER_FAILED");
-    setLeadStatus("error");
-  }
-
   return (
     <section style={{ position: "relative", zIndex: 4, padding: "60px 24px 40px" }}>
       <div
@@ -297,154 +266,19 @@ export function PersonaHero({ children }: { children: React.ReactNode }) {
               {p.cta}
               <span style={{ fontSize: 18 }}>→</span>
             </Link>
-            <Link
-              href="#samples"
-              style={{
-                fontSize: 15,
-                color: C.ink,
-                textDecoration: "underline",
-                textDecorationColor: C.accent,
-                textDecorationThickness: 2,
-                textUnderlineOffset: 6,
-                fontWeight: 500,
-              }}
-            >
-              샘플 책 4종 보기
-            </Link>
           </div>
 
-          {/* 인라인 leadmagnet 캡처 — 사전예약과 분리된 즉시 약속 */}
-          <div
+          {/* Hero CTA 아래 즉시 받는 것 약속 (사전예약 클릭 → /preorder 에서 발송) */}
+          <p
             style={{
-              marginTop: 36,
-              padding: "20px 22px",
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.7)",
-              backdropFilter: "blur(6px)",
-              border: `1px solid ${C.accent}33`,
-              position: "relative",
+              marginTop: 18,
+              fontSize: 13,
+              color: C.muted,
+              lineHeight: 1.6,
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                top: -10,
-                left: 18,
-                background: C.bg,
-                padding: "3px 11px",
-                fontFamily: FONT_MONO,
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                color: C.accent,
-                textTransform: "uppercase",
-                border: `1px solid ${C.accent}55`,
-                borderRadius: 999,
-                fontWeight: 600,
-              }}
-            >
-              ⚡ 지금 즉시 받기
-            </div>
-
-            {leadStatus === "done" ? (
-              <div style={{ padding: "12px 0", textAlign: "left" }}>
-                <div
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 800,
-                    color: C.ink,
-                    marginBottom: 6,
-                  }}
-                >
-                  📬 메일함을 확인하세요
-                </div>
-                <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55 }}>
-                  미니 이북 PDF가 1분 내 도착해요. 사전예약도 별도로 신청 가능 ↓
-                </div>
-              </div>
-            ) : (
-              <>
-                <h3
-                  style={{
-                    margin: "8px 0 4px",
-                    fontSize: 16,
-                    fontWeight: 800,
-                    color: C.ink,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  미니 이북 1권 + 크몽 키워드 30개 — PDF로
-                </h3>
-                <p
-                  style={{
-                    margin: "0 0 14px",
-                    fontSize: 12,
-                    color: C.muted,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  이메일 입력 1분 내 도착. 사전예약과 별도 — 지금 바로 손에 잡히는 효용.
-                </p>
-                <form onSubmit={submitLeadmagnet} style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="email"
-                    required
-                    value={leadEmail}
-                    onChange={(e) => setLeadEmail(e.target.value)}
-                    placeholder="reader@example.com"
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: "12px 14px",
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 10,
-                      fontSize: 15,
-                      fontFamily: FONT_SANS,
-                      color: C.ink,
-                      outline: "none",
-                      background: "white",
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
-                  />
-                  <button
-                    type="submit"
-                    disabled={leadStatus === "loading"}
-                    style={{
-                      padding: "12px 18px",
-                      background: C.accent,
-                      color: "white",
-                      borderRadius: 10,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      border: "none",
-                      cursor: leadStatus === "loading" ? "wait" : "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "background 160ms ease",
-                    }}
-                    onMouseEnter={(e) =>
-                      leadStatus !== "loading" && (e.currentTarget.style.background = C.accentDark)
-                    }
-                    onMouseLeave={(e) => (e.currentTarget.style.background = C.accent)}
-                  >
-                    {leadStatus === "loading" ? "전송…" : "PDF 받기 →"}
-                  </button>
-                </form>
-                {leadStatus === "error" && (
-                  <p
-                    style={{
-                      margin: "10px 0 0",
-                      fontSize: 12,
-                      color: C.accentDark,
-                    }}
-                  >
-                    {leadError === "INVALID_EMAIL"
-                      ? "이메일 형식을 확인해주세요."
-                      : "잠시 후 다시 시도해주세요."}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
+            신청 즉시 <strong style={{ color: C.ink }}>미니 이북 PDF + 크몽 키워드 30개</strong>가 메일함에 도착해요. 카드 정보 받지 않음.
+          </p>
 
           {/* 라이브 스탯 (server에서 받은 children) */}
           {children}

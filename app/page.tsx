@@ -121,23 +121,13 @@ export default async function HomePage() {
                 color: C.accent,
                 textTransform: "uppercase",
                 textDecoration: "none",
-                fontWeight: 500,
+                fontWeight: 600,
+                padding: "8px 14px",
+                border: `1px solid ${C.accent}`,
+                borderRadius: 999,
               }}
             >
-              사전예약
-            </Link>
-            <Link
-              href="/login"
-              style={{
-                fontFamily: FONT_MONO,
-                fontSize: 11,
-                letterSpacing: "0.18em",
-                color: C.muted,
-                textTransform: "uppercase",
-                textDecoration: "none",
-              }}
-            >
-              로그인
+              사전예약 · 무료
             </Link>
           </div>
         </div>
@@ -317,7 +307,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 가격 (3 티어) */}
+      {/* 가치 사다리 4단 — Secret 3 + Secret 2 (가장 비싼 제품을 파는 업체) */}
       <section
         style={{
           position: "relative",
@@ -329,7 +319,7 @@ export default async function HomePage() {
         }}
       >
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-          <SectionLabel num="02" title="가격" />
+          <SectionLabel num="02" title="가치 사다리" />
           <h2
             style={{
               fontFamily: FONT_SANS,
@@ -338,118 +328,261 @@ export default async function HomePage() {
               lineHeight: 1.1,
               letterSpacing: "-0.025em",
               color: C.ink,
-              marginBottom: 8,
+              marginBottom: 12,
             }}
           >
-            권당 결제 · 카드 등록 없음.
+            오늘 <span style={{ color: C.accent }}>₩0</span>,
+            <br />
+            1년 후 <span style={{ color: C.accent }}>한 권의 책</span>이 시작점.
           </h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 40 }}>
-            충전 후 사용한 만큼만 차감 · 베타 ₩5,000 무료 크레딧 = 라이트 1권 무료
+          <p
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 17,
+              fontStyle: "italic",
+              color: C.muted,
+              marginBottom: 12,
+              lineHeight: 1.5,
+            }}
+          >
+            가격으로 경쟁하지 않습니다. 가치로 경쟁합니다.
+          </p>
+          <p style={{ fontSize: 14, color: C.muted, marginBottom: 48 }}>
+            첫 책에서 자비출판까지 — 직장인 부수익러를 위한 4단 사다리. 사용자가 다음 층으로 가는 건 본인의 선택.
           </p>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: 16,
+              gridTemplateColumns: "1fr",
+              gap: 0,
+              position: "relative",
             }}
-            className="tier-grid"
           >
-            {TIERS.map((t) => (
-              <div
-                key={t.id}
-                style={{
-                  position: "relative",
-                  background: t.popular ? C.ink : "white",
-                  color: t.popular ? "white" : C.ink,
-                  border: `1px solid ${t.popular ? C.ink : C.border}`,
-                  borderRadius: 16,
-                  padding: "28px 24px",
-                }}
-              >
-                {t.popular && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: -10,
-                      right: 16,
-                      background: C.accent,
-                      color: "white",
-                      fontSize: 10,
-                      fontFamily: FONT_MONO,
-                      letterSpacing: "0.18em",
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      fontWeight: 600,
-                    }}
-                  >
-                    BEST
-                  </span>
-                )}
+            {[
+              {
+                tier: "층 1",
+                label: "리드",
+                title: "사전예약 + 미니 이북 PDF",
+                price: "₩0",
+                price_sub: "오늘",
+                when: "지금",
+                desc: "이메일만. 카드 정보 받지 않습니다. 사전예약 즉시 미니 이북 PDF + 크몽 키워드 30개 발송.",
+                cta: "오늘 시작",
+                active: true,
+              },
+              {
+                tier: "층 2",
+                label: "언박싱 — 권당 결제",
+                title: "라이트 · 표준 · 프리미엄",
+                price: "₩4,000–21,300",
+                price_sub: "/ 권",
+                when: "베타 오픈 시 (D+30)",
+                desc: "권당 충전식. 카드 등록 없음. 사전예약자 ₩5,000 크레딧 자동 = 라이트 1권 무료. 권당 결제는 글로벌 5개 월구독 경쟁사와 차별점.",
+                cta: "권당",
+                active: false,
+              },
+              {
+                tier: "층 3",
+                label: "프레젠테이션 — 챌린지 + 코호트",
+                title: "14일 챌린지 / 6주 코호트",
+                price: "₩99,000–299,000",
+                price_sub: "/ 1회",
+                when: "Month 2-3",
+                desc: "라이트 무제한 + 매일 인증 + 그룹 코칭 + 표지 디자이너 1:1 피드백. Russell 도전 퍼널 (Secret 13) 한국형.",
+                cta: "다음 단계",
+                active: false,
+              },
+              {
+                tier: "층 4",
+                label: "텔레폰 — 자비출판 컨설팅",
+                title: "1:1 자비출판 + 브랜드북 제작",
+                price: "₩2,000,000+",
+                price_sub: "/ 프로젝트",
+                when: "Month 6+",
+                desc: "POD 인쇄 / Amazon KDP 등록 / ISBN / 마케팅 6개월 동행. 신청서 퍼널 (Secret 17) — 전화 상담 필수. 10명 한정.",
+                cta: "추후 공개",
+                active: false,
+              },
+            ].map((step, i) => {
+              const isActive = step.active;
+              return (
                 <div
+                  key={i}
                   style={{
-                    fontFamily: FONT_MONO,
-                    fontSize: 11,
-                    letterSpacing: "0.18em",
-                    color: t.popular ? C.accent : C.muted,
-                    textTransform: "uppercase",
-                    marginBottom: 10,
-                    fontWeight: 500,
+                    position: "relative",
+                    display: "grid",
+                    gridTemplateColumns: "120px 1fr auto",
+                    gap: 24,
+                    alignItems: "start",
+                    padding: "28px 22px",
+                    background: isActive ? C.ink : "white",
+                    color: isActive ? "white" : C.ink,
+                    border: `1px solid ${isActive ? C.ink : C.border}`,
+                    borderRadius: 0,
+                    borderTop: i > 0 ? "none" : undefined,
+                    ...(i === 0
+                      ? { borderTopLeftRadius: 16, borderTopRightRadius: 16 }
+                      : {}),
+                    ...(i === 3
+                      ? { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }
+                      : {}),
                   }}
+                  className="ladder-row"
                 >
-                  {t.name}
+                  {/* 층 라벨 */}
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        letterSpacing: "0.22em",
+                        color: isActive ? C.accent : C.muted,
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {step.tier}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 11,
+                        letterSpacing: "0.05em",
+                        color: isActive ? "rgba(255,255,255,0.7)" : C.muted,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {step.label}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_SERIF,
+                        fontStyle: "italic",
+                        fontSize: 12,
+                        color: isActive ? C.accent : C.muted,
+                        marginTop: 8,
+                      }}
+                    >
+                      {step.when}
+                    </div>
+                  </div>
+
+                  {/* 내용 */}
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: 19,
+                        fontWeight: 800,
+                        letterSpacing: "-0.015em",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {step.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                        color: isActive ? "rgba(255,255,255,0.85)" : C.body,
+                        marginBottom: 0,
+                      }}
+                    >
+                      {step.desc}
+                    </p>
+                  </div>
+
+                  {/* 가격 + CTA */}
+                  <div style={{ textAlign: "right", minWidth: 120 }}>
+                    <div
+                      style={{
+                        fontSize: isActive ? 32 : 22,
+                        fontWeight: 900,
+                        letterSpacing: "-0.02em",
+                        color: isActive ? C.accent : C.ink,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {step.price}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        letterSpacing: "0.15em",
+                        color: isActive ? "rgba(255,255,255,0.6)" : C.muted,
+                        textTransform: "uppercase",
+                        marginBottom: 14,
+                      }}
+                    >
+                      {step.price_sub}
+                    </div>
+                    {isActive ? (
+                      <Link
+                        href="/preorder?utm_source=ladder&utm_campaign=tier1"
+                        style={{
+                          display: "inline-block",
+                          padding: "10px 18px",
+                          background: C.accent,
+                          color: "white",
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {step.cta} →
+                      </Link>
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: FONT_MONO,
+                          fontSize: 10,
+                          letterSpacing: "0.22em",
+                          color: C.muted,
+                          textTransform: "uppercase",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {step.cta}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: 36,
-                    fontWeight: 900,
-                    letterSpacing: "-0.025em",
-                    marginBottom: 4,
-                  }}
-                >
-                  ₩{t.price.toLocaleString()}
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      opacity: 0.65,
-                      marginLeft: 6,
-                    }}
-                  >
-                    / 권
-                  </span>
-                </div>
-                <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 18 }}>{t.blurb}</div>
-                <div
-                  style={{
-                    fontFamily: FONT_SERIF,
-                    fontSize: 13,
-                    fontStyle: "italic",
-                    color: t.popular ? "#F4DED4" : C.muted,
-                    paddingTop: 16,
-                    borderTop: `1px solid ${t.popular ? "rgba(255,255,255,0.15)" : C.border}`,
-                  }}
-                >
-                  {t.scenario}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <p
             style={{
-              marginTop: 24,
+              marginTop: 28,
               fontSize: 13,
               color: C.muted,
               textAlign: "center",
+              fontFamily: FONT_SERIF,
+              fontStyle: "italic",
             }}
           >
-            전체 가격표는{" "}
+            "한 번에 한 층만 — 사용자가 다음 단계로 가는 건 본인이 결정." (Secret 27)
+            <br />
             <Link
               href="/pricing"
-              style={{ color: C.accent, textDecoration: "underline", textUnderlineOffset: 3 }}
+              style={{
+                color: C.accent,
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                fontFamily: FONT_MONO,
+                fontStyle: "normal",
+                fontSize: 11,
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                marginTop: 8,
+                display: "inline-block",
+              }}
             >
-              /pricing →
+              층 2 권당 결제 자세히 →
             </Link>
           </p>
         </div>
@@ -609,6 +742,80 @@ export default async function HomePage() {
         }}
       >
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          {/* 익명 narrator — 4 요소 (Secret 4) */}
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto 56px",
+              padding: "28px 30px",
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              position: "relative",
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: -10,
+                left: 24,
+                background: "white",
+                padding: "3px 12px",
+                fontFamily: FONT_MONO,
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                color: C.accent,
+                textTransform: "uppercase",
+                fontWeight: 600,
+                border: `1px solid ${C.border}`,
+                borderRadius: 999,
+              }}
+            >
+              누가 만들었나
+            </span>
+            <p
+              style={{
+                marginTop: 6,
+                fontFamily: FONT_SERIF,
+                fontSize: 18,
+                fontStyle: "italic",
+                lineHeight: 1.6,
+                color: C.body,
+              }}
+            >
+              "11년차 사무직이 매주 100시간 야근에서 살아남으려고 AI 자동화 도구를 매일 만들다가,
+              그중 가장 잘 통한 흐름을 한국 작가·부수익러를 위해 다듬은 결과."
+            </p>
+            <p
+              style={{
+                marginTop: 12,
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.15em",
+                color: C.muted,
+                textTransform: "uppercase",
+              }}
+            >
+              · 디자인은 진짜 못합니다. 그래서 표지 30종 갤러리를 만들었어요 ·
+            </p>
+            <Link
+              href="/preorder#maker"
+              style={{
+                display: "inline-block",
+                marginTop: 14,
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                color: C.accent,
+                textTransform: "uppercase",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              만든 사람 전체 보기 →
+            </Link>
+          </div>
+
           <SectionLabel num="04" title="베타 예시 사례" />
           <h2
             style={{
@@ -927,7 +1134,7 @@ export default async function HomePage() {
             {SAMPLE_BOOKS.map((b) => (
               <Link
                 key={b.forkId}
-                href={`/new?fork=${b.forkId}`}
+                href={`/preorder?utm_source=samples&utm_campaign=${b.forkId}`}
                 style={{ textDecoration: "none", color: "inherit", display: "block" }}
               >
                 <div
@@ -1008,7 +1215,7 @@ export default async function HomePage() {
                       letterSpacing: "0.1em",
                     }}
                   >
-                    이 주제로 시작
+                    이런 책 만들기
                   </span>
                   <span style={{ fontSize: 14, color: C.accent }}>→</span>
                 </div>
