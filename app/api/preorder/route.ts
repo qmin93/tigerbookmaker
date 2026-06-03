@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     }
 
     const intent = String(body.intent ?? "");
-    if (intent !== "preorder" && intent !== "paid_intent") {
+    if (intent !== "preorder" && intent !== "paid_intent" && intent !== "leadmagnet") {
       return NextResponse.json({ error: "INVALID_INTENT" }, { status: 400 });
     }
 

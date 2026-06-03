@@ -543,6 +543,60 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* A.5 브랜드 양극화 풀 쿼우트 (Council 보너스) */}
+      <section
+        style={{
+          position: "relative",
+          zIndex: 4,
+          padding: "100px 24px",
+        }}
+      >
+        <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+          <div
+            aria-hidden
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 140,
+              lineHeight: 0.7,
+              color: C.accent,
+              opacity: 0.85,
+              marginBottom: -12,
+              userSelect: "none",
+            }}
+          >
+            "
+          </div>
+          <blockquote
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: "clamp(28px, 4.5vw, 48px)",
+              fontWeight: 700,
+              lineHeight: 1.18,
+              letterSpacing: "-0.025em",
+              color: C.ink,
+              margin: 0,
+              padding: 0,
+            }}
+          >
+            외주 <span style={{ color: C.muted }}>₩300,000</span> 한 번 vs
+            <br />
+            권당 <span style={{ color: C.accent }}>₩4,000</span> 무제한.
+          </blockquote>
+          <div
+            style={{
+              marginTop: 28,
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              color: C.muted,
+              textTransform: "uppercase",
+            }}
+          >
+            어느 쪽이 합리적인가요?
+          </div>
+        </div>
+      </section>
+
       {/* B. 사회적 증거 — 후기 + 로고 띠 */}
       <section
         style={{
@@ -555,7 +609,7 @@ export default async function HomePage() {
         }}
       >
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-          <SectionLabel num="04" title="베타 사용자 후기" />
+          <SectionLabel num="04" title="베타 예시 사례" />
           <h2
             style={{
               fontFamily: FONT_SANS,
@@ -564,13 +618,24 @@ export default async function HomePage() {
               lineHeight: 1.1,
               letterSpacing: "-0.025em",
               color: C.ink,
-              marginBottom: 8,
+              marginBottom: 12,
             }}
           >
             "AI가 부족한 게 아니라, 시간이 부족했어요."
           </h2>
-          <p style={{ fontSize: 14, color: C.muted, marginBottom: 36 }}>
-            ※ 결과는 주제·자료 품질·시장 환경에 따라 다를 수 있습니다.
+          <p
+            style={{
+              fontFamily: FONT_SERIF,
+              fontSize: 14,
+              fontStyle: "italic",
+              color: C.muted,
+              marginBottom: 8,
+            }}
+          >
+            ※ 베타 예시 사례 · 실제 사용자 후기는 인터뷰 진행 후 본인 동의 하에 교체합니다.
+          </p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 36 }}>
+            한국 공정거래위 표시광고 심사지침 (2026-06-01) 에 따라 예시임을 명시합니다.
           </p>
 
           <div
@@ -584,7 +649,7 @@ export default async function HomePage() {
             {[
               {
                 quote:
-                  "퇴근 후 30분이 진짜 됐어요. 라인업 1권 → 4권 됐고, 주말에 일하지 않게 됐어요.",
+                  "퇴근 후 30분이 진짜 됐어요. 주말에 일하지 않아도 라인업이 늘었어요.",
                 name: "박지수",
                 role: "마케터 4년차 · 크몽 셀러",
                 age: "32",
@@ -598,7 +663,7 @@ export default async function HomePage() {
               },
               {
                 quote:
-                  "강의 자료 PPT 한 개로 책 한 권이 나왔어요. 외주 ₩500만 견적 보고 포기했던 게 30분에.",
+                  "강의 자료 PPT 한 개로 책 한 권이 나왔어요. 외주 견적 받고 포기했던 게 30분에.",
                 name: "이정훈",
                 role: "영어 코치 · 인프런 강사",
                 age: "38",
@@ -607,21 +672,39 @@ export default async function HomePage() {
               <figure
                 key={t.name}
                 style={{
-                  background: C.bg,
-                  border: `1px solid ${C.border}`,
+                  background: `${C.border}40`,
+                  border: `1px dashed ${C.border}`,
                   borderRadius: 14,
-                  padding: "24px 22px",
+                  padding: "20px 22px 22px",
                   margin: 0,
+                  position: "relative",
                 }}
               >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    left: 18,
+                    background: C.bg,
+                    padding: "2px 10px",
+                    fontFamily: FONT_MONO,
+                    fontSize: 9,
+                    letterSpacing: "0.22em",
+                    color: C.muted,
+                    textTransform: "uppercase",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 999,
+                  }}
+                >
+                  EXAMPLE · 베타 시뮬레이션
+                </span>
                 <blockquote
                   style={{
                     fontFamily: FONT_SERIF,
-                    fontSize: 17,
+                    fontSize: 16,
                     lineHeight: 1.55,
-                    color: C.ink,
-                    margin: 0,
-                    marginBottom: 18,
+                    color: C.body,
+                    margin: "10px 0 18px",
                   }}
                 >
                   "{t.quote}"
@@ -748,6 +831,10 @@ export default async function HomePage() {
               {
                 q: "환불되나요?",
                 a: "베타 기간은 결제 자체가 없으니 환불 이슈가 없습니다. 정식 오픈 후에는 첫 책 7일 100% 환불을 제공합니다. 만족 못 하시면 묻지 않고 환불해드려요.",
+              },
+              {
+                q: "후기는 실제 사용자인가요?",
+                a: "현재 메인의 박지수·김민지·이정훈 후기는 베타 예시 사례입니다 (각 카드에 EXAMPLE 라벨 표시). 실제 베타 사용자 인터뷰가 완료되면 본인 동의 하에 교체합니다. 한국 공정거래위 표시광고 심사지침 (2026-06-01 시행) 에 따라 예시임을 명시하고 있어요.",
               },
             ].map((f, i) => (
               <details

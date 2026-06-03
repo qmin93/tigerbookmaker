@@ -47,13 +47,11 @@ function wrap(opts: {
     <div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:36px 32px;border:1px solid ${C.border};">
       <div style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;letter-spacing:0.18em;color:${C.accent};text-transform:uppercase;margin-bottom:24px;">
         <span style="display:inline-block;width:6px;height:6px;border-radius:99px;background:${C.accent};margin-right:6px;vertical-align:middle;"></span>
-        tigerbookmaker · 김과장
+        tigerbookmaker · 베타
       </div>
       ${opts.body}
       <div style="margin-top:36px;padding-top:20px;border-top:1px solid ${C.border};font-size:11px;color:${C.muted};line-height:1.7;">
-        만든 사람 — 김과장 ·
-        <a href="https://managerkim.com" style="color:${C.accent};text-decoration:none;">managerkim.com</a><br/>
-        AI(생성형 인공지능) 기반 자동 집필 도구.
+        tigerbookmaker — 한국어 AI(생성형 인공지능) 기반 자동 집필 도구.<br/>
         본 메일은 ${escape(opts.email)}으로 발송.
         <a href="${unsubUrl}" style="color:${C.muted};text-decoration:underline;">수신거부</a>
       </div>
@@ -78,32 +76,65 @@ export interface BuiltEmail {
 export type StepBuilder = (ctx: PreorderEmailContext) => BuiltEmail;
 
 // Day 0 — 즉시 답장. 신청 직후.
+// PDF 다운로드 버튼 + 자기 입증 박스 + Day 1 예고 hook
+const LEADMAGNET_PDF_URL = "https://tigerbookmaker.vercel.app/leadmagnet/tigerbookmaker-mini.pdf";
+
 export const buildStep0: StepBuilder = ({ email }) => ({
-  subject: "[tigerbookmaker] 사전예약 접수됐어요. 오픈까지 5일 가이드를 보내드릴게요.",
+  subject: "[tigerbookmaker] 미니 이북 PDF 도착했어요. 오픈까지 5일 가이드도 시작.",
   html: wrap({
-    title: "사전예약 접수 완료",
-    preheader: "한정 100명 신청자에게만 가는 5일 가이드가 시작됩니다.",
+    title: "사전예약 접수 완료 + PDF 도착",
+    preheader: "tigerbookmaker로 30분 안에 만들어진 미니 이북 1권이 첨부됐어요.",
     email,
     body: `
       <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 16px;color:${C.ink};">
         잘 받았어요.
       </h1>
-      <p style="font-size:16px;margin:0 0 16px;color:${C.body};">
+      <p style="font-size:16px;margin:0 0 24px;color:${C.body};">
         한정 100명 사전예약자 명단에 등록됐어요. 베타 오픈 시 가장 먼저 메일 드릴게요.
       </p>
-      <p style="font-size:16px;margin:0 0 20px;color:${C.body};">
-        그날까지 매일 한 통씩, <strong style="color:${C.ink};">"AI로 이북 30분에 만들기" 5일 가이드</strong>를 보내드릴게요.
-        오픈 D-5부터 시작입니다.
-      </p>
-      <div style="margin:24px 0;padding:18px 20px;background:${C.bg};border-left:3px solid ${C.accent};border-radius:6px;font-size:14px;color:${C.body};">
-        <strong style="color:${C.ink};">사전예약 혜택</strong><br/>
-        · 미니 이북 1편 (10p PDF, 본인 주제) — 곧 별도 메일로 발송<br/>
-        · 크몽 베스트셀러 키워드 체크리스트<br/>
-        · 베타 오픈 시 ₩5,000 크레딧 자동 지급<br/>
-        · 표지 30종 갤러리 평생 접근
+
+      <!-- PDF 다운로드 버튼 -->
+      <div style="margin:28px 0;text-align:center;">
+        <a href="${LEADMAGNET_PDF_URL}"
+           style="display:inline-block;padding:18px 28px;background:${C.ink};color:white;border-radius:12px;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:-0.01em;box-shadow:0 12px 28px -12px ${C.ink};">
+          📕 미니 이북 PDF 받기 →
+        </a>
+        <div style="margin-top:10px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.18em;color:${C.muted};text-transform:uppercase;">
+          30 페이지 · 한국 직장인 부수익 가이드
+        </div>
       </div>
-      <p style="font-size:15px;color:${C.muted};margin:24px 0 0;">
-        궁금한 점 있으면 이 메일에 그대로 답장 주세요. 제가 직접 봅니다. — 김과장
+
+      <!-- 자기 입증 박스 -->
+      <div style="margin:28px 0;padding:18px 20px;background:${C.bg};border:1px dashed ${C.accent};border-radius:10px;font-size:14px;color:${C.body};line-height:1.65;">
+        <div style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:0.22em;color:${C.accent};text-transform:uppercase;margin-bottom:8px;font-weight:600;">
+          ⚡ 자기 입증
+        </div>
+        이 PDF는 <strong style="color:${C.ink};">tigerbookmaker로 30분 안에 만들어졌어요</strong>.
+        본인이 만든 책의 저작권은 100% 본인 거예요. 크몽·KDP·블로그·뉴스레터 어디서든 자유롭게 판매할 수 있어요.
+      </div>
+
+      <!-- 사전예약 혜택 catalog -->
+      <div style="margin:24px 0;padding:18px 20px;background:white;border-left:3px solid ${C.accent};border-radius:6px;font-size:14px;color:${C.body};line-height:1.7;">
+        <strong style="color:${C.ink};">사전예약자 한정 혜택 (5종)</strong><br/>
+        ✓ 미니 이북 PDF 1권 (위 버튼) — 방금 발송<br/>
+        ✓ 크몽 베스트셀러 키워드 체크리스트<br/>
+        ✓ 5일 "30분 출판소" 이메일 강좌 — 내일부터 시작<br/>
+        ✓ 베타 오픈 시 ₩5,000 크레딧 자동 지급<br/>
+        ✓ 표지 30종 갤러리 평생 접근
+      </div>
+
+      <!-- Day 1 예고 hook -->
+      <div style="margin:32px 0 16px;padding-top:24px;border-top:1px solid ${C.border};">
+        <p style="font-size:15px;color:${C.body};margin:0 0 8px;">
+          <strong style="color:${C.ink};">내일 한 통.</strong>
+        </p>
+        <p style="font-size:15px;color:${C.body};margin:0;">
+          "진짜 30분에 되나요?" — 베타 예시 사례 (박지수씨) 이야기 보내드릴게요.
+        </p>
+      </div>
+
+      <p style="font-size:13px;color:${C.muted};margin:24px 0 0;">
+        궁금한 점 있으면 이 메일에 그대로 답장 주세요. 제가 직접 봅니다. — tigerbookmaker
       </p>
     `,
   }),
@@ -138,7 +169,7 @@ const buildStep1: StepBuilder = ({ email }) => ({
       <p style="font-size:16px;color:${C.body};margin:0 0 24px;">
         내일은 박지수씨가 그 동안 시도했던 것들 — ChatGPT 프롬프트 묶음 ₩9,900, 외주 견적 ₩300,000 — 그리고 왜 다 안 됐는지 보내드릴게요.
       </p>
-      <p style="font-size:15px;color:${C.muted};">— 김과장</p>
+      <p style="font-size:15px;color:${C.muted};">— tigerbookmaker</p>
     `,
   }),
 });
@@ -181,7 +212,7 @@ const buildStep2: StepBuilder = ({ email }) => ({
         실제로는 — <strong style="color:${C.ink};">AI가 부족했던 게 아니라, 본인이 다듬을 시간이 부족했던 것</strong>.
         내일은 어떻게 다른 흐름이 가능한지 보여드릴게요.
       </p>
-      <p style="font-size:15px;color:${C.muted};">— 김과장</p>
+      <p style="font-size:15px;color:${C.muted};">— tigerbookmaker</p>
     `,
   }),
 });
@@ -220,7 +251,7 @@ const buildStep3: StepBuilder = ({ email }) => ({
       <p style="font-size:16px;color:${C.body};margin:0 0 16px;">
         내일은 박지수씨가 이 흐름으로 한 달 동안 어떻게 됐는지 보내드릴게요.
       </p>
-      <p style="font-size:15px;color:${C.muted};">— 김과장</p>
+      <p style="font-size:15px;color:${C.muted};">— tigerbookmaker</p>
     `,
   }),
 });
@@ -256,7 +287,7 @@ const buildStep4: StepBuilder = ({ email }) => ({
       <p style="font-size:16px;color:${C.body};margin:0 0 24px;">
         내일이 마지막 메일입니다. 베타 오픈 안내 + 사전예약자 혜택 5종 정리해서 보내드릴게요.
       </p>
-      <p style="font-size:15px;color:${C.muted};">— 김과장</p>
+      <p style="font-size:15px;color:${C.muted};">— tigerbookmaker</p>
     `,
   }),
 });
@@ -297,7 +328,7 @@ const buildStep5: StepBuilder = ({ email }) => ({
         클릭 시 사전예약 이메일로 자동 로그인 + ₩5,000 크레딧 적용.
       </p>
       <p style="font-size:15px;color:${C.muted};margin:24px 0 0;">
-        5일 동안 함께 해주셔서 고맙습니다. — 김과장
+        5일 동안 함께 해주셔서 고맙습니다. — tigerbookmaker
       </p>
     `,
   }),

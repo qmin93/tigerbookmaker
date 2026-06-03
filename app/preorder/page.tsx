@@ -178,6 +178,12 @@ export default function PreorderPage() {
   // FAQ 토글
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
+  // 공정위 표시광고 심사지침 (2026-06-01) + AI 기본법 + 정보통신망법 동의
+  const [consentAi, setConsentAi] = useState(false);
+  const [consentAds, setConsentAds] = useState(false);
+  const [consentPrivacy, setConsentPrivacy] = useState(false);
+  const allConsented = consentAi && consentAds && consentPrivacy;
+
   // Cursor follow dot
   const cursorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -327,11 +333,10 @@ export default function PreorderPage() {
               fontSize: 56,
               lineHeight: 1.05,
               letterSpacing: "-0.035em",
-              marginBottom: 24,
+              marginBottom: 20,
             }}
           >
-            창간 첫날, 가장 먼저
-            <br />
+            📬{" "}
             <span
               style={{
                 background: `linear-gradient(120deg, ${C.accent}, #F0A37A)`,
@@ -339,14 +344,35 @@ export default function PreorderPage() {
                 color: "transparent",
               }}
             >
-              연락드릴게요.
+              메일함을 확인하세요
             </span>
           </h1>
-          <p style={{ fontSize: 17, color: C.body, lineHeight: 1.7 }}>
-            오픈 전까지 매주 한 통, 김과장이 직접 쓴 <br />
-            <strong style={{ color: C.ink }}>"AI로 이북 30분에 만들기"</strong> 가이드가
-            도착합니다.
+          <p style={{ fontSize: 18, color: C.body, lineHeight: 1.6, marginBottom: 20 }}>
+            <strong style={{ color: C.ink }}>미니 이북 PDF + 키워드 30개</strong>가
+            <br />
+            <span style={{ color: C.accent, fontWeight: 700 }}>1분 내</span> 도착해요.
           </p>
+          <div
+            style={{
+              padding: "14px 16px",
+              background: `${C.border}40`,
+              border: `1px dashed ${C.border}`,
+              borderRadius: 10,
+              fontSize: 13,
+              color: C.muted,
+              lineHeight: 1.6,
+              marginTop: 24,
+              textAlign: "left",
+            }}
+          >
+            <strong style={{ color: C.body }}>못 받으셨다면?</strong>
+            <br />
+            ① 스팸·프로모션 폴더 확인 (Gmail은 "프로모션" 탭)
+            <br />
+            ② 발신자 <code style={{ fontFamily: FONT_MONO, fontSize: 11 }}>tigerbookmaker</code> 검색
+            <br />
+            ③ 그래도 없으면 답장 주세요. 직접 보낼게요.
+          </div>
         </div>
       </main>
     );
@@ -1193,10 +1219,101 @@ export default function PreorderPage() {
               </div>
             )}
 
+            {/* 3개 동의 — 공정위 표시광고 (2026-06-01) + AI 기본법 + 정보통신망법 */}
+            <div
+              style={{
+                marginTop: 8,
+                padding: "16px 18px",
+                background: `${C.border}30`,
+                borderLeft: `2px solid ${C.accent}`,
+                borderRadius: 6,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: FONT_MONO,
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  color: C.muted,
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                필수 동의 (3개)
+              </div>
+              {[
+                {
+                  key: "ai",
+                  checked: consentAi,
+                  set: setConsentAi,
+                  text: "AI 생성 콘텐츠 도구임을 확인했습니다",
+                  sub: "한국 AI 기본법 (2026-01-22 시행)",
+                },
+                {
+                  key: "ads",
+                  checked: consentAds,
+                  set: setConsentAds,
+                  text: "표시광고법 안내를 확인했습니다",
+                  sub: "베타 예시 후기 포함 · 공정위 표시광고 심사지침 (2026-06-01)",
+                },
+                {
+                  key: "privacy",
+                  checked: consentPrivacy,
+                  set: setConsentPrivacy,
+                  text: "이메일 수집·이용에 동의합니다",
+                  sub: "베타 안내·자료 발송 외 미사용 · 정보통신망법",
+                },
+              ].map((c) => (
+                <label
+                  key={c.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: C.body,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={c.checked}
+                    onChange={(e) => c.set(e.target.checked)}
+                    style={{
+                      marginTop: 3,
+                      width: 16,
+                      height: 16,
+                      accentColor: C.accent,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>
+                    <span style={{ color: C.ink, fontWeight: 500 }}>{c.text}</span>
+                    <br />
+                    <span
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 10,
+                        letterSpacing: "0.1em",
+                        color: C.muted,
+                      }}
+                    >
+                      {c.sub}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
             <button
               ref={btnRef}
               type="submit"
-              disabled={status === "loading"}
+              disabled={status === "loading" || !allConsented}
               onMouseMove={onBtnMove}
               onMouseLeave={onBtnLeave}
               style={{
@@ -1211,8 +1328,13 @@ export default function PreorderPage() {
                 letterSpacing: "-0.01em",
                 border: "none",
                 borderRadius: 14,
-                cursor: status === "loading" ? "wait" : "pointer",
-                opacity: status === "loading" ? 0.6 : 1,
+                cursor:
+                  status === "loading"
+                    ? "wait"
+                    : !allConsented
+                    ? "not-allowed"
+                    : "pointer",
+                opacity: status === "loading" || !allConsented ? 0.5 : 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",

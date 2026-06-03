@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       LEFT JOIN preorder_sequence_log l
         ON l.preorder_id = p.id AND l.step = ${step}
       WHERE l.id IS NULL
+        AND p.intent = 'preorder'
         AND p.created_at <= NOW() - (${step} || ' days')::interval
         AND p.created_at >= NOW() - (${step + 14} || ' days')::interval
       ORDER BY p.created_at ASC
